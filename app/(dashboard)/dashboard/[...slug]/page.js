@@ -8,8 +8,6 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import Sidebar from "@/components/Sidebar";
-import Schedule from "@/components/Schedule";
-import Finance from "@/components/Finance";
 
 export default function ActivityPage() {
   const [user, setUser] = useState(null);
@@ -143,10 +141,10 @@ export default function ActivityPage() {
           />
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* Main Content — HANYA KONTEN AKTIVITAS */}
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-4">
+          <div className="text-sm breadcrumbs mb-6">
             <ul>
               <li>
                 <a onClick={() => router.push("/dashboard")} className="cursor-pointer">
@@ -173,7 +171,7 @@ export default function ActivityPage() {
           {/* Aktivitas */}
           {selectedActivity ? (
             <div>
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-6">
                 <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
                 {isLeaf && (
                   <span
@@ -190,7 +188,7 @@ export default function ActivityPage() {
 
               {/* Leaf: Progress Detail */}
               {isLeaf && (
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-2xl">
                   <div className="card bg-base-100 shadow">
                     <div className="card-body p-4">
                       <h3 className="card-title text-sm">📊 Progress</h3>
@@ -308,14 +306,6 @@ export default function ActivityPage() {
               <p>Aktivitas tidak ditemukan</p>
             </div>
           )}
-
-          {/* Schedule */}
-          <div className="mt-8">
-            <Schedule todayProgress={todayProgress} onUpdate={updateProgress} />
-          </div>
-
-          {/* Finance */}
-          <Finance />
         </div>
       </div>
     </div>
