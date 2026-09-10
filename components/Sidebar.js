@@ -9,6 +9,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
 
   // Ambil path aktif dari URL: /dashboard/teknik/semester_1 → ["teknik", "semester_1"]
   const currentPath = pathname.replace("/dashboard", "").split("/").filter(Boolean);
+  const isDashboardHome = currentPath.length === 0;
 
   const handleSelect = (pathArray) => {
     const url = `/dashboard/${pathArray.join("/")}`;
@@ -65,7 +66,21 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">{renderTree(activities)}</div>
+      {/* TOMBOL DASHBOARD — SELALU DI ATAS */}
+      <div className="p-2 border-b border-base-300">
+        <button
+          className={`btn btn-sm w-full justify-start gap-2 ${
+            isDashboardHome ? "btn-primary" : "btn-ghost"
+          }`}
+          onClick={() => router.push("/dashboard")}
+        >
+          🏠 Dashboard Utama
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2">
+        {renderTree(activities)}
+      </div>
 
       <div className="p-2 border-t border-base-300 text-xs text-base-content/50">
         {activities.length} aktivitas
