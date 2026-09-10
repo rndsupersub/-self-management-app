@@ -8,6 +8,10 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import Sidebar from "@/components/Sidebar";
+import SuratDetail from "@/components/SuratDetail";
+import MurajaahTracker from "@/components/MurajaahTracker";
+import WeeklyTest from "@/components/WeeklyTest";
+import HeatmapCalendar from "@/components/HeatmapCalendar";
 
 export default function ActivityPage() {
   const [user, setUser] = useState(null);
@@ -57,7 +61,6 @@ export default function ActivityPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // Cari aktivitas berdasarkan slug
   const findItem = (items, path) => {
     if (!path || path.length === 0) return null;
     const [head, ...rest] = path;
@@ -73,7 +76,6 @@ export default function ActivityPage() {
     return null;
   };
 
-  // Cari parent path (untuk breadcrumb)
   const findParentPath = (items, path, currentPath = []) => {
     if (!path || path.length === 0) return currentPath;
     const [head, ...rest] = path;
@@ -116,9 +118,15 @@ export default function ActivityPage() {
   const isLeaf = selectedActivity?.type === "leaf";
   const hasChildren = selectedActivity?.children && selectedActivity.children.length > 0;
 
+  // Cek apakah ini halaman Hafalan utama
+  const isHafalanMain = slug.length === 1 && slug[0] === "hafalan";
+  // Cek apakah ini halaman Juz (level 2 di bawah hafalan)
+  const isHafalanJuz = slug.length === 2 && slug[0] === "hafalan";
+  // Cek apakah ini halaman Surat (level 3 di bawah hafalan)
+  const isHafalanSurat = slug.length === 3 && slug[0] === "hafalan";
+
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
@@ -132,7 +140,6 @@ export default function ActivityPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
           <Sidebar
             activities={activities}
@@ -141,7 +148,6 @@ export default function ActivityPage() {
           />
         </div>
 
-        {/* Main Content — HANYA KONTEN AKTIVITAS */}
         <div className="flex-1 overflow-y-auto p-6">
           {/* Breadcrumb */}
           <div className="text-sm breadcrumbs mb-6">
@@ -168,25 +174,113 @@ export default function ActivityPage() {
             </ul>
           </div>
 
-          {/* Aktivitas */}
-          {selectedActivity ? (
+          {/* ==== HALAMAN HAFALAN UTAMA ==== */}
+          {isHafalanMain && (
+            <div className="space-y-4">
+              <h1 className="text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
+
+              {/* Murajaah & Tes Mingguan */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
+                <WeeklyTest progressData={progressData} onUpdate={updateProgress} />
+              </div>
+
+              {/* Heatmap */}
+              <HeatmapCalendar progress={progress} activityId="hafalan" />
+
+              {/* Daftar Juz */}
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold mb-3">📚 Daftar Juz</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {selectedActivity?.children?.map((juz) => {
+                    const juzProgress = todayProgress[juz.id] || {};
+                    const totalSurat = juz.children?.length || 0;
+                    const suratSelesai = juz.children?.filter(
+                      (s) => todayProgress[s.id]?.hafalan?.selesai
+                    ).length || 0;
+                    const pct = totalSurat > 0 ? Math.round((suratSelesai / totalSurat) * 100) : 0;
+
+                    return (
+                      <div
+                        key={juz.id}
+                        className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
+                        onClick={() => router.push(`/dashboard/hafalan/${juz.id}`)}
+                      >
+                        <div className="card-body p-4">
+                          <h3 className="card-title text-base">{juz.label}</h3>
+                          <progress className="progress progress-primary w-full h-2" value={pct} max="100" />
+                          <p className="text-xs text-base-content/50">
+                            {suratSelesai} / {totalSurat} surat ({pct}%)
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==== HALAMAN JUZ ==== */}
+          {isHafalanJuz && selectedActivity && (
+            <div>
+              <div className="flex items-center gap-2 mb-6">
+                <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
+                <span className="badge badge-ghost">
+                  {selectedActivity.children?.length || 0} surat
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedActivity.children?.map((surat) => {
+                  const suratProgress = todayProgress[surat.id] || {};
+                  const selesai = suratProgress?.hafalan?.selesai;
+
+                  return (
+                    <div
+                      key={surat.id}
+                      className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
+                      onClick={() => router.push(`/dashboard/hafalan/${selectedActivity.id}/${surat.id}`)}
+                    >
+                      <div className="card-body p-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="card-title text-sm">{surat.label}</h3>
+                          <span className={`badge ${selesai ? "badge-success" : "badge-ghost"} badge-sm`}>
+                            {selesai ? "✅" : "⏳"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ==== HALAMAN SURAT ==== */}
+          {isHafalanSurat && selectedActivity && (
+            <div>
+              <h1 className="text-2xl font-bold mb-6">{selectedActivity.label}</h1>
+              <SuratDetail
+                surat={selectedActivity}
+                progressData={progressData}
+                onUpdate={updateProgress}
+              />
+            </div>
+          )}
+
+          {/* ==== HALAMAN AKTIVITAS UMUM (NON-HAFALAN) ==== */}
+          {!isHafalanMain && !isHafalanJuz && !isHafalanSurat && selectedActivity && (
             <div>
               <div className="flex items-center gap-2 mb-6">
                 <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
                 {isLeaf && (
-                  <span
-                    className={`badge ${
-                      Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100)) >= 100
-                        ? "badge-success"
-                        : "badge-ghost"
-                    }`}
-                  >
+                  <span className={`badge ${(progressData?.page || 0) >= (selectedActivity.target || 1) ? "badge-success" : "badge-ghost"}`}>
                     {Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%
                   </span>
                 )}
               </div>
 
-              {/* Leaf: Progress Detail */}
               {isLeaf && (
                 <div className="space-y-4 max-w-2xl">
                   <div className="card bg-base-100 shadow">
@@ -194,23 +288,12 @@ export default function ActivityPage() {
                       <h3 className="card-title text-sm">📊 Progress</h3>
                       <progress
                         className="progress progress-primary w-full h-3"
-                        value={Math.min(
-                          100,
-                          Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100)
-                        )}
+                        value={Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}
                         max="100"
                       />
                       <div className="flex justify-between text-sm">
-                        <span>
-                          {progressData?.page || 0} / {selectedActivity.target || 1} {selectedActivity.unit}
-                        </span>
-                        <span>
-                          {Math.min(
-                            100,
-                            Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100)
-                          )}
-                          %
-                        </span>
+                        <span>{progressData?.page || 0} / {selectedActivity.target || 1} {selectedActivity.unit}</span>
+                        <span>{Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%</span>
                       </div>
                     </div>
                   </div>
@@ -224,19 +307,12 @@ export default function ActivityPage() {
                           className="input input-bordered input-sm w-full"
                           placeholder={`Target ${selectedActivity.target || 1}...`}
                           value={progressData?.page || ""}
-                          onChange={(e) =>
-                            updateProgress(selectedActivity.id, {
-                              page: parseInt(e.target.value) || 0,
-                            })
-                          }
+                          onChange={(e) => updateProgress(selectedActivity.id, { page: parseInt(e.target.value) || 0 })}
                         />
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => {
-                            const newVal = Math.min(
-                              selectedActivity.target || 1,
-                              (progressData?.page || 0) + 1
-                            );
+                            const newVal = Math.min(selectedActivity.target || 1, (progressData?.page || 0) + 1);
                             updateProgress(selectedActivity.id, { page: newVal });
                           }}
                         >
@@ -246,7 +322,7 @@ export default function ActivityPage() {
                       <input
                         type="text"
                         className="input input-bordered input-sm w-full mt-2"
-                        placeholder="Catatan tambahan (opsional)"
+                        placeholder="Catatan tambahan"
                         value={progressData?.note || ""}
                         onChange={(e) => updateProgress(selectedActivity.id, { note: e.target.value })}
                       />
@@ -255,52 +331,30 @@ export default function ActivityPage() {
                 </div>
               )}
 
-              {/* Expandable: Children Cards */}
               {hasChildren && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {selectedActivity.children.map((child) => {
-                    const childProgress = todayProgress[child.id] || {};
-                    const childValue = childProgress?.page || 0;
-                    const childTarget = child.target || 1;
-                    const childPct = Math.min(
-                      100,
-                      Math.round((childValue / childTarget) * 100)
-                    );
-
-                    return (
-                      <div
-                        key={child.id}
-                        className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
-                        onClick={() => {
-                          router.push(`/dashboard/${[...slug, child.id].join("/")}`);
-                        }}
-                      >
-                        <div className="card-body p-4">
-                          <h2 className="card-title text-base">{child.label}</h2>
-                          {child.children && child.children.length > 0 ? (
-                            <p className="text-sm text-base-content/50">
-                              {child.children.length} sub-aktivitas
-                            </p>
-                          ) : (
-                            <div>
-                              <progress
-                                className="progress progress-primary w-full h-2"
-                                value={childPct}
-                                max="100"
-                              />
-                              <p className="text-xs text-base-content/50 mt-1">
-                                {childPct}% selesai
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                  {selectedActivity.children.map((child) => (
+                    <div
+                      key={child.id}
+                      className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
+                      onClick={() => router.push(`/dashboard/${[...slug, child.id].join("/")}`)}
+                    >
+                      <div className="card-body p-4">
+                        <h2 className="card-title text-base">{child.label}</h2>
+                        {child.children && child.children.length > 0 ? (
+                          <p className="text-sm text-base-content/50">{child.children.length} sub-aktivitas</p>
+                        ) : (
+                          <p className="text-sm text-base-content/50">Klik untuk detail</p>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {!selectedActivity && (
             <div className="text-center text-base-content/50 mt-20">
               <p className="text-2xl mb-2">📋</p>
               <p>Aktivitas tidak ditemukan</p>
