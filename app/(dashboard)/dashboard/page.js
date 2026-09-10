@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import Sidebar from "@/components/Sidebar";
-import MainContent from "@/components/MainContent";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
+import Sidebar from "@/components/Sidebar";
+import Schedule from "@/components/Schedule";
+import Finance from "@/components/Finance";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -16,18 +17,8 @@ export default function Dashboard() {
   const [today, setToday] = useState("");
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
-  const [selectedId, setSelectedId] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
-
-  // Listener untuk custom event dari MainContent
-  useEffect(() => {
-    const handler = (e) => {
-      setSelectedId(e.detail);
-    };
-    window.addEventListener('selectActivity', handler);
-    return () => window.removeEventListener('selectActivity', handler);
-  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -36,34 +27,24 @@ export default function Dashboard() {
         return;
       }
       setUser(user);
-
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         const data = docSnap.data();
-
-        // Ambil activities dari Firestore, kalo ga ada pake default
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
           await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
         }
-
-        // Ambil progress
-        if (typeof data.dailyProgress === 'object' && !Array.isArray(data.dailyProgress)) {
+        if (typeof data.dailyProgress === "object" && !Array.isArray(data.dailyProgress)) {
           setProgress(data.dailyProgress || {});
         } else {
           await setDoc(docRef, { dailyProgress: {} }, { merge: true });
           setProgress({});
         }
       } else {
-        // User baru — set default semua
-        await setDoc(docRef, {
-          activities: DEFAULT_ACTIVITIES,
-          dailyProgress: {},
-        });
+        await setDoc(docRef, { activities: DEFAULT_ACTIVITIES, dailyProgress: {} });
         setActivities(DEFAULT_ACTIVITIES);
         setProgress({});
       }
@@ -91,40 +72,44 @@ export default function Dashboard() {
     router.push("/login");
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
         <div className="flex gap-2 items-center">
           <span className="text-sm font-mono">{today}</span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button>
+          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
       </div>
 
-      {/* Body: Sidebar + Main */}
       <div className="flex-1 flex overflow-hidden">
-        <div className={`${sidebarCollapsed ? 'w-12' : 'w-64'} transition-all duration-300 bg-base-100`}>
+        <div
+          className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
+        >
           <Sidebar
             activities={activities}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
           />
         </div>
-        <div className="flex-1 overflow-y-auto">
-          <MainContent
-            selectedId={selectedId}
-            activities={activities}
-            progress={progress}
-            today={today}
-            updateProgress={updateProgress}
-          />
+
+        <div className="flex-1 overflow-y-auto p-4">
+          <Schedule todayProgress={progress[today] || {}} onUpdate={updateProgress} />
+
+          <div className="text-center text-base-content/50 mt-20">
+            <p className="text-2xl mb-2">📋</p>
+            <p>Pilih aktivitas dari sidebar</p>
+          </div>
+
+          <Finance />
         </div>
       </div>
     </div>
