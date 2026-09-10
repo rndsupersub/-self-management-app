@@ -1,19 +1,21 @@
 // components/Sidebar.js
 "use client";
+
 import { useState, useEffect } from "react";
 
-export default function Sidebar({ 
-  activities, 
-  selectedId, 
-  onSelect, 
-  collapsed, 
-  setCollapsed 
+export default function Sidebar({
+  activities,
+  selectedId,
+  onSelect,
+  collapsed,
+  setCollapsed
 }) {
   const [expanded, setExpanded] = useState({});
 
   // Auto expand parent dari selectedId
   useEffect(() => {
     if (!selectedId) return;
+
     const findParent = (items, targetId, path = []) => {
       for (const item of items) {
         if (item.id === targetId) return path;
@@ -24,6 +26,7 @@ export default function Sidebar({
       }
       return null;
     };
+
     const parents = findParent(activities, selectedId);
     if (parents) {
       const newExpanded = { ...expanded };
@@ -44,7 +47,7 @@ export default function Sidebar({
 
       return (
         <div key={item.id} className="select-none">
-          <div 
+          <div
             className={`flex items-center gap-1 py-1.5 px-2 rounded cursor-pointer hover:bg-base-300 transition ${
               isSelected ? 'bg-primary/20 text-primary font-medium' : ''
             }`}
@@ -63,6 +66,7 @@ export default function Sidebar({
             )}
             <span className="flex-1 text-sm truncate">{item.label}</span>
           </div>
+
           {hasChildren && isExpanded && (
             <div className="ml-2 border-l border-base-300 pl-1">
               {renderTree(item.children, depth + 1)}
@@ -76,7 +80,7 @@ export default function Sidebar({
   if (collapsed) {
     return (
       <div className="h-full flex flex-col items-center py-4">
-        <button 
+        <button
           className="btn btn-ghost btn-sm"
           onClick={() => setCollapsed(false)}
           title="Expand sidebar"
@@ -91,7 +95,7 @@ export default function Sidebar({
     <div className="h-full flex flex-col border-r border-base-300 bg-base-100">
       <div className="flex items-center justify-between p-2 border-b border-base-300">
         <span className="text-sm font-bold">📋 Aktivitas</span>
-        <button 
+        <button
           className="btn btn-ghost btn-sm"
           onClick={() => setCollapsed(true)}
           title="Collapse sidebar"
@@ -99,9 +103,11 @@ export default function Sidebar({
           «
         </button>
       </div>
+
       <div className="flex-1 overflow-y-auto p-2">
         {renderTree(activities)}
       </div>
+
       <div className="p-2 border-t border-base-300 text-xs text-base-content/50">
         {activities.length} aktivitas
       </div>

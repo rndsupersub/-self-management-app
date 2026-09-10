@@ -1,15 +1,16 @@
 // components/MainContent.js
 "use client";
+
 import { useState, useEffect } from "react";
 import Schedule from "./Schedule";
 import Finance from "./Finance";
 
-export default function MainContent({ 
-  selectedId, 
-  activities, 
-  progress, 
-  today, 
-  updateProgress 
+export default function MainContent({
+  selectedId,
+  activities,
+  progress,
+  today,
+  updateProgress
 }) {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [viewMode, setViewMode] = useState("welcome");
@@ -20,6 +21,7 @@ export default function MainContent({
       setViewMode("welcome");
       return;
     }
+
     const findItem = (items, targetId) => {
       for (const item of items) {
         if (item.id === targetId) return item;
@@ -30,8 +32,10 @@ export default function MainContent({
       }
       return null;
     };
+
     const found = findItem(activities, selectedId);
     setSelectedActivity(found);
+
     if (found) {
       if (found.type === "leaf") {
         setViewMode("detail");
@@ -41,11 +45,10 @@ export default function MainContent({
     }
   }, [selectedId, activities]);
 
-  // Welcome state
+  // ========== WELCOME STATE ==========
   if (viewMode === "welcome") {
     return (
       <div className="p-4">
-        {/* Jadwal tetap tampil */}
         <Schedule todayProgress={progress?.[today] || {}} onUpdate={updateProgress} />
         <div className="text-center text-base-content/50 mt-20">
           <p className="text-2xl mb-2">📋</p>
@@ -74,7 +77,7 @@ export default function MainContent({
   const todayProgress = progress?.[today] || {};
   const progressData = todayProgress[selectedId] || {};
 
-  // MODE DETAIL — untuk leaf activity
+  // ========== DETAIL MODE (LEAF) ==========
   if (isLeaf) {
     const target = selectedActivity.target || 1;
     const value = progressData?.page || progressData?.progress || 0;
@@ -83,7 +86,6 @@ export default function MainContent({
 
     return (
       <div className="p-4">
-        {/* Jadwal tetap di atas */}
         <Schedule todayProgress={todayProgress} onUpdate={updateProgress} />
 
         <div className="mt-4">
@@ -110,9 +112,9 @@ export default function MainContent({
               <div className="card-body p-4">
                 <h3 className="card-title text-sm">✏️ Update Progress</h3>
                 <div className="flex gap-2 mt-2">
-                  <input 
-                    type="number" 
-                    className="input input-bordered input-sm w-full" 
+                  <input
+                    type="number"
+                    className="input input-bordered input-sm w-full"
                     placeholder={`Target ${target}...`}
                     value={value || ''}
                     onChange={(e) => {
@@ -120,7 +122,7 @@ export default function MainContent({
                       updateProgress(selectedId, { page: val });
                     }}
                   />
-                  <button 
+                  <button
                     className="btn btn-primary btn-sm"
                     onClick={() => {
                       const newVal = Math.min(target, value + 1);
@@ -130,9 +132,9 @@ export default function MainContent({
                     +1
                   </button>
                 </div>
-                <input 
-                  type="text" 
-                  className="input input-bordered input-sm w-full mt-2" 
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full mt-2"
                   placeholder="Catatan tambahan (opsional)"
                   value={progressData?.note || ''}
                   onChange={(e) => updateProgress(selectedId, { note: e.target.value })}
@@ -142,25 +144,25 @@ export default function MainContent({
           </div>
         </div>
 
-        {/* Keuangan tetap di bawah */}
         <Finance />
       </div>
     );
   }
 
-  // MODE LIST — untuk expandable activity (nampilin child)
+  // ========== LIST MODE (EXPANDABLE) ==========
   if (hasChildren) {
     return (
       <div className="p-4">
-        {/* Jadwal tetap di atas */}
         <Schedule todayProgress={todayProgress} onUpdate={updateProgress} />
 
         <div className="mt-4">
           <h1 className="text-xl font-bold mb-4">{selectedActivity.label}</h1>
-          <p className="text-sm text-base-content/50 mb-4">Klik salah satu sub-aktivitas untuk melihat progress detail</p>
+          <p className="text-sm text-base-content/50 mb-4">
+            Klik salah satu sub-aktivitas untuk melihat progress detail
+          </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {selectedActivity.children.map(child => {
-              // Cek progress child
               const childProgress = todayProgress[child.id] || {};
               const childValue = childProgress?.page || childProgress?.progress || 0;
               const childTarget = child.target || 1;
@@ -168,8 +170,8 @@ export default function MainContent({
               const isChildDone = childPct >= 100;
 
               return (
-                <div 
-                  key={child.id} 
+                <div
+                  key={child.id}
                   className="card bg-base-100 shadow cursor-pointer hover:shadow-md transition"
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('selectActivity', { detail: child.id }));
@@ -189,7 +191,6 @@ export default function MainContent({
           </div>
         </div>
 
-        {/* Keuangan tetap di bawah */}
         <Finance />
       </div>
     );

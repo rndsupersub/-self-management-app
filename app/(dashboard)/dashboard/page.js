@@ -1,9 +1,11 @@
+// app/(dashboard)/dashboard/page.js
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import MainContent from "@/components/MainContent";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
@@ -34,17 +36,22 @@ export default function Dashboard() {
         return;
       }
       setUser(user);
+
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data();
+
+        // Ambil activities dari Firestore, kalo ga ada pake default
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
           await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
         }
+
+        // Ambil progress
         if (typeof data.dailyProgress === 'object' && !Array.isArray(data.dailyProgress)) {
           setProgress(data.dailyProgress || {});
         } else {
@@ -52,6 +59,7 @@ export default function Dashboard() {
           setProgress({});
         }
       } else {
+        // User baru — set default semua
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
           dailyProgress: {},
@@ -78,13 +86,6 @@ export default function Dashboard() {
     setProgress(newProgress);
   };
 
-  const updateActivities = async (newActivities) => {
-    if (!user) return;
-    setActivities(newActivities);
-    const docRef = doc(db, "users", user.uid);
-    await updateDoc(docRef, { activities: newActivities });
-  };
-
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
@@ -108,17 +109,16 @@ export default function Dashboard() {
       {/* Body: Sidebar + Main */}
       <div className="flex-1 flex overflow-hidden">
         <div className={`${sidebarCollapsed ? 'w-12' : 'w-64'} transition-all duration-300 bg-base-100`}>
-          <Sidebar 
+          <Sidebar
             activities={activities}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onUpdateActivities={updateActivities}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
           />
         </div>
         <div className="flex-1 overflow-y-auto">
-          <MainContent 
+          <MainContent
             selectedId={selectedId}
             activities={activities}
             progress={progress}
