@@ -12,6 +12,7 @@ import SuratDetail from "@/components/SuratDetail";
 import MurajaahTracker from "@/components/MurajaahTracker";
 import WeeklyTest from "@/components/WeeklyTest";
 import HeatmapCalendar from "@/components/HeatmapCalendar";
+import BisnisCalendar from "@/components/BisnisCalendar";
 
 export default function ActivityPage() {
   const [user, setUser] = useState(null);
@@ -104,6 +105,25 @@ export default function ActivityPage() {
     setProgress(newProgress);
   };
 
+  // Update kegiatan bisnis (langsung ke field root, bukan dailyProgress)
+  const updateBisnisKegiatan = async (field, value) => {
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { [field]: value }, { merge: true });
+  };
+
+  // Hapus kegiatan bisnis (pindah ke history)
+  const deleteBisnisKegiatan = async (date, deleted) => {
+    if (!user || !deleted) return;
+    const docRef = doc(db, "users", user.uid);
+    const docSnap = await getDoc(docRef);
+    const data = docSnap.data();
+    const history = data.bisnisHistory || {};
+    if (!history[date]) history[date] = [];
+    history[date].push({ ...deleted, deletedAt: new Date().toISOString() });
+    await setDoc(docRef, { bisnisHistory: history }, { merge: true });
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
@@ -118,12 +138,10 @@ export default function ActivityPage() {
   const isLeaf = selectedActivity?.type === "leaf";
   const hasChildren = selectedActivity?.children && selectedActivity.children.length > 0;
 
-  // Cek apakah ini halaman Hafalan utama
   const isHafalanMain = slug.length === 1 && slug[0] === "hafalan";
-  // Cek apakah ini halaman Juz (level 2 di bawah hafalan)
   const isHafalanJuz = slug.length === 2 && slug[0] === "hafalan";
-  // Cek apakah ini halaman Surat (level 3 di bawah hafalan)
   const isHafalanSurat = slug.length === 3 && slug[0] === "hafalan";
+  const isBisnisMain = slug.length === 1 && slug[0] === "bisnis";
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
@@ -149,7 +167,6 @@ export default function ActivityPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
           <div className="text-sm breadcrumbs mb-6">
             <ul>
               <li>
@@ -174,26 +191,35 @@ export default function ActivityPage() {
             </ul>
           </div>
 
+          {/* ==== HALAMAN BISNIS ==== */}
+          {isBisnisMain && user && (
+            <div>
+              <h1 className="text-2xl font-bold mb-6">💼 Kalender Bisnis</h1>
+              <BisnisCalendar
+                user={user}
+                db={db}
+                onUpdate={updateBisnisKegiatan}
+                onDelete={deleteBisnisKegiatan}
+              />
+            </div>
+          )}
+
           {/* ==== HALAMAN HAFALAN UTAMA ==== */}
           {isHafalanMain && (
             <div className="space-y-4">
               <h1 className="text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
 
-              {/* Murajaah & Tes Mingguan */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
                 <WeeklyTest progressData={progressData} onUpdate={updateProgress} />
               </div>
 
-              {/* Heatmap */}
               <HeatmapCalendar progress={progress} activityId="hafalan" />
 
-              {/* Daftar Juz */}
               <div className="mt-6">
                 <h2 className="text-lg font-semibold mb-3">📚 Daftar Juz</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {selectedActivity?.children?.map((juz) => {
-                    const juzProgress = todayProgress[juz.id] || {};
                     const totalSurat = juz.children?.length || 0;
                     const suratSelesai = juz.children?.filter(
                       (s) => todayProgress[s.id]?.hafalan?.selesai
@@ -269,8 +295,8 @@ export default function ActivityPage() {
             </div>
           )}
 
-          {/* ==== HALAMAN AKTIVITAS UMUM (NON-HAFALAN) ==== */}
-          {!isHafalanMain && !isHafalanJuz && !isHafalanSurat && selectedActivity && (
+          {/* ==== HALAMAN AKTIVITAS UMUM (NON-HAFALAN, NON-BISNIS) ==== */}
+          {!isHafalanMain && !isHafalanJuz && !isHafalanSurat && !isBisnisMain && selectedActivity && (
             <div>
               <div className="flex items-center gap-2 mb-6">
                 <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
