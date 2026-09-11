@@ -118,7 +118,6 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
   const years = [];
   for (let y = currentYear - 1; y <= currentYear + 5; y++) years.push(y);
 
-  // Daftar libur di bulan yang lagi dibuka
   const getHolidaysInMonth = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -130,9 +129,9 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
 
   if (loading) {
     return (
-      <div className="card bg-base-100 shadow">
+      <div className="card bg-white shadow">
         <div className="card-body p-4">
-          <p className="text-sm text-base-content/50">Loading kalender...</p>
+          <p className="text-sm text-gray-500">Loading kalender...</p>
         </div>
       </div>
     );
@@ -141,77 +140,93 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
   const selectedKegiatan = kegiatan[selectedDate] || [];
   const selectedHoliday = HOLIDAYS[selectedDate] || null;
   const holidaysInMonth = getHolidaysInMonth();
+  const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <div className="space-y-4">
-      <div className="card bg-base-100 shadow">
+      {/* KALENDER */}
+      <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
+          {/* Navigasi */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex items-center gap-1">
-              <button className="btn btn-ghost btn-sm" onClick={prevYear} title="Tahun sebelumnya">«</button>
-              <button className="btn btn-ghost btn-sm" onClick={prevMonth} title="Bulan sebelumnya">‹</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear} title="Tahun sebelumnya">«</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth} title="Bulan sebelumnya">‹</button>
             </div>
             <div className="flex items-center gap-2">
-              <select className="select select-bordered select-sm" value={currentMonth.getMonth()} onChange={handleMonthChange}>
+              <select
+                className="select select-bordered select-sm text-gray-800 bg-white"
+                value={currentMonth.getMonth()}
+                onChange={handleMonthChange}
+              >
                 {monthNames.map((name, idx) => (
                   <option key={idx} value={idx}>{name}</option>
                 ))}
               </select>
-              <select className="select select-bordered select-sm" value={currentMonth.getFullYear()} onChange={handleYearChange}>
+              <select
+                className="select select-bordered select-sm text-gray-800 bg-white"
+                value={currentMonth.getFullYear()}
+                onChange={handleYearChange}
+              >
                 {years.map((y) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
             </div>
             <div className="flex items-center gap-1">
-              <button className="btn btn-ghost btn-sm" onClick={nextMonth} title="Bulan berikutnya">›</button>
-              <button className="btn btn-ghost btn-sm" onClick={nextYear} title="Tahun berikutnya">»</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextMonth} title="Bulan berikutnya">›</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextYear} title="Tahun berikutnya">»</button>
             </div>
           </div>
 
           <div className="flex justify-center mb-3">
-            <button className="btn btn-outline btn-xs" onClick={goToToday}>📅 Hari Ini</button>
+            <button className="btn btn-outline btn-xs text-gray-700" onClick={goToToday}>📅 Hari Ini</button>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 mb-2">
+          {/* Header hari */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
             {dayNames.map((day) => (
-              <div key={day} className="text-center text-xs font-semibold text-base-content/50">{day}</div>
+              <div
+                key={day}
+                className="text-center text-xs font-bold text-gray-600 bg-gray-100 py-2 rounded"
+              >
+                {day}
+              </div>
             ))}
           </div>
 
+          {/* Grid tanggal */}
           <div className="grid grid-cols-7 gap-1">
             {generateCalendar().map((item, idx) => {
-              if (!item) return <div key={idx} />;
+              if (!item) {
+                return <div key={idx} className="aspect-square" />;
+              }
+
               const isSelected = item.date === selectedDate;
-              const isToday = item.date === new Date().toISOString().split("T")[0];
+              const isToday = item.date === todayStr;
               const hasKegiatan = kegiatan[item.date]?.length > 0;
               const holiday = HOLIDAYS[item.date];
               const isHolidayDate = !!holiday;
 
-              // Prioritas styling:
-              // 1. Kalau selected → bg-primary
-              // 2. Kalau libur → bg-error text-error-content (solid merah)
-              // 3. Kalau hari ini → bg-base-300
-              // 4. Default → hover:bg-base-200
-              let bgClass = "hover:bg-base-200";
+              // Base styling - semua pakai warna eksplisit biar nggak ketutup theme
+              let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
               if (isSelected) {
-                bgClass = "bg-primary text-primary-content font-bold";
+                boxClass = "bg-blue-600 text-white border-blue-700 font-bold";
               } else if (isHolidayDate) {
-                bgClass = "bg-error text-error-content font-bold hover:bg-error/90";
+                boxClass = "bg-red-600 text-white border-red-700 font-bold";
               } else if (isToday) {
-                bgClass = "bg-base-300 font-bold";
+                boxClass = "bg-yellow-100 text-gray-900 border-yellow-300 font-bold";
               }
 
               return (
                 <button
                   key={item.date}
-                  className={`aspect-square rounded text-sm relative transition ${bgClass}`}
+                  className={`aspect-square rounded border ${boxClass} relative transition text-sm`}
                   onClick={() => setSelectedDate(item.date)}
-                  title={holiday || ""}
                 >
-                  {item.day}
+                  <span className="absolute top-1 left-2">{item.day}</span>
                   {hasKegiatan && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-success" />
+                    <span className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-green-500" />
                   )}
                 </button>
               );
@@ -219,29 +234,33 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
           </div>
 
           {/* Legenda */}
-          <div className="flex flex-wrap gap-3 mt-3 text-xs text-base-content/60">
+          <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
             <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-error" />
+              <span className="w-4 h-4 rounded bg-red-600 border border-red-700" />
               <span>Libur Nasional</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-base-300" />
+              <span className="w-4 h-4 rounded bg-yellow-100 border border-yellow-300" />
               <span>Hari Ini</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              <span className="w-4 h-4 rounded bg-blue-600 border border-blue-700" />
+              <span>Tanggal Dipilih</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
               <span>Ada Kegiatan</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Daftar Libur Bulan Ini */}
+      {/* DAFTAR LIBUR BULAN INI */}
       {holidaysInMonth.length > 0 && (
-        <div className="card bg-base-100 shadow">
+        <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
-            <h3 className="text-base font-bold mb-3">
-              🎉 Libur Nasional Bulan {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+            <h3 className="text-base font-bold mb-3 text-gray-800">
+              🎉 Libur Nasional — {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
             </h3>
             <div className="space-y-2">
               {holidaysInMonth.map(([date, name]) => {
@@ -249,17 +268,17 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                 return (
                   <div
                     key={date}
-                    className="flex items-start gap-3 p-2 rounded bg-error/10 border border-error/30 cursor-pointer hover:bg-error/20 transition"
+                    className="flex items-center gap-3 p-2 rounded bg-red-50 border border-red-200 cursor-pointer hover:bg-red-100 transition"
                     onClick={() => setSelectedDate(date)}
                   >
-                    <div className="flex flex-col items-center justify-center bg-error text-error-content rounded w-10 h-10 flex-shrink-0">
-                      <span className="text-xs leading-none">
+                    <div className="flex flex-col items-center justify-center bg-red-600 text-white rounded w-12 h-12 flex-shrink-0">
+                      <span className="text-[10px] leading-none uppercase">
                         {monthNames[currentMonth.getMonth()].slice(0, 3)}
                       </span>
-                      <span className="text-sm font-bold leading-none">{day}</span>
+                      <span className="text-lg font-bold leading-none">{day}</span>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-error">{name}</p>
+                      <p className="text-sm font-semibold text-red-700">{name}</p>
                     </div>
                   </div>
                 );
@@ -269,17 +288,20 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
         </div>
       )}
 
-      <div className="card bg-base-100 shadow">
+      {/* DETAIL TANGGAL + KEGIATAN */}
+      <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          <div className="flex justify-between items-center mb-3">
+          <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
             <div>
-              <h3 className="text-base font-bold">
+              <h3 className="text-base font-bold text-gray-800">
                 📌 {new Date(selectedDate).toLocaleDateString("id-ID", {
                   weekday: "long", day: "numeric", month: "long", year: "numeric",
                 })}
               </h3>
               {selectedHoliday && (
-                <span className="badge badge-error badge-sm mt-1">🎉 {selectedHoliday}</span>
+                <span className="inline-block bg-red-600 text-white text-xs font-semibold rounded px-2 py-1 mt-1">
+                  🎉 {selectedHoliday}
+                </span>
               )}
             </div>
             <button
@@ -290,22 +312,22 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                 setShowForm(true);
               }}
             >
-              + Tambah
+              + Tambah Kegiatan
             </button>
           </div>
 
           {showForm && (
-            <div className="bg-base-200 rounded p-3 mb-3 space-y-2">
+            <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 border border-gray-200">
               <input
                 type="text"
-                className="input input-bordered input-sm w-full"
+                className="input input-bordered input-sm w-full text-gray-800 bg-white"
                 placeholder="Judul kegiatan (misal: Revisi Logo)"
                 value={formData.judul}
                 onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
                 autoFocus
               />
               <textarea
-                className="textarea textarea-bordered w-full text-sm"
+                className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
                 rows="2"
                 placeholder="Catatan (opsional)"
                 value={formData.catatan}
@@ -315,7 +337,10 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                 <button className="btn btn-primary btn-sm flex-1" onClick={handleAdd}>
                   {editingId ? "💾 Simpan" : "➕ Tambah"}
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={() => { setShowForm(false); setEditingId(null); }}>
+                <button
+                  className="btn btn-ghost btn-sm text-gray-700"
+                  onClick={() => { setShowForm(false); setEditingId(null); }}
+                >
                   Batal
                 </button>
               </div>
@@ -323,7 +348,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
           )}
 
           {selectedKegiatan.length === 0 ? (
-            <div className="text-center py-8 text-base-content/50">
+            <div className="text-center py-8 text-gray-400">
               <p className="text-2xl mb-2">📭</p>
               <p className="text-sm">Belum ada kegiatan di tanggal ini.</p>
             </div>
@@ -334,26 +359,29 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                   key={keg.id}
                   className={`flex items-start gap-2 p-3 rounded border ${
                     keg.status === "selesai"
-                      ? "bg-success/10 border-success/30"
-                      : "bg-base-200 border-base-300"
+                      ? "bg-green-50 border-green-200"
+                      : "bg-gray-50 border-gray-200"
                   }`}
                 >
                   <button
-                    className={`btn btn-xs btn-circle ${keg.status === "selesai" ? "btn-success" : "btn-ghost"}`}
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                      keg.status === "selesai"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-300 text-gray-700"
+                    }`}
                     onClick={() => handleToggleStatus(keg.id)}
-                    title={keg.status === "selesai" ? "Tandai Belum" : "Tandai Selesai"}
                   >
                     {keg.status === "selesai" ? "✓" : "○"}
                   </button>
                   <div className="flex-1">
-                    <p className={`text-sm font-medium ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>
+                    <p className={`text-sm font-medium text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>
                       {keg.judul}
                     </p>
-                    {keg.catatan && <p className="text-xs text-base-content/50 mt-1">{keg.catatan}</p>}
+                    {keg.catatan && <p className="text-xs text-gray-500 mt-1">{keg.catatan}</p>}
                   </div>
                   <div className="flex gap-1">
                     <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(keg)} title="Edit">✏️</button>
-                    <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(keg.id)} title="Hapus">🗑️</button>
+                    <button className="btn btn-ghost btn-xs text-red-600" onClick={() => handleDelete(keg.id)} title="Hapus">🗑️</button>
                   </div>
                 </div>
               ))}
