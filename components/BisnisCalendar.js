@@ -118,6 +118,16 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
   const years = [];
   for (let y = currentYear - 1; y <= currentYear + 5; y++) years.push(y);
 
+  // Daftar libur di bulan yang lagi dibuka
+  const getHolidaysInMonth = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+    return Object.entries(HOLIDAYS)
+      .filter(([date]) => date.startsWith(prefix))
+      .sort(([a], [b]) => a.localeCompare(b));
+  };
+
   if (loading) {
     return (
       <div className="card bg-base-100 shadow">
@@ -130,6 +140,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
 
   const selectedKegiatan = kegiatan[selectedDate] || [];
   const selectedHoliday = HOLIDAYS[selectedDate] || null;
+  const holidaysInMonth = getHolidaysInMonth();
 
   return (
     <div className="space-y-4">
@@ -177,18 +188,24 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
               const holiday = HOLIDAYS[item.date];
               const isHolidayDate = !!holiday;
 
+              // Prioritas styling:
+              // 1. Kalau selected → bg-primary
+              // 2. Kalau libur → bg-error text-error-content (solid merah)
+              // 3. Kalau hari ini → bg-base-300
+              // 4. Default → hover:bg-base-200
+              let bgClass = "hover:bg-base-200";
+              if (isSelected) {
+                bgClass = "bg-primary text-primary-content font-bold";
+              } else if (isHolidayDate) {
+                bgClass = "bg-error text-error-content font-bold hover:bg-error/90";
+              } else if (isToday) {
+                bgClass = "bg-base-300 font-bold";
+              }
+
               return (
                 <button
                   key={item.date}
-                  className={`aspect-square rounded text-sm relative transition ${
-                    isSelected
-                      ? "bg-primary text-primary-content font-bold"
-                      : isHolidayDate
-                      ? "bg-error/20 text-error font-bold hover:bg-error/30"
-                      : isToday
-                      ? "bg-base-300 font-bold"
-                      : "hover:bg-base-200"
-                  }`}
+                  className={`aspect-square rounded text-sm relative transition ${bgClass}`}
                   onClick={() => setSelectedDate(item.date)}
                   title={holiday || ""}
                 >
@@ -204,7 +221,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
           {/* Legenda */}
           <div className="flex flex-wrap gap-3 mt-3 text-xs text-base-content/60">
             <div className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded bg-error/20 border border-error/30" />
+              <span className="w-3 h-3 rounded bg-error" />
               <span>Libur Nasional</span>
             </div>
             <div className="flex items-center gap-1">
@@ -218,6 +235,39 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
           </div>
         </div>
       </div>
+
+      {/* Daftar Libur Bulan Ini */}
+      {holidaysInMonth.length > 0 && (
+        <div className="card bg-base-100 shadow">
+          <div className="card-body p-4">
+            <h3 className="text-base font-bold mb-3">
+              🎉 Libur Nasional Bulan {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+            </h3>
+            <div className="space-y-2">
+              {holidaysInMonth.map(([date, name]) => {
+                const day = date.split("-")[2];
+                return (
+                  <div
+                    key={date}
+                    className="flex items-start gap-3 p-2 rounded bg-error/10 border border-error/30 cursor-pointer hover:bg-error/20 transition"
+                    onClick={() => setSelectedDate(date)}
+                  >
+                    <div className="flex flex-col items-center justify-center bg-error text-error-content rounded w-10 h-10 flex-shrink-0">
+                      <span className="text-xs leading-none">
+                        {monthNames[currentMonth.getMonth()].slice(0, 3)}
+                      </span>
+                      <span className="text-sm font-bold leading-none">{day}</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-error">{name}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card bg-base-100 shadow">
         <div className="card-body p-4">
