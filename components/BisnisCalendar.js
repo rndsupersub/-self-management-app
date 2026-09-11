@@ -123,20 +123,70 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
     await onUpdate("bisnisKegiatan", updated);
   };
 
+  // ========== NAVIGASI ==========
   const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+    );
   };
 
   const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+    );
   };
 
-  const monthName = currentMonth.toLocaleDateString("id-ID", {
-    month: "long",
-    year: "numeric",
-  });
+  const nextYear = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1)
+    );
+  };
+
+  const prevYear = () => {
+    setCurrentMonth(
+      new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1)
+    );
+  };
+
+  const goToToday = () => {
+    const now = new Date();
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedDate(now.toISOString().split("T")[0]);
+  };
+
+  const handleMonthChange = (e) => {
+    const newMonth = parseInt(e.target.value);
+    setCurrentMonth(new Date(currentMonth.getFullYear(), newMonth, 1));
+  };
+
+  const handleYearChange = (e) => {
+    const newYear = parseInt(e.target.value);
+    setCurrentMonth(new Date(newYear, currentMonth.getMonth(), 1));
+  };
 
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+
+  const monthNames = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+
+  // Range tahun: 1 tahun ke belakang, 5 tahun ke depan
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let y = currentYear - 1; y <= currentYear + 5; y++) {
+    years.push(y);
+  }
 
   if (loading) {
     return (
@@ -155,21 +205,82 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
       {/* Kalender */}
       <div className="card bg-base-100 shadow">
         <div className="card-body p-4">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <button className="btn btn-ghost btn-sm" onClick={prevMonth}>
-              ‹
-            </button>
-            <h3 className="text-base font-bold">📅 {monthName}</h3>
-            <button className="btn btn-ghost btn-sm" onClick={nextMonth}>
-              ›
+          {/* Header Navigasi */}
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <div className="flex items-center gap-1">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={prevYear}
+                title="Tahun sebelumnya"
+              >
+                «
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={prevMonth}
+                title="Bulan sebelumnya"
+              >
+                ‹
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                className="select select-bordered select-sm"
+                value={currentMonth.getMonth()}
+                onChange={handleMonthChange}
+              >
+                {monthNames.map((name, idx) => (
+                  <option key={idx} value={idx}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="select select-bordered select-sm"
+                value={currentMonth.getFullYear()}
+                onChange={handleYearChange}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={nextMonth}
+                title="Bulan berikutnya"
+              >
+                ›
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={nextYear}
+                title="Tahun berikutnya"
+              >
+                »
+              </button>
+            </div>
+          </div>
+
+          {/* Tombol Hari Ini */}
+          <div className="flex justify-center mb-3">
+            <button className="btn btn-outline btn-xs" onClick={goToToday}>
+              📅 Hari Ini
             </button>
           </div>
 
           {/* Nama Hari */}
           <div className="grid grid-cols-7 gap-1 mb-2">
             {dayNames.map((day) => (
-              <div key={day} className="text-center text-xs font-semibold text-base-content/50">
+              <div
+                key={day}
+                className="text-center text-xs font-semibold text-base-content/50"
+              >
                 {day}
               </div>
             ))}
@@ -181,7 +292,8 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
               if (!item) return <div key={idx} />;
 
               const isSelected = item.date === selectedDate;
-              const isToday = item.date === new Date().toISOString().split("T")[0];
+              const isToday =
+                item.date === new Date().toISOString().split("T")[0];
               const hasKegiatan = kegiatan[item.date]?.length > 0;
 
               return (
@@ -212,7 +324,9 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-base font-bold">
-              📌 {new Date(selectedDate).toLocaleDateString("id-ID", {
+              📌{" "}
+              {new Date(selectedDate).toLocaleDateString("id-ID", {
+                weekday: "long",
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -238,7 +352,9 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                 className="input input-bordered input-sm w-full"
                 placeholder="Judul kegiatan (misal: Revisi Logo)"
                 value={formData.judul}
-                onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, judul: e.target.value })
+                }
                 autoFocus
               />
               <textarea
@@ -246,10 +362,15 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                 rows="2"
                 placeholder="Catatan (opsional)"
                 value={formData.catatan}
-                onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, catatan: e.target.value })
+                }
               />
               <div className="flex gap-2">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleAdd}>
+                <button
+                  className="btn btn-primary btn-sm flex-1"
+                  onClick={handleAdd}
+                >
                   {editingId ? "💾 Simpan" : "➕ Tambah"}
                 </button>
                 <button
@@ -287,20 +408,28 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                       keg.status === "selesai" ? "btn-success" : "btn-ghost"
                     }`}
                     onClick={() => handleToggleStatus(keg.id)}
-                    title={keg.status === "selesai" ? "Tandai Belum" : "Tandai Selesai"}
+                    title={
+                      keg.status === "selesai"
+                        ? "Tandai Belum"
+                        : "Tandai Selesai"
+                    }
                   >
                     {keg.status === "selesai" ? "✓" : "○"}
                   </button>
                   <div className="flex-1">
                     <p
                       className={`text-sm font-medium ${
-                        keg.status === "selesai" ? "line-through opacity-60" : ""
+                        keg.status === "selesai"
+                          ? "line-through opacity-60"
+                          : ""
                       }`}
                     >
                       {keg.judul}
                     </p>
                     {keg.catatan && (
-                      <p className="text-xs text-base-content/50 mt-1">{keg.catatan}</p>
+                      <p className="text-xs text-base-content/50 mt-1">
+                        {keg.catatan}
+                      </p>
                     )}
                   </div>
                   <div className="flex gap-1">
