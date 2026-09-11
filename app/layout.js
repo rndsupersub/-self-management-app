@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="id" data-theme="light">
+    <html lang="id" data-theme="cupcake">
       <body>{children}</body>
     </html>
   );
