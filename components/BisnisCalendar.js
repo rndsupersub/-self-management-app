@@ -47,7 +47,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
   };
 
   const handleAdd = async () => {
-    if (!formData.judul.trim()) return;
+    if (!formData.judul.trim() || !selectedDate) return;
     const newKegiatan = {
       id: editingId || Date.now().toString(),
       judul: formData.judul,
@@ -99,6 +99,25 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
     await onUpdate("bisnisKegiatan", updated);
   };
 
+  // ========== KLIK TANGGAL ==========
+  // - Kalau tanggal sama yang diklik → deselect (biru hilang, form hilang)
+  // - Kalau tanggal beda → select + form auto-muncul
+  const handleDateClick = (date) => {
+    if (date === selectedDate) {
+      // Klik tanggal yang sama → deselect
+      setSelectedDate(null);
+      setShowForm(false);
+      setEditingId(null);
+      setFormData({ judul: "", catatan: "" });
+    } else {
+      // Klik tanggal beda → select + form auto-muncul
+      setSelectedDate(date);
+      setShowForm(true);
+      setEditingId(null);
+      setFormData({ judul: "", catatan: "" });
+    }
+  };
+
   const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
   const nextYear = () => setCurrentMonth(new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1));
@@ -107,6 +126,8 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
     const now = new Date();
     setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
     setSelectedDate(now.toISOString().split("T")[0]);
+    setShowForm(false);
+    setEditingId(null);
   };
   const handleMonthChange = (e) => setCurrentMonth(new Date(currentMonth.getFullYear(), parseInt(e.target.value), 1));
   const handleYearChange = (e) => setCurrentMonth(new Date(parseInt(e.target.value), currentMonth.getMonth(), 1));
@@ -137,8 +158,8 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
     );
   }
 
-  const selectedKegiatan = kegiatan[selectedDate] || [];
-  const selectedHoliday = HOLIDAYS[selectedDate] || null;
+  const selectedKegiatan = selectedDate ? kegiatan[selectedDate] || [] : [];
+  const selectedHoliday = selectedDate ? HOLIDAYS[selectedDate] || null : null;
   const holidaysInMonth = getHolidaysInMonth();
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -208,21 +229,29 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
               const holiday = HOLIDAYS[item.date];
               const isHolidayDate = !!holiday;
 
-              // Base styling - semua pakai warna eksplisit biar nggak ketutup theme
+              // Base: putih
               let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
-              if (isSelected) {
-                boxClass = "bg-blue-600 text-white border-blue-700 font-bold";
-              } else if (isHolidayDate) {
+
+              // Hari ini: kuning muda
+              if (isToday && !isSelected && !isHolidayDate) {
+                boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
+              }
+
+              // Libur: merah
+              if (isHolidayDate && !isSelected) {
                 boxClass = "bg-red-600 text-white border-red-700 font-bold";
-              } else if (isToday) {
-                boxClass = "bg-yellow-100 text-gray-900 border-yellow-300 font-bold";
+              }
+
+              // Selected: biru soft + border tebal
+              if (isSelected) {
+                boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-2 ring-blue-300";
               }
 
               return (
                 <button
                   key={item.date}
                   className={`aspect-square rounded border ${boxClass} relative transition text-sm`}
-                  onClick={() => setSelectedDate(item.date)}
+                  onClick={() => handleDateClick(item.date)}
                 >
                   <span className="absolute top-1 left-2">{item.day}</span>
                   {hasKegiatan && (
@@ -240,11 +269,11 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
               <span>Libur Nasional</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-4 h-4 rounded bg-yellow-100 border border-yellow-300" />
+              <span className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300" />
               <span>Hari Ini</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-4 h-4 rounded bg-blue-600 border border-blue-700" />
+              <span className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-600" />
               <span>Tanggal Dipilih</span>
             </div>
             <div className="flex items-center gap-1">
@@ -252,6 +281,10 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
               <span>Ada Kegiatan</span>
             </div>
           </div>
+
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            💡 Klik tanggal untuk pilih. Klik ulang tanggal yang sama untuk batal.
+          </p>
         </div>
       </div>
 
@@ -269,7 +302,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                   <div
                     key={date}
                     className="flex items-center gap-3 p-2 rounded bg-red-50 border border-red-200 cursor-pointer hover:bg-red-100 transition"
-                    onClick={() => setSelectedDate(date)}
+                    onClick={() => handleDateClick(date)}
                   >
                     <div className="flex flex-col items-center justify-center bg-red-600 text-white rounded w-12 h-12 flex-shrink-0">
                       <span className="text-[10px] leading-none uppercase">
@@ -289,106 +322,128 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
       )}
 
       {/* DETAIL TANGGAL + KEGIATAN */}
-      <div className="card bg-white shadow border border-gray-200">
-        <div className="card-body p-4">
-          <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
-            <div>
-              <h3 className="text-base font-bold text-gray-800">
-                📌 {new Date(selectedDate).toLocaleDateString("id-ID", {
-                  weekday: "long", day: "numeric", month: "long", year: "numeric",
-                })}
-              </h3>
-              {selectedHoliday && (
-                <span className="inline-block bg-red-600 text-white text-xs font-semibold rounded px-2 py-1 mt-1">
-                  🎉 {selectedHoliday}
-                </span>
+      {selectedDate && (
+        <div className="card bg-white shadow border border-gray-200">
+          <div className="card-body p-4">
+            <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+              <div>
+                <h3 className="text-base font-bold text-gray-800">
+                  📌 {new Date(selectedDate).toLocaleDateString("id-ID", {
+                    weekday: "long", day: "numeric", month: "long", year: "numeric",
+                  })}
+                </h3>
+                {selectedHoliday && (
+                  <span className="inline-block bg-red-600 text-white text-xs font-semibold rounded px-2 py-1 mt-1">
+                    🎉 {selectedHoliday}
+                  </span>
+                )}
+              </div>
+              {!showForm && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setFormData({ judul: "", catatan: "" });
+                    setEditingId(null);
+                    setShowForm(true);
+                  }}
+                >
+                  + Tambah Kegiatan
+                </button>
               )}
             </div>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => {
-                setFormData({ judul: "", catatan: "" });
-                setEditingId(null);
-                setShowForm(true);
-              }}
-            >
-              + Tambah Kegiatan
-            </button>
-          </div>
 
-          {showForm && (
-            <div className="bg-gray-50 rounded p-3 mb-3 space-y-2 border border-gray-200">
-              <input
-                type="text"
-                className="input input-bordered input-sm w-full text-gray-800 bg-white"
-                placeholder="Judul kegiatan (misal: Revisi Logo)"
-                value={formData.judul}
-                onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
-                autoFocus
-              />
-              <textarea
-                className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
-                rows="2"
-                placeholder="Catatan (opsional)"
-                value={formData.catatan}
-                onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
-              />
-              <div className="flex gap-2">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleAdd}>
-                  {editingId ? "💾 Simpan" : "➕ Tambah"}
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm text-gray-700"
-                  onClick={() => { setShowForm(false); setEditingId(null); }}
-                >
-                  Batal
-                </button>
-              </div>
-            </div>
-          )}
-
-          {selectedKegiatan.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <p className="text-2xl mb-2">📭</p>
-              <p className="text-sm">Belum ada kegiatan di tanggal ini.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {selectedKegiatan.map((keg) => (
-                <div
-                  key={keg.id}
-                  className={`flex items-start gap-2 p-3 rounded border ${
-                    keg.status === "selesai"
-                      ? "bg-green-50 border-green-200"
-                      : "bg-gray-50 border-gray-200"
-                  }`}
-                >
-                  <button
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                      keg.status === "selesai"
-                        ? "bg-green-600 text-white"
-                        : "bg-gray-300 text-gray-700"
-                    }`}
-                    onClick={() => handleToggleStatus(keg.id)}
-                  >
-                    {keg.status === "selesai" ? "✓" : "○"}
+            {showForm && (
+              <div className="bg-blue-50 rounded p-3 mb-3 space-y-2 border border-blue-200">
+                <p className="text-xs font-semibold text-blue-700">
+                  ✏️ {editingId ? "Edit kegiatan" : "Tambah kegiatan baru"}
+                </p>
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  placeholder="Judul kegiatan (misal: Revisi Logo)"
+                  value={formData.judul}
+                  onChange={(e) => setFormData({ ...formData, judul: e.target.value })}
+                  autoFocus
+                />
+                <textarea
+                  className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
+                  rows="2"
+                  placeholder="Catatan (opsional)"
+                  value={formData.catatan}
+                  onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
+                />
+                <div className="flex gap-2">
+                  <button className="btn btn-primary btn-sm flex-1" onClick={handleAdd}>
+                    {editingId ? "💾 Simpan" : "➕ Tambah"}
                   </button>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>
-                      {keg.judul}
-                    </p>
-                    {keg.catatan && <p className="text-xs text-gray-500 mt-1">{keg.catatan}</p>}
-                  </div>
-                  <div className="flex gap-1">
-                    <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(keg)} title="Edit">✏️</button>
-                    <button className="btn btn-ghost btn-xs text-red-600" onClick={() => handleDelete(keg.id)} title="Hapus">🗑️</button>
-                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm text-gray-700"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(null);
+                      setFormData({ judul: "", catatan: "" });
+                    }}
+                  >
+                    Batal
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
+
+            {selectedKegiatan.length === 0 && !showForm && (
+              <div className="text-center py-8 text-gray-400">
+                <p className="text-2xl mb-2">📭</p>
+                <p className="text-sm">Belum ada kegiatan di tanggal ini.</p>
+              </div>
+            )}
+
+            {selectedKegiatan.length > 0 && (
+              <div className="space-y-2">
+                {selectedKegiatan.map((keg) => (
+                  <div
+                    key={keg.id}
+                    className={`flex items-start gap-2 p-3 rounded border ${
+                      keg.status === "selesai"
+                        ? "bg-green-50 border-green-200"
+                        : "bg-gray-50 border-gray-200"
+                    }`}
+                  >
+                    <button
+                      className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                        keg.status === "selesai"
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-300 text-gray-700"
+                      }`}
+                      onClick={() => handleToggleStatus(keg.id)}
+                    >
+                      {keg.status === "selesai" ? "✓" : "○"}
+                    </button>
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>
+                        {keg.judul}
+                      </p>
+                      {keg.catatan && <p className="text-xs text-gray-500 mt-1">{keg.catatan}</p>}
+                    </div>
+                    <div className="flex gap-1">
+                      <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(keg)} title="Edit">✏️</button>
+                      <button className="btn btn-ghost btn-xs text-red-600" onClick={() => handleDelete(keg.id)} title="Hapus">🗑️</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {!selectedDate && (
+        <div className="card bg-white shadow border border-gray-200">
+          <div className="card-body p-8 text-center text-gray-400">
+            <p className="text-3xl mb-2">👆</p>
+            <p className="text-sm">Klik salah satu tanggal di kalender untuk mulai tambah kegiatan.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
