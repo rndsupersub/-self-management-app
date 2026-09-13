@@ -7,12 +7,15 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Ambil path aktif dari URL: /dashboard/teknik/semester_1 → ["teknik", "semester_1"]
-  const currentPath = pathname.replace("/dashboard", "").split("/").filter(Boolean);
+  const currentPath = pathname
+    .replace("/dashboard", "")
+    .split("/")
+    .filter(Boolean);
 
   const isDashboardHome = currentPath.length === 0;
   const isPekerjaan = currentPath[0] === "pekerjaan";
   const isBelajar = currentPath[0] === "belajar";
+  const isBedahBuku = currentPath[0] === "bedah-buku";
 
   const handleSelect = (pathArray) => {
     const url = `/dashboard/${pathArray.join("/")}`;
@@ -41,6 +44,11 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
       );
     });
   };
+
+  // Filter "npd" dari tree activities (jaga-jaga)
+  const filteredActivities = (activities || []).filter(
+    (a) => a.id !== "npd"
+  );
 
   if (collapsed) {
     return (
@@ -95,15 +103,23 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         >
           📚 Belajar
         </button>
+        <button
+          className={`btn btn-sm w-full justify-start gap-2 ${
+            isBedahBuku ? "btn-primary" : "btn-ghost"
+          }`}
+          onClick={() => router.push("/dashboard/bedah-buku")}
+        >
+          📚 Bedah Buku
+        </button>
       </div>
 
-      {/* DAFTAR AKTIVITAS */}
+      {/* DAFTAR AKTIVITAS (NPD udah di-filter) */}
       <div className="flex-1 overflow-y-auto p-2">
-        {renderTree(activities)}
+        {renderTree(filteredActivities)}
       </div>
 
       <div className="p-2 border-t border-base-300 text-xs text-base-content/50">
-        {activities.length} aktivitas
+        {filteredActivities.length} aktivitas
       </div>
     </div>
   );
