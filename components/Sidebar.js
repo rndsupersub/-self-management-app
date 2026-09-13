@@ -12,6 +12,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
 
   const isDashboardHome = currentPath.length === 0;
   const isPekerjaan = currentPath[0] === "pekerjaan";
+  const isBelajar = currentPath[0] === "belajar";
 
   const handleSelect = (pathArray) => {
     const url = `/dashboard/${pathArray.join("/")}`;
@@ -85,6 +86,14 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
           onClick={() => router.push("/dashboard/pekerjaan")}
         >
           💼 Pekerjaan
+        </button>
+        <button
+          className={`btn btn-sm w-full justify-start gap-2 ${
+            isBelajar ? "btn-primary" : "btn-ghost"
+          }`}
+          onClick={() => router.push("/dashboard/belajar")}
+        >
+          📚 Belajar
         </button>
       </div>
 
