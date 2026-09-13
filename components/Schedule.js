@@ -1,61 +1,139 @@
 // components/Schedule.js
 "use client";
 
-import { useState } from "react";
-import { getJadwalHariIni } from "@/lib/jadwalData";
+import { useState, useMemo } from "react";
+import {
+  getJadwalUntukTanggal,
+  formatWaktu,
+  isHariIni,
+  tambahHari,
+  formatTanggalPanjang,
+} from "@/lib/jadwalData";
+import KelolaJadwal from "./KelolaJadwal";
 
-export default function Schedule({ todayProgress, onUpdate }) {
-  const { jadwal, hari } = getJadwalHariIni();
-  const [manualPilihan, setManualPilihan] = useState({});
+export default function Schedule({
+  jadwalUser,
+  onUpdateJadwal,
+  progress,
+  onUpdateProgress,
+  selectedDate,
+  setSelectedDate,
+}) {
+  const [showKelola, setShowKelola] = useState(false);
 
-  // ========== CEK APAKAH KEGIATAN INI SELESAI ==========
-  const isDone = (id) => {
-    return todayProgress?.[id]?.selesai || false;
-  };
+  // Ambil jadwal untuk tanggal yang dipilih
+  const { jadwal, hari, dayIndex } = useMemo(
+    () => getJadwalUntukTanggal(jadwalUser, selectedDate),
+    [jadwalUser, selectedDate]
+  );
+
+  // Progress hari yang dipilih (bukan hari ini)
+  const dayProgress = progress?.[selectedDate] || {};
+
+  // ========== CEK SELESAI ==========
+  const isDone = (id) => dayProgress?.[id]?.selesai || false;
 
   // ========== TANDAI SELESAI ==========
   const handleDone = (id) => {
-    onUpdate(id, { selesai: true });
+    onUpdateProgress(selectedDate, id, { selesai: true });
   };
 
-  // ========== BATALKAN SELESAI ==========
+  // ========== BATALKAN ==========
   const handleUndo = (id) => {
-    onUpdate(id, { selesai: false });
+    onUpdateProgress(selectedDate, id, { selesai: false });
   };
 
-  // ========== PILIH MANUAL (Blender/SolidWorks, dll) ==========
+  // ========== PILIH MANUAL ==========
   const handleManualPilih = (id, pilihan) => {
-    setManualPilihan({ ...manualPilihan, [id]: pilihan });
-    onUpdate(id, { pilihan });
+    onUpdateProgress(selectedDate, id, { pilihan });
   };
+
+  // ========== NAVIGASI ==========
+  const prevDay = () => setSelectedDate(tambahHari(selectedDate, -1));
+  const nextDay = () => setSelectedDate(tambahHari(selectedDate, 1));
+  const goToday = () => setSelectedDate(new Date().toISOString().split("T")[0]);
+  const handleDateChange = (e) => setSelectedDate(e.target.value);
 
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body p-4">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="card-title text-base">📅 Jadwal Hari Ini</h2>
-          <span className="badge badge-primary badge-sm">{hari}</span>
+        {/* HEADER: NAVIGASI HARI */}
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+          <div className="flex items-center gap-1">
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={prevDay}
+              title="Hari sebelumnya"
+            >
+              ‹
+            </button>
+            <h2 className="text-base font-bold min-w-[200px] text-center">
+              📅 {formatTanggalPanjang(selectedDate)}
+            </h2>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={nextDay}
+              title="Hari berikutnya"
+            >
+              ›
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <input
+              type="date"
+              className="input input-bordered input-sm text-gray-800 bg-white"
+              value={selectedDate}
+              onChange={handleDateChange}
+            />
+            <button
+              className="btn btn-outline btn-xs"
+              onClick={goToday}
+            >
+              📅 Hari Ini
+            </button>
+          </div>
         </div>
 
+        {/* BADGE HARI + TOMBOL KELOLA */}
+        <div className="flex justify-between items-center mb-3">
+          <span className="badge badge-primary badge-sm">{hari}</span>
+          <button
+            className="btn btn-ghost btn-xs text-gray-600"
+            onClick={() => setShowKelola(true)}
+            title="Kelola Jadwal"
+          >
+            ⚙️ Kelola Jadwal
+          </button>
+        </div>
+
+        {/* DAFTAR JADWAL */}
         <div className="divide-y divide-base-200">
           {jadwal.map((item) => {
             const done = isDone(item.id);
-            const pilihan = manualPilihan[item.id] || todayProgress?.[item.id]?.pilihan;
+            const pilihan = dayProgress?.[item.id]?.pilihan;
 
             return (
-              <div key={item.id} className="flex items-center justify-between py-2 gap-2">
+              <div
+                key={item.id}
+                className="flex items-center justify-between py-2 gap-2"
+              >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <span className="font-mono text-xs font-bold w-24 flex-shrink-0">
-                    {item.waktu}
+                    {formatWaktu(item.waktuMulai, item.waktuSelesai)}
                   </span>
-                  <span className={`text-sm truncate ${done ? "line-through text-success" : ""}`}>
+                  <span
+                    className={`text-sm truncate ${
+                      done ? "line-through text-success" : ""
+                    }`}
+                  >
                     {item.label}
-                    <span className="text-xs text-base-content/50 ml-1">({item.unit})</span>
+                    <span className="text-xs text-base-content/50 ml-1">
+                      ({item.unit})
+                    </span>
                   </span>
                 </div>
 
                 <div className="flex gap-1 items-center flex-shrink-0">
-                  {/* Kalau kegiatan manual (Blender/SolidWorks, dll) */}
                   {item.manual && !done && (
                     <div className="flex gap-1">
                       {item.manual.map((pilih) => (
@@ -65,7 +143,6 @@ export default function Schedule({ todayProgress, onUpdate }) {
                             pilihan === pilih ? "btn-primary" : "btn-outline"
                           }`}
                           onClick={() => handleManualPilih(item.id, pilih)}
-                          disabled={done}
                         >
                           {pilih}
                         </button>
@@ -73,10 +150,11 @@ export default function Schedule({ todayProgress, onUpdate }) {
                     </div>
                   )}
 
-                  {/* Tombol Selesai / Batal */}
                   {done ? (
                     <>
-                      <span className="badge badge-success badge-sm">✅ Selesai</span>
+                      <span className="badge badge-success badge-sm">
+                        ✅ Selesai
+                      </span>
                       <button
                         className="btn btn-ghost btn-xs text-warning"
                         onClick={() => handleUndo(item.id)}
@@ -98,6 +176,18 @@ export default function Schedule({ todayProgress, onUpdate }) {
             );
           })}
         </div>
+
+        {/* MODAL KELOLA JADWAL */}
+        {showKelola && (
+          <KelolaJadwal
+            jadwal={jadwal}
+            hari={hari}
+            dayIndex={dayIndex}
+            jadwalUser={jadwalUser}
+            onUpdateJadwal={onUpdateJadwal}
+            onClose={() => setShowKelola(false)}
+          />
+        )}
       </div>
     </div>
   );
