@@ -1,73 +1,83 @@
 // components/Schedule.js
 "use client";
 
+import { useState } from "react";
+import { getJadwalHariIni } from "@/lib/jadwalData";
+
 export default function Schedule({ todayProgress, onUpdate }) {
-  const schedule = [
-    { time: "09:00", id: "npd", label: "📚 NPD", unit: "10 halaman" },
-    { time: "10:00", id: "blender", label: "💻 Blender", unit: "1 jam" },
-    { time: "11:00", id: "desain", label: "🎨 Illustrator/Photoshop", unit: "1 jam" },
-    { time: "13:00", id: "kerja", label: "💼 Kerja (R&D)", unit: "5 jam" },
-    { time: "20:30", id: "bisnis", label: "💼 Bisnis", unit: "1 jam" },
-    { time: "21:30", id: "hafalan", label: "📖 Hafalan", unit: "1 halaman" },
-    { time: "22:00", id: "mandarin", label: "🌏 Mandarin", unit: "30 menit" },
-    { time: "22:30", id: "teknik", label: "📐 Teknik Mesin", unit: "45 menit" },
-  ];
+  const { jadwal, hari } = getJadwalHariIni();
+  const [manualPilihan, setManualPilihan] = useState({});
 
+  // ========== CEK APAKAH KEGIATAN INI SELESAI ==========
   const isDone = (id) => {
-    if (id === "npd") return (todayProgress?.npd?.page || 0) >= 10;
-    if (id === "blender") return (todayProgress?.blender?.selesai || false);
-    if (id === "desain") return (todayProgress?.desain?.selesai || false);
-    if (id === "kerja") return (todayProgress?.kerja?.selesai || false);
-    if (id === "bisnis") return (todayProgress?.bisnis?.progress || 0) >= 3;
-    if (id === "hafalan") return (todayProgress?.hafalan?.baru && todayProgress.hafalan.baru !== "");
-    if (id === "mandarin") return (todayProgress?.mandarin?.lesson || 0) >= 1;
-    if (id === "teknik") return (todayProgress?.teknik?.selesai || false);
-    return false;
+    return todayProgress?.[id]?.selesai || false;
   };
 
+  // ========== TANDAI SELESAI ==========
   const handleDone = (id) => {
-    if (id === "npd") onUpdate("npd", { page: 10 });
-    else if (id === "blender") onUpdate("blender", { selesai: true });
-    else if (id === "desain") onUpdate("desain", { selesai: true });
-    else if (id === "kerja") onUpdate("kerja", { selesai: true });
-    else if (id === "bisnis") onUpdate("bisnis", { progress: 3 });
-    else if (id === "hafalan") onUpdate("hafalan", { baru: "Juz 1, Hal 1" });
-    else if (id === "mandarin") onUpdate("mandarin", { lesson: 1 });
-    else if (id === "teknik") onUpdate("teknik", { selesai: true, materi: "Selesai" });
+    onUpdate(id, { selesai: true });
   };
 
+  // ========== BATALKAN SELESAI ==========
   const handleUndo = (id) => {
-    if (id === "npd") onUpdate("npd", { page: 0 });
-    else if (id === "blender") onUpdate("blender", { selesai: false });
-    else if (id === "desain") onUpdate("desain", { selesai: false });
-    else if (id === "kerja") onUpdate("kerja", { selesai: false });
-    else if (id === "bisnis") onUpdate("bisnis", { progress: 0 });
-    else if (id === "hafalan") onUpdate("hafalan", { baru: "" });
-    else if (id === "mandarin") onUpdate("mandarin", { lesson: 0 });
-    else if (id === "teknik") onUpdate("teknik", { selesai: false, materi: "" });
+    onUpdate(id, { selesai: false });
+  };
+
+  // ========== PILIH MANUAL (Blender/SolidWorks, dll) ==========
+  const handleManualPilih = (id, pilihan) => {
+    setManualPilihan({ ...manualPilihan, [id]: pilihan });
+    onUpdate(id, { pilihan });
   };
 
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body p-4">
-        <h2 className="card-title text-base">📅 Jadwal Hari Ini</h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="card-title text-base">📅 Jadwal Hari Ini</h2>
+          <span className="badge badge-primary badge-sm">{hari}</span>
+        </div>
+
         <div className="divide-y divide-base-200">
-          {schedule.map((item) => {
+          {jadwal.map((item) => {
             const done = isDone(item.id);
+            const pilihan = manualPilihan[item.id] || todayProgress?.[item.id]?.pilihan;
+
             return (
-              <div key={item.id} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm font-bold w-14">{item.time}</span>
-                  <span className={`text-sm ${done ? 'line-through text-success' : ''}`}>
+              <div key={item.id} className="flex items-center justify-between py-2 gap-2">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <span className="font-mono text-xs font-bold w-24 flex-shrink-0">
+                    {item.waktu}
+                  </span>
+                  <span className={`text-sm truncate ${done ? "line-through text-success" : ""}`}>
                     {item.label}
                     <span className="text-xs text-base-content/50 ml-1">({item.unit})</span>
                   </span>
                 </div>
-                <div className="flex gap-1">
+
+                <div className="flex gap-1 items-center flex-shrink-0">
+                  {/* Kalau kegiatan manual (Blender/SolidWorks, dll) */}
+                  {item.manual && !done && (
+                    <div className="flex gap-1">
+                      {item.manual.map((pilih) => (
+                        <button
+                          key={pilih}
+                          className={`btn btn-xs ${
+                            pilihan === pilih ? "btn-primary" : "btn-outline"
+                          }`}
+                          onClick={() => handleManualPilih(item.id, pilih)}
+                          disabled={done}
+                        >
+                          {pilih}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tombol Selesai / Batal */}
                   {done ? (
                     <>
                       <span className="badge badge-success badge-sm">✅ Selesai</span>
-                      <button 
+                      <button
                         className="btn btn-ghost btn-xs text-warning"
                         onClick={() => handleUndo(item.id)}
                         title="Batal"
@@ -76,7 +86,7 @@ export default function Schedule({ todayProgress, onUpdate }) {
                       </button>
                     </>
                   ) : (
-                    <button 
+                    <button
                       className="btn btn-outline btn-xs"
                       onClick={() => handleDone(item.id)}
                     >
