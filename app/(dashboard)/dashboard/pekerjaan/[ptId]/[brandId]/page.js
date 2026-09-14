@@ -11,6 +11,7 @@ import KalenderPekerjaan from "@/components/KalenderPekerjaan";
 import VendorManager from "@/components/VendorManager";
 import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
+import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_PRIORITAS,
@@ -25,6 +26,7 @@ import {
   DEFAULT_TUJUAN_KUNJUNGAN,
   SATUAN_MOQ,
 } from "@/lib/vendorData";
+import { DEFAULT_FIELD_EVALUASI } from "@/lib/evaluasiData";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -58,6 +60,11 @@ export default function BrandPage() {
   const [vendorPertanyaanList, setVendorPertanyaanList] = useState(DEFAULT_PERTANYAAN_VENDOR);
   const [vendorTujuanList, setVendorTujuanList] = useState(DEFAULT_TUJUAN_KUNJUNGAN);
   const [vendorSatuanMoqList, setVendorSatuanMoqList] = useState(SATUAN_MOQ);
+
+  // ========== EVALUASI STATE ==========
+  const [fieldEvaluasiPekerjaanList, setFieldEvaluasiPekerjaanList] = useState(
+    DEFAULT_FIELD_EVALUASI
+  );
 
   const router = useRouter();
   const params = useParams();
@@ -156,6 +163,21 @@ export default function BrandPage() {
           await setDoc(docRef, { vendorSatuanMoqList: SATUAN_MOQ }, { merge: true });
         }
 
+        // ========== LOAD FIELD EVALUASI ==========
+        if (
+          data.fieldEvaluasiPekerjaanList &&
+          Array.isArray(data.fieldEvaluasiPekerjaanList)
+        ) {
+          setFieldEvaluasiPekerjaanList(data.fieldEvaluasiPekerjaanList);
+        } else {
+          await setDoc(
+            docRef,
+            { fieldEvaluasiPekerjaanList: DEFAULT_FIELD_EVALUASI },
+            { merge: true }
+          );
+          setFieldEvaluasiPekerjaanList(DEFAULT_FIELD_EVALUASI);
+        }
+
       } else {
         // User baru
         await setDoc(docRef, {
@@ -169,6 +191,7 @@ export default function BrandPage() {
           vendorPertanyaanList: DEFAULT_PERTANYAAN_VENDOR,
           vendorTujuanList: DEFAULT_TUJUAN_KUNJUNGAN,
           vendorSatuanMoqList: SATUAN_MOQ,
+          fieldEvaluasiPekerjaanList: DEFAULT_FIELD_EVALUASI,
         });
         setActivities(DEFAULT_ACTIVITIES);
         setPekerjaan([]);
@@ -428,6 +451,26 @@ export default function BrandPage() {
     await simpanKeFirestore(updated);
   };
 
+  // ========== EVALUASI HANDLERS ==========
+  const handleUpdateFieldEvaluasi = async (updatedList) => {
+    setFieldEvaluasiPekerjaanList(updatedList);
+    await simpanSettings({ fieldEvaluasiPekerjaanList: updatedList });
+  };
+
+  const handleUpdateEvaluasi = async (newEvaluasiData) => {
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId
+        ? {
+            ...p,
+            brands: p.brands.map((b) =>
+              b.id === brandId ? { ...b, evaluasiData: newEvaluasiData } : b
+            ),
+          }
+        : p
+    );
+    await simpanKeFirestore(updated);
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
@@ -472,6 +515,7 @@ export default function BrandPage() {
     ? vendorList.find((v) => v.id === selectedVendorId)
     : null;
   const laporanData = brand.laporanData || {};
+  const evaluasiData = brand.evaluasiData || {};
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
@@ -630,6 +674,12 @@ export default function BrandPage() {
             >
               📋 Laporan
             </button>
+            <button
+              className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("evaluasi")}
+            >
+              📊 Evaluasi
+            </button>
           </div>
 
           {/* ========== TAB KALENDER ========== */}
@@ -743,6 +793,17 @@ export default function BrandPage() {
               onUpdateLaporan={handleUpdateLaporan}
               prioritasList={prioritasList}
               sumberList={sumberList}
+            />
+          )}
+
+          {/* ========== TAB EVALUASI ========== */}
+          {activeTab === "evaluasi" && (
+            <EvaluasiPekerjaan
+              kegiatanList={brand.kegiatan || []}
+              evaluasiData={evaluasiData}
+              fieldEvaluasiList={fieldEvaluasiPekerjaanList}
+              onUpdateEvaluasi={handleUpdateEvaluasi}
+              onUpdateFieldEvaluasi={handleUpdateFieldEvaluasi}
             />
           )}
         </div>
