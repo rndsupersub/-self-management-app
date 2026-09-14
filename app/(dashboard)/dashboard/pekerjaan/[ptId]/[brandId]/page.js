@@ -16,6 +16,7 @@ import {
   DEFAULT_PRIORITAS,
   DEFAULT_SUMBER,
   DEFAULT_SECTIONS,
+  DEFAULT_KATEGORI_KEGIATAN,
   generateId,
 } from "@/lib/pekerjaanData";
 import {
@@ -34,6 +35,9 @@ export default function BrandPage() {
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_SUMBER);
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
+  const [kategoriPekerjaanList, setKategoriPekerjaanList] = useState(
+    DEFAULT_KATEGORI_KEGIATAN
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editNama, setEditNama] = useState("");
@@ -112,6 +116,21 @@ export default function BrandPage() {
           await setDoc(docRef, { sections: DEFAULT_SECTIONS }, { merge: true });
         }
 
+        // ========== LOAD KATEGORI PEKERJAAN ==========
+        if (
+          data.kategoriPekerjaanList &&
+          Array.isArray(data.kategoriPekerjaanList)
+        ) {
+          setKategoriPekerjaanList(data.kategoriPekerjaanList);
+        } else {
+          await setDoc(
+            docRef,
+            { kategoriPekerjaanList: DEFAULT_KATEGORI_KEGIATAN },
+            { merge: true }
+          );
+          setKategoriPekerjaanList(DEFAULT_KATEGORI_KEGIATAN);
+        }
+
         // ========== LOAD VENDOR SETTINGS ==========
         if (data.vendorKategoriList && Array.isArray(data.vendorKategoriList)) {
           setVendorKategoriList(data.vendorKategoriList);
@@ -145,6 +164,7 @@ export default function BrandPage() {
           prioritasList: DEFAULT_PRIORITAS,
           sumberList: DEFAULT_SUMBER,
           sections: DEFAULT_SECTIONS,
+          kategoriPekerjaanList: DEFAULT_KATEGORI_KEGIATAN,
           vendorKategoriList: DEFAULT_KATEGORI_VENDOR,
           vendorPertanyaanList: DEFAULT_PERTANYAAN_VENDOR,
           vendorTujuanList: DEFAULT_TUJUAN_KUNJUNGAN,
@@ -179,10 +199,16 @@ export default function BrandPage() {
     await setDoc(docRef, { pekerjaan: updatedPekerjaan }, { merge: true });
   };
 
-  // ========== SIMPAN VENDOR SETTINGS KE FIRESTORE ==========
-  const simpanVendorSettings = async (updates) => {
+  // ========== SIMPAN SETTINGS KE FIRESTORE ==========
+  const simpanSettings = async (updates) => {
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, updates, { merge: true });
+  };
+
+  // ========== KATEGORI PEKERJAAN HANDLER ==========
+  const handleUpdateKategoriPekerjaan = async (updatedList) => {
+    setKategoriPekerjaanList(updatedList);
+    await simpanSettings({ kategoriPekerjaanList: updatedList });
   };
 
   // ========== TAMBAH KEGIATAN ==========
@@ -275,7 +301,7 @@ export default function BrandPage() {
     await simpanKeFirestore(updated);
   };
 
-  // ========== KLIK KEGIATAN (Pindah halaman) ==========
+  // ========== KLIK KEGIATAN ==========
   const handleClickKegiatan = (kegId) => {
     router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${kegId}`);
   };
@@ -374,17 +400,17 @@ export default function BrandPage() {
 
   const handleUpdateKategoriVendor = async (updatedList) => {
     setVendorKategoriList(updatedList);
-    await simpanVendorSettings({ vendorKategoriList: updatedList });
+    await simpanSettings({ vendorKategoriList: updatedList });
   };
 
   const handleUpdatePertanyaanVendor = async (updatedList) => {
     setVendorPertanyaanList(updatedList);
-    await simpanVendorSettings({ vendorPertanyaanList: updatedList });
+    await simpanSettings({ vendorPertanyaanList: updatedList });
   };
 
   const handleUpdateSatuanMoq = async (updatedList) => {
     setVendorSatuanMoqList(updatedList);
-    await simpanVendorSettings({ vendorSatuanMoqList: updatedList });
+    await simpanSettings({ vendorSatuanMoqList: updatedList });
   };
 
   // ========== LAPORAN HANDLER ==========
@@ -615,6 +641,8 @@ export default function BrandPage() {
                 onClickKegiatan={handleClickKegiatan}
                 prioritasList={prioritasList}
                 sumberList={sumberList}
+                kategoriList={kategoriPekerjaanList}
+                onUpdateKategoriList={handleUpdateKategoriPekerjaan}
               />
 
               {/* Daftar Kegiatan dengan tombol Edit & Hapus */}

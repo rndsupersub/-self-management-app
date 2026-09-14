@@ -1,37 +1,17 @@
 // components/KalenderPekerjaan.js
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
-import { generateId } from "@/lib/pekerjaanData";
+import {
+  generateId,
+  DEFAULT_KATEGORI_KEGIATAN,
+  WARNA_OPTIONS,
+  getKategoriStyle,
+} from "@/lib/pekerjaanData";
 
-// ========== KATEGORI DEFAULT ==========
-export const DEFAULT_KATEGORI_KEGIATAN = [
-  { id: "analisis", label: "📊 Analisis", warna: "green" },
-  { id: "design", label: "🎨 Design", warna: "purple" },
-  { id: "vendor", label: "🏭 Vendor", warna: "gray" },
-  { id: "rapat", label: "👥 Rapat", warna: "blue" },
-  { id: "lainnya", label: "📝 Lainnya", warna: "orange" },
-];
-
-// ========== WARNA OPTIONS (buat dropdown di form) ==========
-export const WARNA_OPTIONS = [
-  { id: "green", label: "🟢 Hijau", bg: "bg-green-500", hover: "hover:bg-green-600", text: "text-white", dot: "bg-green-500" },
-  { id: "purple", label: "🟣 Ungu", bg: "bg-purple-500", hover: "hover:bg-purple-600", text: "text-white", dot: "bg-purple-500" },
-  { id: "gray", label: "⚪ Abu", bg: "bg-gray-500", hover: "hover:bg-gray-600", text: "text-white", dot: "bg-gray-500" },
-  { id: "blue", label: "🔵 Biru", bg: "bg-blue-500", hover: "hover:bg-blue-600", text: "text-white", dot: "bg-blue-500" },
-  { id: "orange", label: "🟠 Orange", bg: "bg-orange-500", hover: "hover:bg-orange-600", text: "text-white", dot: "bg-orange-500" },
-  { id: "red", label: "🔴 Merah", bg: "bg-red-500", hover: "hover:bg-red-600", text: "text-white", dot: "bg-red-500" },
-  { id: "yellow", label: "🟡 Kuning", bg: "bg-yellow-500", hover: "hover:bg-yellow-600", text: "text-white", dot: "bg-yellow-500" },
-  { id: "pink", label: "🩷 Pink", bg: "bg-pink-500", hover: "hover:bg-pink-600", text: "text-white", dot: "bg-pink-500" },
-  { id: "teal", label: "🩵 Teal", bg: "bg-teal-500", hover: "hover:bg-teal-600", text: "text-white", dot: "bg-teal-500" },
-  { id: "indigo", label: "🔷 Indigo", bg: "bg-indigo-500", hover: "hover:bg-indigo-600", text: "text-white", dot: "bg-indigo-500" },
-];
-
-// ========== HELPER: CARI WARNA ==========
-function getWarnaStyle(warnaId) {
-  return WARNA_OPTIONS.find((w) => w.id === warnaId) || WARNA_OPTIONS[2]; // default gray
-}
+// ========== WARNA OPTIONS UNTUK PICKER ==========
+// Ini cuma preview palet buat dipilih. Logic warna diambil dari getKategoriStyle().
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -40,7 +20,7 @@ export default function KalenderPekerjaan({
   prioritasList = [],
   sumberList = [],
   kategoriList = DEFAULT_KATEGORI_KEGIATAN,
-  onUpdateKategori,
+  onUpdateKategoriList,
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectStart, setSelectStart] = useState(null);
@@ -61,6 +41,16 @@ export default function KalenderPekerjaan({
     catatan: "",
   });
 
+  // ========== KELOLA KATEGORI STATE ==========
+  const [showKelolaKategori, setShowKelolaKategori] = useState(false);
+  const [editingKategoriId, setEditingKategoriId] = useState(null);
+  const [kategoriForm, setKategoriForm] = useState({
+    label: "",
+    emoji: "📌",
+    warna: "gray",
+    customHex: "",
+  });
+
   // ========== FILTER KEGIATAN ==========
   const filteredKegiatan = useMemo(() => {
     return kegiatan.filter((k) => {
@@ -79,10 +69,9 @@ export default function KalenderPekerjaan({
     const lastDay = new Date(year, month + 1, 0);
     const startDay = firstDay.getDay();
     const totalDays = lastDay.getDate();
+
     const days = [];
-
     for (let i = 0; i < startDay; i++) days.push(null);
-
     for (let d = 1; d <= totalDays; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       days.push({ day: d, date: dateStr });
@@ -118,7 +107,7 @@ export default function KalenderPekerjaan({
     });
   };
 
-  // ========== CEK APAKAH TANGGAL INI DALAM RANGE SELECT ==========
+  // ========== CEK SELECT RANGE ==========
   const isInSelectRange = (date) => {
     if (!selectStart) return false;
     if (!selectEnd) return date === selectStart;
@@ -127,7 +116,7 @@ export default function KalenderPekerjaan({
     return date >= start && date <= end;
   };
 
-  // ========== KLIK TANGGAL (MULTI-DAY SELECT) ==========
+  // ========== KLIK TANGGAL ==========
   const handleDateClick = (date) => {
     if (!selectStart) {
       setSelectStart(date);
@@ -135,22 +124,16 @@ export default function KalenderPekerjaan({
       setShowForm(false);
       return;
     }
-
     if (!selectEnd && date === selectStart) {
-      // Klik tanggal yang sama = single day
       setSelectEnd(date);
       setShowForm(true);
       return;
     }
-
     if (!selectEnd) {
-      // Klik tanggal kedua = selesai select range
       setSelectEnd(date);
       setShowForm(true);
       return;
     }
-
-    // Kalau udah ada select lengkap, klik baru = reset
     setSelectStart(date);
     setSelectEnd(null);
     setShowForm(false);
@@ -172,20 +155,14 @@ export default function KalenderPekerjaan({
       catatan: formData.catatan,
       tanggalMulai,
       tanggalSelesai,
-      tanggal: tanggalMulai, // backward compat
+      tanggal: tanggalMulai,
       status: "belum",
-      sections: {
-        analisis: [],
-        desain: [],
-        vendor: [],
-        lainnya: [],
-      },
+      sections: { analisis: [], desain: [], vendor: [], lainnya: [] },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     onAdd(newKegiatan);
-
     setFormData({
       judul: "",
       kategori: kategoriList[0]?.id || "design",
@@ -198,19 +175,14 @@ export default function KalenderPekerjaan({
     setShowForm(false);
   };
 
-  // ========== BATAL SELECT ==========
   const handleBatalSelect = () => {
     setSelectStart(null);
     setSelectEnd(null);
     setShowForm(false);
   };
 
-  // ========== HELPER: FORMAT TANGGAL ==========
+  // ========== FORMAT TANGGAL RANGE ==========
   const formatTanggalRange = (mulai, selesai) => {
-    const d1 = new Date(mulai).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-    });
     if (!selesai || mulai === selesai) {
       return new Date(mulai).toLocaleDateString("id-ID", {
         weekday: "long",
@@ -219,11 +191,8 @@ export default function KalenderPekerjaan({
         year: "numeric",
       });
     }
-    const d2 = new Date(selesai).toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    const d1 = new Date(mulai).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+    const d2 = new Date(selesai).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
     return `${d1} – ${d2}`;
   };
 
@@ -234,8 +203,7 @@ export default function KalenderPekerjaan({
   const getPrioritasData = (prioritasId) =>
     prioritasList.find((p) => p.id === prioritasId);
 
-  const getSumberData = (sumberId) =>
-    sumberList.find((s) => s.id === sumberId);
+  const getSumberData = (sumberId) => sumberList.find((s) => s.id === sumberId);
 
   const getBadgeClass = (warna) => {
     const map = {
@@ -254,26 +222,77 @@ export default function KalenderPekerjaan({
     return map[warna] || map.gray;
   };
 
+  // ========== KELOLA KATEGORI HANDLERS ==========
+  const handleBukaTambahKategori = () => {
+    setKategoriForm({
+      label: "",
+      emoji: "📌",
+      warna: "gray",
+      customHex: "",
+    });
+    setEditingKategoriId(null);
+  };
+
+  const handleBukaEditKategori = (kat) => {
+    // Extract emoji dan text dari label
+    const parts = kat.label.trim().split(" ");
+    const emoji = parts[0] || "📌";
+    const nama = parts.slice(1).join(" ") || "";
+    setKategoriForm({
+      label: nama,
+      emoji,
+      warna: kat.warna || "gray",
+      customHex: kat.customHex || "",
+    });
+    setEditingKategoriId(kat.id);
+  };
+
+  const handleSimpanKategori = () => {
+    if (!kategoriForm.label.trim()) return;
+
+    const fullLabel = `${kategoriForm.emoji} ${kategoriForm.label}`.trim();
+    const newKategori = {
+      id: editingKategoriId || generateId("kat_keg"),
+      label: fullLabel,
+      warna: kategoriForm.customHex ? "" : kategoriForm.warna,
+      customHex: kategoriForm.customHex || "",
+    };
+
+    let updated;
+    if (editingKategoriId) {
+      updated = kategoriList.map((k) => (k.id === editingKategoriId ? newKategori : k));
+    } else {
+      updated = [...kategoriList, newKategori];
+    }
+
+    onUpdateKategoriList(updated);
+    handleBukaTambahKategori();
+  };
+
+  const handleHapusKategori = (id) => {
+    if (!confirm("Hapus kategori ini? Kegiatan yang pakai kategori ini nggak kehapus, tapi kategorinya ilang.")) return;
+    const updated = kategoriList.filter((k) => k.id !== id);
+    onUpdateKategoriList(updated);
+  };
+
+  // ========== KONSTANTA ==========
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
   const monthNames = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",
   ];
-
   const currentYear = new Date().getFullYear();
   const years = [];
   for (let y = currentYear - 1; y <= currentYear + 5; y++) years.push(y);
-
   const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <div className="space-y-4">
-      {/* FILTER */}
+      {/* FILTER + KELOLA KATEGORI */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs font-semibold text-gray-500">Filter:</span>
-
             <select
               className="select select-bordered select-xs text-gray-800 bg-white"
               value={filterKategori}
@@ -284,7 +303,6 @@ export default function KalenderPekerjaan({
                 <option key={k.id} value={k.id}>{k.label}</option>
               ))}
             </select>
-
             <select
               className="select select-bordered select-xs text-gray-800 bg-white"
               value={filterPrioritas}
@@ -295,7 +313,6 @@ export default function KalenderPekerjaan({
                 <option key={p.id} value={p.id}>{p.label}</option>
               ))}
             </select>
-
             <select
               className="select select-bordered select-xs text-gray-800 bg-white"
               value={filterSumber}
@@ -306,7 +323,6 @@ export default function KalenderPekerjaan({
                 <option key={s.id} value={s.id}>{s.label}</option>
               ))}
             </select>
-
             {(filterPrioritas !== "all" || filterSumber !== "all" || filterKategori !== "all") && (
               <button
                 className="btn btn-ghost btn-xs text-gray-500"
@@ -319,8 +335,14 @@ export default function KalenderPekerjaan({
                 ✕ Reset
               </button>
             )}
-
-            <span className="text-xs text-gray-400 ml-auto">
+            <button
+              className="btn btn-ghost btn-xs text-gray-600 ml-auto"
+              onClick={() => setShowKelolaKategori(true)}
+              title="Kelola Kategori"
+            >
+              ⚙️ Kelola Kategori
+            </button>
+            <span className="text-xs text-gray-400">
               {filteredKegiatan.length} kegiatan
             </span>
           </div>
@@ -371,10 +393,7 @@ export default function KalenderPekerjaan({
           {/* Header hari */}
           <div className="grid grid-cols-7 gap-1 mb-1">
             {dayNames.map((day) => (
-              <div
-                key={day}
-                className="text-center text-xs font-bold text-gray-600 bg-gray-100 py-2 rounded"
-              >
+              <div key={day} className="text-center text-xs font-bold text-gray-600 bg-gray-100 py-2 rounded">
                 {day}
               </div>
             ))}
@@ -409,10 +428,8 @@ export default function KalenderPekerjaan({
                   onClick={() => handleDateClick(item.date)}
                   title={holiday || ""}
                 >
-                  {/* Nomor tanggal */}
                   <span className="text-xs font-semibold mb-1">{item.day}</span>
 
-                  {/* Bar kegiatan */}
                   <div className="space-y-0.5 flex-1 overflow-hidden">
                     {kegiatanHariIni.slice(0, 3).map((k) => {
                       const mulai = k.tanggalMulai || k.tanggal;
@@ -420,20 +437,18 @@ export default function KalenderPekerjaan({
                       const isStart = item.date === mulai;
                       const isEnd = item.date === selesai;
                       const kategoriData = getKategoriData(k.kategori);
-                      const warna = getWarnaStyle(kategoriData?.warna || "gray");
+                      const style = getKategoriStyle(kategoriData);
+
+                      // Gabungin class + inline style
+                      const barClass = style.isCustom
+                        ? `text-[10px] px-1 py-0.5 truncate text-white ${isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""}`
+                        : `${style.bg} ${style.text} text-[10px] px-1 py-0.5 truncate ${isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""}`;
 
                       return (
                         <div
                           key={k.id}
-                          className={`${warna.bg} ${warna.text} text-[10px] px-1 py-0.5 truncate ${
-                            isStart && isEnd
-                              ? "rounded"
-                              : isStart
-                              ? "rounded-l"
-                              : isEnd
-                              ? "rounded-r"
-                              : ""
-                          }`}
+                          className={barClass}
+                          style={style.isCustom ? style.inlineStyle : {}}
                           onClick={(e) => {
                             e.stopPropagation();
                             onClickKegiatan(k.id);
@@ -470,41 +485,37 @@ export default function KalenderPekerjaan({
               <span>Tanggal Dipilih</span>
             </div>
             {kategoriList.map((k) => {
-              const warna = getWarnaStyle(k.warna);
+              const style = getKategoriStyle(k);
               return (
                 <div key={k.id} className="flex items-center gap-1">
-                  <span className={`w-4 h-4 rounded ${warna.bg}`} />
+                  <span
+                    className={`w-4 h-4 rounded ${style.isCustom ? "" : style.bg}`}
+                    style={style.isCustom ? style.inlineStyle : {}}
+                  />
                   <span>{k.label}</span>
                 </div>
               );
             })}
           </div>
 
-          {/* Hint multi-day select */}
+          {/* Hint select */}
           {selectStart && !selectEnd && (
             <div className="mt-3 alert alert-info py-2 text-xs">
               <span>
-                📌 Tanggal mulai dipilih: <strong>{selectStart}</strong>. Klik tanggal akhir, atau klik tanggal yang sama buat 1 hari.
+                📌 Tanggal mulai: <strong>{selectStart}</strong>. Klik tanggal akhir, atau klik tanggal yang sama buat 1 hari.
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* FORM INPUT */}
+      {/* FORM INPUT KEGIATAN */}
       {showForm && selectStart && (
         <div className="card bg-white shadow border border-blue-300">
           <div className="card-body p-4">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-base font-bold text-gray-800">
-                ✏️ Tambah Kegiatan
-              </h3>
-              <button
-                className="btn btn-ghost btn-xs text-gray-500"
-                onClick={handleBatalSelect}
-              >
-                ✕
-              </button>
+              <h3 className="text-base font-bold text-gray-800">✏️ Tambah Kegiatan</h3>
+              <button className="btn btn-ghost btn-xs text-gray-500" onClick={handleBatalSelect}>✕</button>
             </div>
 
             <div className="bg-blue-50 rounded p-2 mb-3 border border-blue-200">
@@ -516,9 +527,7 @@ export default function KalenderPekerjaan({
             <div className="space-y-3">
               {/* Judul */}
               <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Judul Kegiatan
-                </label>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Judul Kegiatan</label>
                 <input
                   type="text"
                   className="input input-bordered input-sm w-full text-gray-800 bg-white"
@@ -531,9 +540,7 @@ export default function KalenderPekerjaan({
 
               {/* Kategori */}
               <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Kategori
-                </label>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Kategori</label>
                 <select
                   className="select select-bordered select-sm w-full text-gray-800 bg-white"
                   value={formData.kategori}
@@ -543,14 +550,15 @@ export default function KalenderPekerjaan({
                     <option key={k.id} value={k.id}>{k.label}</option>
                   ))}
                 </select>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Mau tambah kategori baru? Klik ⚙️ Kelola Kategori di atas kalender.
+                </p>
               </div>
 
               {/* Prioritas & Sumber */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                    Prioritas
-                  </label>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Prioritas</label>
                   <select
                     className="select select-bordered select-sm w-full text-gray-800 bg-white"
                     value={formData.prioritas}
@@ -562,9 +570,7 @@ export default function KalenderPekerjaan({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                    Sumber
-                  </label>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Sumber</label>
                   <select
                     className="select select-bordered select-sm w-full text-gray-800 bg-white"
                     value={formData.sumber}
@@ -579,9 +585,7 @@ export default function KalenderPekerjaan({
 
               {/* Catatan */}
               <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Catatan
-                </label>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Catatan</label>
                 <textarea
                   className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
                   rows="2"
@@ -593,18 +597,8 @@ export default function KalenderPekerjaan({
 
               {/* Tombol */}
               <div className="flex gap-2">
-                <button
-                  className="btn btn-primary btn-sm flex-1"
-                  onClick={handleAdd}
-                >
-                  ➕ Tambah
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm text-gray-700"
-                  onClick={handleBatalSelect}
-                >
-                  Batal
-                </button>
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleAdd}>➕ Tambah</button>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBatalSelect}>Batal</button>
               </div>
             </div>
           </div>
@@ -628,7 +622,7 @@ export default function KalenderPekerjaan({
                 })
                 .map((keg) => {
                   const kategoriData = getKategoriData(keg.kategori);
-                  const warna = getWarnaStyle(kategoriData?.warna || "gray");
+                  const style = getKategoriStyle(kategoriData);
                   const mulai = keg.tanggalMulai || keg.tanggal;
                   const selesai = keg.tanggalSelesai || keg.tanggal || keg.tanggalMulai;
 
@@ -638,7 +632,10 @@ export default function KalenderPekerjaan({
                       className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200 hover:bg-gray-100 cursor-pointer transition"
                       onClick={() => onClickKegiatan(keg.id)}
                     >
-                      <div className={`w-1 self-stretch rounded ${warna.bg}`} />
+                      <div
+                        className={`w-1 self-stretch rounded ${style.isCustom ? "" : style.bg}`}
+                        style={style.isCustom ? style.inlineStyle : {}}
+                      />
                       <div className="flex-1">
                         <p className={`text-sm font-semibold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>
                           {keg.judul}
@@ -671,6 +668,153 @@ export default function KalenderPekerjaan({
                     </div>
                   );
                 })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KELOLA KATEGORI */}
+      {showKelolaKategori && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base font-bold text-gray-800">⚙️ Kelola Kategori Kegiatan</h3>
+                <button
+                  className="btn btn-ghost btn-sm text-gray-700"
+                  onClick={() => setShowKelolaKategori(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* List Kategori */}
+              <div className="space-y-1 mb-4">
+                {kategoriList.map((k) => {
+                  const style = getKategoriStyle(k);
+                  return (
+                    <div
+                      key={k.id}
+                      className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-5 h-5 rounded ${style.isCustom ? "" : style.bg}`}
+                          style={style.isCustom ? style.inlineStyle : {}}
+                        />
+                        <span className="text-sm text-gray-700">{k.label}</span>
+                        {k.customHex && (
+                          <span className="text-[10px] text-gray-400">({k.customHex})</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <button
+                          className="btn btn-ghost btn-xs text-gray-600"
+                          onClick={() => handleBukaEditKategori(k)}
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-xs text-red-500"
+                          onClick={() => handleHapusKategori(k.id)}
+                          title="Hapus"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Form Tambah/Edit */}
+              <div className="bg-purple-50 rounded p-3 border border-purple-200 space-y-2">
+                <p className="text-xs font-semibold text-purple-700">
+                  {editingKategoriId ? "✏️ Edit Kategori" : "➕ Tambah Kategori Baru"}
+                </p>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white"
+                    placeholder="📌"
+                    value={kategoriForm.emoji}
+                    onChange={(e) => setKategoriForm({ ...kategoriForm, emoji: e.target.value })}
+                    title="Emoji"
+                  />
+                  <input
+                    type="text"
+                    className="input input-bordered input-sm flex-1 text-gray-800 bg-white"
+                    placeholder="Nama kategori (misal: Industrial Manufaktur)"
+                    value={kategoriForm.label}
+                    onChange={(e) => setKategoriForm({ ...kategoriForm, label: e.target.value })}
+                  />
+                </div>
+
+                {/* Pilih Warna: 10 Palet */}
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Warna (pilih dari palet):</p>
+                  <div className="flex flex-wrap gap-1">
+                    {WARNA_OPTIONS.map((w) => (
+                      <button
+                        key={w.id}
+                        className={`w-7 h-7 rounded ${w.bg} border-2 ${
+                          kategoriForm.warna === w.id && !kategoriForm.customHex
+                            ? "border-gray-800 ring-2 ring-gray-400"
+                            : "border-white"
+                        }`}
+                        onClick={() =>
+                          setKategoriForm({ ...kategoriForm, warna: w.id, customHex: "" })
+                        }
+                        title={w.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Hex */}
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">
+                    Atau custom warna sendiri (hex):
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      className="input input-bordered input-sm w-32 text-gray-800 bg-white"
+                      placeholder="#FF5733"
+                      value={kategoriForm.customHex}
+                      onChange={(e) =>
+                        setKategoriForm({ ...kategoriForm, customHex: e.target.value })
+                      }
+                    />
+                    {kategoriForm.customHex && (
+                      <span
+                        className="w-8 h-8 rounded border-2 border-gray-300"
+                        style={{ backgroundColor: kategoriForm.customHex }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    className="btn btn-primary btn-sm flex-1"
+                    onClick={handleSimpanKategori}
+                    disabled={!kategoriForm.label.trim()}
+                  >
+                    {editingKategoriId ? "💾 Simpan" : "➕ Tambah"}
+                  </button>
+                  {editingKategoriId && (
+                    <button
+                      className="btn btn-ghost btn-sm text-gray-700"
+                      onClick={handleBukaTambahKategori}
+                    >
+                      Batal Edit
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
