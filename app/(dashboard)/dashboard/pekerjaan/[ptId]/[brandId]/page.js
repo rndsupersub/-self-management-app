@@ -8,6 +8,9 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import KalenderPekerjaan from "@/components/KalenderPekerjaan";
+import VendorManager from "@/components/VendorManager";
+import VendorDetail from "@/components/VendorDetail";
+import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_PRIORITAS,
@@ -15,6 +18,12 @@ import {
   DEFAULT_SECTIONS,
   generateId,
 } from "@/lib/pekerjaanData";
+import {
+  DEFAULT_KATEGORI_VENDOR,
+  DEFAULT_PERTANYAAN_VENDOR,
+  DEFAULT_TUJUAN_KUNJUNGAN,
+  SATUAN_MOQ,
+} from "@/lib/vendorData";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -38,6 +47,14 @@ export default function BrandPage() {
     tanggal: "",
   });
 
+  // ========== VENDOR STATE ==========
+  const [activeTab, setActiveTab] = useState("kalender");
+  const [selectedVendorId, setSelectedVendorId] = useState(null);
+  const [vendorKategoriList, setVendorKategoriList] = useState(DEFAULT_KATEGORI_VENDOR);
+  const [vendorPertanyaanList, setVendorPertanyaanList] = useState(DEFAULT_PERTANYAAN_VENDOR);
+  const [vendorTujuanList, setVendorTujuanList] = useState(DEFAULT_TUJUAN_KUNJUNGAN);
+  const [vendorSatuanMoqList, setVendorSatuanMoqList] = useState(SATUAN_MOQ);
+
   const router = useRouter();
   const params = useParams();
   const ptId = params.ptId;
@@ -51,12 +68,14 @@ export default function BrandPage() {
         return;
       }
       setUser(user);
+
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data();
 
+        // Load activities
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
@@ -64,6 +83,7 @@ export default function BrandPage() {
           setActivities(DEFAULT_ACTIVITIES);
         }
 
+        // Load pekerjaan
         if (data.pekerjaan && Array.isArray(data.pekerjaan)) {
           setPekerjaan(data.pekerjaan);
         } else {
@@ -71,36 +91,72 @@ export default function BrandPage() {
           setPekerjaan([]);
         }
 
+        // Load prioritas
         if (data.prioritasList && Array.isArray(data.prioritasList)) {
           setPrioritasList(data.prioritasList);
         } else {
           await setDoc(docRef, { prioritasList: DEFAULT_PRIORITAS }, { merge: true });
         }
 
+        // Load sumber
         if (data.sumberList && Array.isArray(data.sumberList)) {
           setSumberList(data.sumberList);
         } else {
           await setDoc(docRef, { sumberList: DEFAULT_SUMBER }, { merge: true });
         }
 
+        // Load sections
         if (data.sections && Array.isArray(data.sections)) {
           setSections(data.sections);
         } else {
           await setDoc(docRef, { sections: DEFAULT_SECTIONS }, { merge: true });
         }
+
+        // ========== LOAD VENDOR SETTINGS ==========
+        if (data.vendorKategoriList && Array.isArray(data.vendorKategoriList)) {
+          setVendorKategoriList(data.vendorKategoriList);
+        } else {
+          await setDoc(docRef, { vendorKategoriList: DEFAULT_KATEGORI_VENDOR }, { merge: true });
+        }
+
+        if (data.vendorPertanyaanList && Array.isArray(data.vendorPertanyaanList)) {
+          setVendorPertanyaanList(data.vendorPertanyaanList);
+        } else {
+          await setDoc(docRef, { vendorPertanyaanList: DEFAULT_PERTANYAAN_VENDOR }, { merge: true });
+        }
+
+        if (data.vendorTujuanList && Array.isArray(data.vendorTujuanList)) {
+          setVendorTujuanList(data.vendorTujuanList);
+        } else {
+          await setDoc(docRef, { vendorTujuanList: DEFAULT_TUJUAN_KUNJUNGAN }, { merge: true });
+        }
+
+        if (data.vendorSatuanMoqList && Array.isArray(data.vendorSatuanMoqList)) {
+          setVendorSatuanMoqList(data.vendorSatuanMoqList);
+        } else {
+          await setDoc(docRef, { vendorSatuanMoqList: SATUAN_MOQ }, { merge: true });
+        }
+
       } else {
+        // User baru
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
           pekerjaan: [],
           prioritasList: DEFAULT_PRIORITAS,
           sumberList: DEFAULT_SUMBER,
           sections: DEFAULT_SECTIONS,
+          vendorKategoriList: DEFAULT_KATEGORI_VENDOR,
+          vendorPertanyaanList: DEFAULT_PERTANYAAN_VENDOR,
+          vendorTujuanList: DEFAULT_TUJUAN_KUNJUNGAN,
+          vendorSatuanMoqList: SATUAN_MOQ,
         });
         setActivities(DEFAULT_ACTIVITIES);
         setPekerjaan([]);
       }
+
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -116,11 +172,17 @@ export default function BrandPage() {
     if (brand) setEditNama(brand.nama);
   }, [brand]);
 
-  // ========== SIMPAN KE FIRESTORE ==========
+  // ========== SIMPAN PEKERJAAN KE FIRESTORE ==========
   const simpanKeFirestore = async (updatedPekerjaan) => {
     setPekerjaan(updatedPekerjaan);
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, { pekerjaan: updatedPekerjaan }, { merge: true });
+  };
+
+  // ========== SIMPAN VENDOR SETTINGS KE FIRESTORE ==========
+  const simpanVendorSettings = async (updates) => {
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, updates, { merge: true });
   };
 
   // ========== TAMBAH KEGIATAN ==========
@@ -154,7 +216,6 @@ export default function BrandPage() {
 
   const handleSimpanEdit = async () => {
     if (!editForm.judul.trim() || !editingKegiatan) return;
-
     const updated = pekerjaan.map((p) =>
       p.id === ptId
         ? {
@@ -248,6 +309,99 @@ export default function BrandPage() {
     router.push(`/dashboard/pekerjaan/${ptId}`);
   };
 
+  // ========== VENDOR HANDLERS ==========
+  const handleAddVendor = async (newVendor) => {
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId
+        ? {
+            ...p,
+            brands: p.brands.map((b) =>
+              b.id === brandId
+                ? {
+                    ...b,
+                    vendorList: [...(b.vendorList || []), newVendor],
+                  }
+                : b
+            ),
+          }
+        : p
+    );
+    await simpanKeFirestore(updated);
+  };
+
+  const handleUpdateVendor = async (updatedVendor) => {
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId
+        ? {
+            ...p,
+            brands: p.brands.map((b) =>
+              b.id === brandId
+                ? {
+                    ...b,
+                    vendorList: (b.vendorList || []).map((v) =>
+                      v.id === updatedVendor.id ? updatedVendor : v
+                    ),
+                  }
+                : b
+            ),
+          }
+        : p
+    );
+    await simpanKeFirestore(updated);
+  };
+
+  const handleDeleteVendor = async (vendorId) => {
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId
+        ? {
+            ...p,
+            brands: p.brands.map((b) =>
+              b.id === brandId
+                ? {
+                    ...b,
+                    vendorList: (b.vendorList || []).filter(
+                      (v) => v.id !== vendorId
+                    ),
+                  }
+                : b
+            ),
+          }
+        : p
+    );
+    await simpanKeFirestore(updated);
+    setSelectedVendorId(null);
+  };
+
+  const handleUpdateKategoriVendor = async (updatedList) => {
+    setVendorKategoriList(updatedList);
+    await simpanVendorSettings({ vendorKategoriList: updatedList });
+  };
+
+  const handleUpdatePertanyaanVendor = async (updatedList) => {
+    setVendorPertanyaanList(updatedList);
+    await simpanVendorSettings({ vendorPertanyaanList: updatedList });
+  };
+
+  const handleUpdateSatuanMoq = async (updatedList) => {
+    setVendorSatuanMoqList(updatedList);
+    await simpanVendorSettings({ vendorSatuanMoqList: updatedList });
+  };
+
+  // ========== LAPORAN HANDLER ==========
+  const handleUpdateLaporan = async (newLaporanData) => {
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId
+        ? {
+            ...p,
+            brands: p.brands.map((b) =>
+              b.id === brandId ? { ...b, laporanData: newLaporanData } : b
+            ),
+          }
+        : p
+    );
+    await simpanKeFirestore(updated);
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
@@ -286,6 +440,12 @@ export default function BrandPage() {
       </div>
     );
   }
+
+  const vendorList = brand.vendorList || [];
+  const selectedVendor = selectedVendorId
+    ? vendorList.find((v) => v.id === selectedVendorId)
+    : null;
+  const laporanData = brand.laporanData || {};
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
@@ -337,9 +497,7 @@ export default function BrandPage() {
               </li>
               <li>
                 <a
-                  onClick={() =>
-                    router.push(`/dashboard/pekerjaan/${ptId}`)
-                  }
+                  onClick={() => router.push(`/dashboard/pekerjaan/${ptId}`)}
                   className="cursor-pointer"
                 >
                   🏢 {pt.nama}
@@ -350,7 +508,7 @@ export default function BrandPage() {
           </div>
 
           {/* Header Brand */}
-          <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
+          <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
             {editMode ? (
               <div className="flex gap-2 items-center flex-1">
                 <input
@@ -423,155 +581,227 @@ export default function BrandPage() {
             </div>
           )}
 
-          {/* Kalender */}
-          <KalenderPekerjaan
-            kegiatan={brand.kegiatan || []}
-            onAdd={handleTambahKegiatan}
-            onClickKegiatan={handleClickKegiatan}
-            prioritasList={prioritasList}
-            sumberList={sumberList}
-          />
+          {/* TAB NAVIGATION */}
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
+            <button
+              className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => {
+                setActiveTab("kalender");
+                setSelectedVendorId(null);
+              }}
+            >
+              📅 Kalender
+            </button>
+            <button
+              className={`tab ${activeTab === "vendor" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("vendor")}
+            >
+              🏭 Vendor ({vendorList.length})
+            </button>
+            <button
+              className={`tab ${activeTab === "laporan" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("laporan")}
+            >
+              📋 Laporan
+            </button>
+          </div>
 
-          {/* Daftar Kegiatan dengan tombol Edit & Hapus */}
-          {brand.kegiatan && brand.kegiatan.length > 0 && (
-            <div className="card bg-white shadow border border-gray-200 mt-4">
-              <div className="card-body p-4">
-                <h3 className="text-base font-bold text-gray-800 mb-3">
-                  📋 Semua Kegiatan ({brand.kegiatan.length})
-                </h3>
-                <div className="space-y-2">
-                  {brand.kegiatan
-                    .slice()
-                    .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
-                    .map((keg) => (
-                      <div
-                        key={keg.id}
-                        className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200"
-                      >
-                        <div
-                          className="flex-1 cursor-pointer"
-                          onClick={() => handleClickKegiatan(keg.id)}
-                        >
-                          <p
-                            className={`text-sm font-semibold text-gray-800 ${
-                              keg.status === "selesai"
-                                ? "line-through opacity-60"
-                                : ""
-                            }`}
+          {/* ========== TAB KALENDER ========== */}
+          {activeTab === "kalender" && (
+            <>
+              <KalenderPekerjaan
+                kegiatan={brand.kegiatan || []}
+                onAdd={handleTambahKegiatan}
+                onClickKegiatan={handleClickKegiatan}
+                prioritasList={prioritasList}
+                sumberList={sumberList}
+              />
+
+              {/* Daftar Kegiatan dengan tombol Edit & Hapus */}
+              {brand.kegiatan && brand.kegiatan.length > 0 && (
+                <div className="card bg-white shadow border border-gray-200 mt-4">
+                  <div className="card-body p-4">
+                    <h3 className="text-base font-bold text-gray-800 mb-3">
+                      📋 Semua Kegiatan ({brand.kegiatan.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {brand.kegiatan
+                        .slice()
+                        .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+                        .map((keg) => (
+                          <div
+                            key={keg.id}
+                            className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200"
                           >
-                            {keg.judul}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            📅 {keg.tanggal} • {keg.status === "selesai" ? "✅ Selesai" : "⏳ Belum"}
-                          </p>
-                        </div>
-                        <div className="flex gap-1">
-                          <button
-                            className="btn btn-ghost btn-xs"
-                            onClick={() => handleBukaEdit(keg)}
-                            title="Edit"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-xs text-red-500"
-                            onClick={() => handleHapusKegiatan(keg.id)}
-                            title="Hapus"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                            <div
+                              className="flex-1 cursor-pointer"
+                              onClick={() => handleClickKegiatan(keg.id)}
+                            >
+                              <p
+                                className={`text-sm font-semibold text-gray-800 ${
+                                  keg.status === "selesai"
+                                    ? "line-through opacity-60"
+                                    : ""
+                                }`}
+                              >
+                                {keg.judul}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                📅 {keg.tanggal} •{" "}
+                                {keg.status === "selesai"
+                                  ? "✅ Selesai"
+                                  : "⏳ Belum"}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                className="btn btn-ghost btn-xs"
+                                onClick={() => handleBukaEdit(keg)}
+                                title="Edit"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                className="btn btn-ghost btn-xs text-red-500"
+                                onClick={() => handleHapusKegiatan(keg.id)}
+                                title="Hapus"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
-          {/* Modal Edit Kegiatan */}
-          {editingKegiatan && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="card bg-white shadow-xl w-full max-w-md">
-                <div className="card-body p-4">
-                  <h3 className="text-base font-bold text-gray-800 mb-3">
-                    ✏️ Edit Kegiatan
-                  </h3>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      className="input input-bordered w-full text-gray-800 bg-white"
-                      placeholder="Judul kegiatan"
-                      value={editForm.judul}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, judul: e.target.value })
-                      }
-                    />
-                    <div className="flex gap-2">
-                      <select
-                        className="select select-bordered flex-1 text-gray-800 bg-white"
-                        value={editForm.prioritas}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, prioritas: e.target.value })
-                        }
-                      >
-                        {prioritasList.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.label}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="select select-bordered flex-1 text-gray-800 bg-white"
-                        value={editForm.sumber}
-                        onChange={(e) =>
-                          setEditForm({ ...editForm, sumber: e.target.value })
-                        }
-                      >
-                        {sumberList.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <input
-                      type="date"
-                      className="input input-bordered w-full text-gray-800 bg-white"
-                      value={editForm.tanggal}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, tanggal: e.target.value })
-                      }
-                    />
-                    <textarea
-                      className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
-                      rows="2"
-                      placeholder="Catatan"
-                      value={editForm.catatan}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, catatan: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      className="btn btn-primary btn-sm flex-1"
-                      onClick={handleSimpanEdit}
-                    >
-                      💾 Simpan
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm text-gray-700"
-                      onClick={() => setEditingKegiatan(null)}
-                    >
-                      Batal
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* ========== TAB VENDOR ========== */}
+          {activeTab === "vendor" && (
+            <>
+              {selectedVendor ? (
+                <VendorDetail
+                  vendor={selectedVendor}
+                  kategoriVendorList={vendorKategoriList}
+                  tujuanKunjunganList={vendorTujuanList}
+                  onUpdateVendor={handleUpdateVendor}
+                  onDeleteVendor={handleDeleteVendor}
+                  onBack={() => setSelectedVendorId(null)}
+                />
+              ) : (
+                <VendorManager
+                  vendorList={vendorList}
+                  kategoriVendorList={vendorKategoriList}
+                  pertanyaanVendorList={vendorPertanyaanList}
+                  satuanMoqList={vendorSatuanMoqList}
+                  onAddVendor={handleAddVendor}
+                  onDeleteVendor={handleDeleteVendor}
+                  onClickVendor={setSelectedVendorId}
+                  onUpdateKategoriVendor={handleUpdateKategoriVendor}
+                  onUpdatePertanyaanVendor={handleUpdatePertanyaanVendor}
+                  onUpdateSatuanMoq={handleUpdateSatuanMoq}
+                />
+              )}
+            </>
+          )}
+
+          {/* ========== TAB LAPORAN ========== */}
+          {activeTab === "laporan" && (
+            <LaporanPekerjaan
+              kegiatanList={brand.kegiatan || []}
+              laporanData={laporanData}
+              onUpdateLaporan={handleUpdateLaporan}
+              prioritasList={prioritasList}
+              sumberList={sumberList}
+            />
           )}
         </div>
       </div>
+
+      {/* Modal Edit Kegiatan */}
+      {editingKegiatan && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card bg-white shadow-xl w-full max-w-md">
+            <div className="card-body p-4">
+              <h3 className="text-base font-bold text-gray-800 mb-3">
+                ✏️ Edit Kegiatan
+              </h3>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  className="input input-bordered w-full text-gray-800 bg-white"
+                  placeholder="Judul kegiatan"
+                  value={editForm.judul}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, judul: e.target.value })
+                  }
+                />
+                <div className="flex gap-2">
+                  <select
+                    className="select select-bordered flex-1 text-gray-800 bg-white"
+                    value={editForm.prioritas}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, prioritas: e.target.value })
+                    }
+                  >
+                    {prioritasList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="select select-bordered flex-1 text-gray-800 bg-white"
+                    value={editForm.sumber}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, sumber: e.target.value })
+                    }
+                  >
+                    {sumberList.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <input
+                  type="date"
+                  className="input input-bordered w-full text-gray-800 bg-white"
+                  value={editForm.tanggal}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, tanggal: e.target.value })
+                  }
+                />
+                <textarea
+                  className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
+                  rows="2"
+                  placeholder="Catatan"
+                  value={editForm.catatan}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, catatan: e.target.value })
+                  }
+                />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  className="btn btn-primary btn-sm flex-1"
+                  onClick={handleSimpanEdit}
+                >
+                  💾 Simpan
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm text-gray-700"
+                  onClick={() => setEditingKegiatan(null)}
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
