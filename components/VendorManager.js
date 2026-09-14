@@ -60,6 +60,12 @@ export default function VendorManager({
     tipe: "checkbox",
   });
 
+  // Inline tambah kategori & satuan di form vendor
+  const [showKategoriBaru, setShowKategoriBaru] = useState(false);
+  const [newKategoriInline, setNewKategoriInline] = useState("");
+  const [showSatuanBaru, setShowSatuanBaru] = useState(false);
+  const [newSatuanInline, setNewSatuanInline] = useState("");
+
   // ========== FILTER VENDOR ==========
   const filteredVendor = vendorList.filter((v) => {
     if (filterKategori !== "all" && v.kategoriId !== filterKategori) return false;
@@ -88,6 +94,8 @@ export default function VendorManager({
         jawaban: q.tipe === "checkbox" ? false : "",
       })),
     });
+    setShowKategoriBaru(false);
+    setShowSatuanBaru(false);
   };
 
   // ========== BUKA FORM ==========
@@ -123,18 +131,95 @@ export default function VendorManager({
       updatedAt: new Date().toISOString(),
     };
 
+    // Sinkron default pertanyaan (kalau user ubah/hapus/tambah di form)
+    const newDefaultPertanyaan = formData.pertanyaanAwal.map((q) => ({
+      id: q.id,
+      pertanyaan: q.pertanyaan,
+      tipe: q.tipe,
+    }));
+    if (onUpdatePertanyaanVendor) {
+      onUpdatePertanyaanVendor(newDefaultPertanyaan);
+    }
+
     onAddVendor(newVendor);
     setShowForm(false);
   };
 
-  // ========== UPDATE PERTANYAAN JAWABAN ==========
+  // ========== UPDATE JAWABAN ==========
   const handleUpdateJawaban = (index, jawaban) => {
     const updated = [...formData.pertanyaanAwal];
     updated[index] = { ...updated[index], jawaban };
     setFormData({ ...formData, pertanyaanAwal: updated });
   };
 
-  // ========== KELOLA KATEGORI ==========
+  // ========== UPDATE TIPE PERTANYAAN ==========
+  const handleUpdateTipePertanyaan = (index, tipe) => {
+    const updated = [...formData.pertanyaanAwal];
+    updated[index] = {
+      ...updated[index],
+      tipe,
+      jawaban: tipe === "checkbox" ? updated[index].jawaban === true : "",
+    };
+    setFormData({ ...formData, pertanyaanAwal: updated });
+  };
+
+  // ========== UPDATE TEXT PERTANYAAN ==========
+  const handleUpdatePertanyaanText = (index, text) => {
+    const updated = [...formData.pertanyaanAwal];
+    updated[index] = { ...updated[index], pertanyaan: text };
+    setFormData({ ...formData, pertanyaanAwal: updated });
+  };
+
+  // ========== TAMBAH PERTANYAAN INLINE ==========
+  const handleTambahPertanyaanInline = () => {
+    const newQ = {
+      id: generateId("q"),
+      pertanyaan: "",
+      tipe: "checkbox",
+      jawaban: false,
+    };
+    setFormData({
+      ...formData,
+      pertanyaanAwal: [...formData.pertanyaanAwal, newQ],
+    });
+  };
+
+  // ========== HAPUS PERTANYAAN INLINE ==========
+  const handleHapusPertanyaanInline = (index) => {
+    if (!confirm("Hapus pertanyaan ini? Ini akan menghapus dari default juga.")) return;
+    const updated = formData.pertanyaanAwal.filter((_, i) => i !== index);
+    setFormData({ ...formData, pertanyaanAwal: updated });
+  };
+
+  // ========== TAMBAH KATEGORI INLINE ==========
+  const handleTambahKategoriInline = () => {
+    if (!newKategoriInline.trim()) return;
+    const newK = {
+      id: generateId("kat_vendor"),
+      label: newKategoriInline,
+    };
+    const updated = [...kategoriVendorList, newK];
+    onUpdateKategoriVendor(updated);
+    setFormData({ ...formData, kategoriId: newK.id });
+    setNewKategoriInline("");
+    setShowKategoriBaru(false);
+  };
+
+  // ========== TAMBAH SATUAN INLINE ==========
+  const handleTambahSatuanInline = () => {
+    if (!newSatuanInline.trim()) return;
+    const newS = {
+      id: newSatuanInline.toLowerCase().replace(/\s+/g, "_"),
+      label: newSatuanInline,
+    };
+    const updated = [...satuanMoqList, newS];
+    onUpdateSatuanMoq(updated);
+    setFormData({ ...formData, moqSatuan: newS.id });
+    setNewSatuanInline("");
+    setShowSatuanBaru(false);
+  };
+
+  // ========== KELOLA KATEGORI (MODAL) ==========
   const handleTambahKategori = () => {
     if (!newKategori.trim()) return;
     const updated = [
@@ -151,7 +236,7 @@ export default function VendorManager({
     onUpdateKategoriVendor(updated);
   };
 
-  // ========== KELOLA PERTANYAAN DEFAULT ==========
+  // ========== KELOLA PERTANYAAN DEFAULT (MODAL) ==========
   const handleTambahPertanyaan = () => {
     if (!newPertanyaan.pertanyaan.trim()) return;
     const updated = [
@@ -254,7 +339,6 @@ export default function VendorManager({
             <h3 className="text-base font-bold text-gray-800 mb-3">
               ✏️ Tambah Vendor Baru
             </h3>
-
             <div className="space-y-3">
               {/* Nama + Kategori */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -277,19 +361,49 @@ export default function VendorManager({
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">
                     Kategori
                   </label>
-                  <select
-                    className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                    value={formData.kategoriId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, kategoriId: e.target.value })
-                    }
-                  >
-                    {kategoriVendorList.map((k) => (
-                      <option key={k.id} value={k.id}>
-                        {k.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex gap-1">
+                    <select
+                      className="select select-bordered select-sm flex-1 text-gray-800 bg-white"
+                      value={formData.kategoriId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, kategoriId: e.target.value })
+                      }
+                    >
+                      {kategoriVendorList.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setShowKategoriBaru(!showKategoriBaru)}
+                      title="Tambah kategori baru"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {showKategoriBaru && (
+                    <div className="flex gap-1 mt-1">
+                      <input
+                        type="text"
+                        className="input input-bordered input-xs flex-1 text-gray-800 bg-white"
+                        placeholder="Nama kategori baru (misal: Industrial Manufaktur)"
+                        value={newKategoriInline}
+                        onChange={(e) => setNewKategoriInline(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleTambahKategoriInline()
+                        }
+                        autoFocus
+                      />
+                      <button
+                        className="btn btn-primary btn-xs"
+                        onClick={handleTambahKategoriInline}
+                      >
+                        Simpan
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -355,19 +469,49 @@ export default function VendorManager({
                   <label className="text-xs text-gray-600 mb-1 block">
                     Satuan
                   </label>
-                  <select
-                    className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                    value={formData.moqSatuan}
-                    onChange={(e) =>
-                      setFormData({ ...formData, moqSatuan: e.target.value })
-                    }
-                  >
-                    {satuanMoqList.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex gap-1">
+                    <select
+                      className="select select-bordered select-sm flex-1 text-gray-800 bg-white"
+                      value={formData.moqSatuan}
+                      onChange={(e) =>
+                        setFormData({ ...formData, moqSatuan: e.target.value })
+                      }
+                    >
+                      {satuanMoqList.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setShowSatuanBaru(!showSatuanBaru)}
+                      title="Tambah satuan baru"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {showSatuanBaru && (
+                    <div className="flex gap-1 mt-1">
+                      <input
+                        type="text"
+                        className="input input-bordered input-xs flex-1 text-gray-800 bg-white"
+                        placeholder="Satuan baru (misal: miligram)"
+                        value={newSatuanInline}
+                        onChange={(e) => setNewSatuanInline(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleTambahSatuanInline()
+                        }
+                        autoFocus
+                      />
+                      <button
+                        className="btn btn-primary btn-xs"
+                        onClick={handleTambahSatuanInline}
+                      >
+                        Simpan
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">
@@ -419,55 +563,107 @@ export default function VendorManager({
                 />
               </div>
 
-              {/* PERTANYAAN AWAL */}
-              <div className="bg-purple-50 rounded p-3 border border-purple-200">
-                <p className="text-xs font-semibold text-purple-700 mb-2">
-                  📋 Pertanyaan Awal Vendor
-                </p>
-                <div className="space-y-2">
-                  {formData.pertanyaanAwal.map((q, idx) => (
-                    <div key={q.id} className="bg-white rounded p-2 border border-gray-200">
-                      <p className="text-xs text-gray-700 mb-1">{q.pertanyaan}</p>
-                      {q.tipe === "checkbox" && (
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-xs"
-                            checked={q.jawaban || false}
-                            onChange={(e) =>
-                              handleUpdateJawaban(idx, e.target.checked)
-                            }
-                          />
-                          <span className="text-xs text-gray-600">
-                            {q.jawaban ? "✅ Ya" : "❌ Tidak"}
-                          </span>
-                        </label>
-                      )}
-                      {q.tipe === "short" && (
-                        <input
-                          type="text"
-                          className="input input-bordered input-xs w-full text-gray-800 bg-white"
-                          placeholder="Jawaban pendek..."
-                          value={q.jawaban || ""}
-                          onChange={(e) =>
-                            handleUpdateJawaban(idx, e.target.value)
-                          }
-                        />
-                      )}
-                      {q.tipe === "long" && (
-                        <textarea
-                          className="textarea textarea-bordered w-full text-xs text-gray-800 bg-white"
-                          rows="2"
-                          placeholder="Jawaban panjang..."
-                          value={q.jawaban || ""}
-                          onChange={(e) =>
-                            handleUpdateJawaban(idx, e.target.value)
-                          }
-                        />
-                      )}
-                    </div>
-                  ))}
+              {/* PERTANYAAN AWAL VENDOR */}
+              <div className="bg-purple-50 rounded p-3 border border-purple-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs font-semibold text-purple-700">
+                    📋 Pertanyaan Awal Vendor
+                  </p>
+                  <button
+                    className="btn btn-ghost btn-xs text-purple-700"
+                    onClick={handleTambahPertanyaanInline}
+                  >
+                    + Tambah Pertanyaan
+                  </button>
                 </div>
+
+                {formData.pertanyaanAwal.length === 0 && (
+                  <p className="text-xs text-gray-400 italic text-center py-2">
+                    Belum ada pertanyaan. Klik "+ Tambah Pertanyaan".
+                  </p>
+                )}
+
+                {formData.pertanyaanAwal.map((q, idx) => (
+                  <div
+                    key={q.id}
+                    className="bg-white rounded p-2 border border-gray-200 space-y-2"
+                  >
+                    <div className="flex gap-1 items-center">
+                      <select
+                        className="select select-bordered select-xs text-gray-800 bg-white"
+                        value={q.tipe}
+                        onChange={(e) =>
+                          handleUpdateTipePertanyaan(idx, e.target.value)
+                        }
+                        title="Tipe pertanyaan"
+                      >
+                        <option value="checkbox">✅ Checkbox</option>
+                        <option value="short">✏️ Pendek</option>
+                        <option value="long">📝 Panjang</option>
+                      </select>
+                      <input
+                        type="text"
+                        className="input input-bordered input-xs flex-1 text-gray-800 bg-white"
+                        placeholder="Tulis pertanyaan..."
+                        value={q.pertanyaan}
+                        onChange={(e) =>
+                          handleUpdatePertanyaanText(idx, e.target.value)
+                        }
+                      />
+                      <button
+                        className="btn btn-ghost btn-xs text-red-500"
+                        onClick={() => handleHapusPertanyaanInline(idx)}
+                        title="Hapus pertanyaan"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+
+                    {/* Tipe: Checkbox */}
+                    {q.tipe === "checkbox" && (
+                      <div className="flex gap-1">
+                        <button
+                          className={`btn btn-xs flex-1 ${
+                            q.jawaban === true ? "btn-success" : "btn-outline"
+                          }`}
+                          onClick={() => handleUpdateJawaban(idx, true)}
+                        >
+                          ✅ Ya
+                        </button>
+                        <button
+                          className={`btn btn-xs flex-1 ${
+                            q.jawaban === false ? "btn-error" : "btn-outline"
+                          }`}
+                          onClick={() => handleUpdateJawaban(idx, false)}
+                        >
+                          ❌ Tidak
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Tipe: Pendek */}
+                    {q.tipe === "short" && (
+                      <input
+                        type="text"
+                        className="input input-bordered input-xs w-full text-gray-800 bg-white"
+                        placeholder="Jawaban pendek..."
+                        value={q.jawaban || ""}
+                        onChange={(e) => handleUpdateJawaban(idx, e.target.value)}
+                      />
+                    )}
+
+                    {/* Tipe: Panjang */}
+                    {q.tipe === "long" && (
+                      <textarea
+                        className="textarea textarea-bordered w-full text-xs text-gray-800 bg-white"
+                        rows="2"
+                        placeholder="Jawaban panjang..."
+                        value={q.jawaban || ""}
+                        onChange={(e) => handleUpdateJawaban(idx, e.target.value)}
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
 
               {/* Tombol */}
@@ -538,7 +734,6 @@ export default function VendorManager({
                     </button>
                   </div>
 
-                  {/* Status badge */}
                   <div className="flex flex-wrap gap-1 my-2">
                     <span
                       className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(
@@ -549,14 +744,9 @@ export default function VendorManager({
                     </span>
                   </div>
 
-                  {/* Info ringkas */}
                   <div className="text-xs text-gray-600 space-y-0.5">
-                    {vendor.kontak?.nama && (
-                      <p>👤 {vendor.kontak.nama}</p>
-                    )}
-                    {vendor.kontak?.telp && (
-                      <p>📞 {vendor.kontak.telp}</p>
-                    )}
+                    {vendor.kontak?.nama && <p>👤 {vendor.kontak.nama}</p>}
+                    {vendor.kontak?.telp && <p>📞 {vendor.kontak.telp}</p>}
                     {vendor.moq?.nilai > 0 && (
                       <p>
                         📦 MOQ: {vendor.moq.nilai} {vendor.moq.satuan}
@@ -617,6 +807,7 @@ export default function VendorManager({
                   placeholder="Nama kategori baru"
                   value={newKategori}
                   onChange={(e) => setNewKategori(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleTambahKategori()}
                 />
                 <button
                   className="btn btn-primary btn-sm"
