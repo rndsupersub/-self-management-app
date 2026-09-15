@@ -7,6 +7,8 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Ambil path aktif dari URL: /dashboard/teknik/semester_1 →
+  // ["teknik", "semester_1"]
   const currentPath = pathname
     .replace("/dashboard", "")
     .split("/")
@@ -16,6 +18,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   const isPekerjaan = currentPath[0] === "pekerjaan";
   const isBelajar = currentPath[0] === "belajar";
   const isBedahBuku = currentPath[0] === "bedah-buku";
+  const isBisnis = currentPath[0] === "bisnis";
 
   const handleSelect = (pathArray) => {
     const url = `/dashboard/${pathArray.join("/")}`;
@@ -26,7 +29,8 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
     return items.map((item) => {
       const hasChildren = item.children && item.children.length > 0;
       const currentPathArray = [...parentPath, item.id];
-      const isSelected = currentPath.join("/") === currentPathArray.join("/");
+      const isSelected =
+        currentPath.join("/") === currentPathArray.join("/");
 
       return (
         <div key={item.id} className="select-none">
@@ -38,16 +42,20 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
             onClick={() => handleSelect(currentPathArray)}
           >
             <span className="flex-1 text-sm truncate">{item.label}</span>
-            {hasChildren && <span className="text-xs opacity-50">›</span>}
+            {hasChildren && (
+              <span className="text-xs opacity-50">›</span>
+            )}
           </div>
         </div>
       );
     });
   };
 
-  // Filter "npd" dari tree activities (jaga-jaga)
+  // ========== FILTER AKTIVITAS ==========
+  // Filter "mandarin" dari activities (udah dihapus dari default,
+  // tapi user lama mungkin masih punya data di Firestore).
   const filteredActivities = (activities || []).filter(
-    (a) => a.id !== "npd"
+    (a) => a.id !== "mandarin"
   );
 
   if (collapsed) {
@@ -113,7 +121,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      {/* DAFTAR AKTIVITAS (NPD udah di-filter) */}
+      {/* DAFTAR AKTIVITAS */}
       <div className="flex-1 overflow-y-auto p-2">
         {renderTree(filteredActivities)}
       </div>

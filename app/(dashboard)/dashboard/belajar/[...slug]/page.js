@@ -17,6 +17,7 @@ import {
   addItem,
   deleteItem,
   generateId,
+  kategoriPunyaKaryaMingguan,
 } from "@/lib/belajarData";
 
 export default function BelajarDetailPage() {
@@ -42,6 +43,7 @@ export default function BelajarDetailPage() {
         return;
       }
       setUser(user);
+
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
 
@@ -51,7 +53,11 @@ export default function BelajarDetailPage() {
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
-          await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
+          await setDoc(
+            docRef,
+            { activities: DEFAULT_ACTIVITIES },
+            { merge: true }
+          );
           setActivities(DEFAULT_ACTIVITIES);
         }
 
@@ -86,7 +92,11 @@ export default function BelajarDetailPage() {
   const simpanKategori = async (newKategori) => {
     setKategori(newKategori);
     const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { belajar: { kategori: newKategori } }, { merge: true });
+    await setDoc(
+      docRef,
+      { belajar: { kategori: newKategori } },
+      { merge: true }
+    );
   };
 
   // ========== CARI ITEM DI HIERARKI ==========
@@ -94,7 +104,11 @@ export default function BelajarDetailPage() {
   const item = result?.item || null;
   const level = path.length;
 
-  // ========== TAMBAH ITEM (subKategori / tool / fitur / part) ==========
+  // Cek kategori utama (path[0]) buat deteksi Karya Mingguan
+  const kategoriUtama = path[0] || null;
+  const punyaKaryaMingguan = kategoriPunyaKaryaMingguan(kategoriUtama);
+
+  // ========== TAMBAH ITEM ==========
   const handleTambah = async () => {
     if (!formData.nama.trim() || !item) return;
 
@@ -103,23 +117,22 @@ export default function BelajarDetailPage() {
       nama: formData.nama,
     };
 
-    // Cek level dan tambah field yang sesuai
     if (level === 1) {
       newItem.subKategori = [];
     } else if (level === 2) {
       newItem.tools = [];
     } else if (level === 3) {
       newItem.fitur = [];
-      newItem.karyaMingguan = [];
+      // Karya Mingguan cuma buat kategori Design
+      if (punyaKaryaMingguan) {
+        newItem.karyaMingguan = [];
+      }
     } else if (level === 4) {
-      // Bisa jadi parts atau fitur (nested)
       if (item.parts) {
         newItem.gdriveUrl = "";
-        newItem.tiktokUrl = "";
         newItem.catatan = "";
       } else if (item.fitur) {
         newItem.gdriveUrl = "";
-        newItem.tiktokUrl = "";
         newItem.catatan = "";
       }
     }
@@ -133,13 +146,14 @@ export default function BelajarDetailPage() {
   // ========== HAPUS ITEM ==========
   const handleHapus = async (itemId, e) => {
     e.stopPropagation();
-    if (!confirm("Hapus item ini? Semua isi di dalamnya akan hilang.")) return;
+    if (!confirm("Hapus item ini? Semua isi di dalamnya akan hilang."))
+      return;
     const newPath = [...path, itemId];
     const newKategori = deleteItem(kategori, newPath);
     await simpanKategori(newKategori);
   };
 
-  // ========== UPDATE ITEM (dari BelajarUpload / KaryaMingguan) ==========
+  // ========== UPDATE ITEM ==========
   const handleUpdateItem = async (updatedFields) => {
     const newKategori = updateItem(kategori, path, updatedFields);
     await simpanKategori(newKategori);
@@ -186,8 +200,14 @@ export default function BelajarDetailPage() {
 
   // ========== BREADCRUMB ==========
   const renderBreadcrumb = () => {
-    const items = [{ id: null, nama: "🏠 Dashboard", path: "/dashboard" }];
-    items.push({ id: null, nama: "📚 Belajar", path: "/dashboard/belajar" });
+    const items = [
+      { id: null, nama: "🏠 Dashboard", path: "/dashboard" },
+    ];
+    items.push({
+      id: null,
+      nama: "📚 Belajar",
+      path: "/dashboard/belajar",
+    });
 
     let currentPath = "/dashboard/belajar";
     path.forEach((id, idx) => {
@@ -225,7 +245,7 @@ export default function BelajarDetailPage() {
   };
 
   // ========== RENDER LIST ==========
-  const renderList = (items, onAddPath) => {
+  const renderList = (items) => {
     if (!items || items.length === 0) {
       return (
         <div className="card bg-white shadow border border-gray-200">
@@ -311,7 +331,7 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 3: Tool → Fitur + Karya Mingguan
+    // LEVEL 3: Tool → Fitur + Karya Mingguan (conditional)
     if (level === 3) {
       return (
         <>
@@ -326,22 +346,24 @@ export default function BelajarDetailPage() {
           </div>
           {renderList(item.fitur || [])}
 
-          {/* Karya Mingguan */}
-          <div className="mt-6">
-            <KaryaMingguan
-              karyaMingguan={item.karyaMingguan || []}
-              onUpdate={(newKarya) => {
-                handleUpdateItem({ karyaMingguan: newKarya });
-              }}
-            />
-          </div>
+          {/* KARYA MINGGUAN — cuma muncul kalau kategori Design */}
+          {punyaKaryaMingguan && (
+            <div className="mt-6">
+              <KaryaMingguan
+                karyaMingguan={item.karyaMingguan || []}
+                onUpdate={(newKarya) => {
+                  handleUpdateItem({ karyaMingguan: newKarya });
+                }}
+              />
+            </div>
+          )}
         </>
       );
     }
 
     // LEVEL 4: Group atau Leaf
     if (level === 4) {
-      // Blender Guru — Donut (punya parts)
+      // Group dengan parts (misal Blender Guru --- Donut)
       if (item.parts) {
         return (
           <>
@@ -358,7 +380,8 @@ export default function BelajarDetailPage() {
           </>
         );
       }
-      // Basic Features (punya nested fitur)
+
+      // Group dengan nested fitur (misal Basic Features)
       if (item.fitur && item.fitur.length > 0) {
         return (
           <>
@@ -375,22 +398,13 @@ export default function BelajarDetailPage() {
           </>
         );
       }
-      // Pen Tool (leaf) → Upload
-      return (
-        <BelajarUpload
-          item={item}
-          onUpdate={handleUpdateItem}
-        />
-      );
+
+      // Leaf (misal Pen Tool)
+      return <BelajarUpload item={item} onUpdate={handleUpdateItem} />;
     }
 
-    // LEVEL 5+: Leaf → Upload
-    return (
-      <BelajarUpload
-        item={item}
-        onUpdate={handleUpdateItem}
-      />
-    );
+    // LEVEL 5+: Leaf
+    return <BelajarUpload item={item} onUpdate={handleUpdateItem} />;
   };
 
   return (
@@ -411,7 +425,9 @@ export default function BelajarDetailPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
         <div
-          className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
+          className={`${
+            sidebarCollapsed ? "w-12" : "w-64"
+          } transition-all duration-300 bg-base-100`}
         >
           <Sidebar
             activities={activities}
