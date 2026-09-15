@@ -18,7 +18,6 @@ import {
   DEFAULT_SUMBER,
   DEFAULT_SECTIONS,
   DEFAULT_KATEGORI_KEGIATAN,
-  generateId,
 } from "@/lib/pekerjaanData";
 import {
   DEFAULT_KATEGORI_VENDOR,
@@ -26,7 +25,11 @@ import {
   DEFAULT_TUJUAN_KUNJUNGAN,
   SATUAN_MOQ,
 } from "@/lib/vendorData";
-import { DEFAULT_FIELD_EVALUASI } from "@/lib/evaluasiData";
+import {
+  DEFAULT_FIELD_EVALUASI,
+  DEFAULT_FIELD_EVALUASI_VENDOR,
+  DEFAULT_PERIODE_EVALUASI,
+} from "@/lib/evaluasiData";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -56,15 +59,25 @@ export default function BrandPage() {
   // ========== VENDOR STATE ==========
   const [activeTab, setActiveTab] = useState("kalender");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
-  const [vendorKategoriList, setVendorKategoriList] = useState(DEFAULT_KATEGORI_VENDOR);
-  const [vendorPertanyaanList, setVendorPertanyaanList] = useState(DEFAULT_PERTANYAAN_VENDOR);
-  const [vendorTujuanList, setVendorTujuanList] = useState(DEFAULT_TUJUAN_KUNJUNGAN);
+  const [vendorKategoriList, setVendorKategoriList] = useState(
+    DEFAULT_KATEGORI_VENDOR
+  );
+  const [vendorPertanyaanList, setVendorPertanyaanList] = useState(
+    DEFAULT_PERTANYAAN_VENDOR
+  );
+  const [vendorTujuanList, setVendorTujuanList] = useState(
+    DEFAULT_TUJUAN_KUNJUNGAN
+  );
   const [vendorSatuanMoqList, setVendorSatuanMoqList] = useState(SATUAN_MOQ);
 
   // ========== EVALUASI STATE ==========
-  const [fieldEvaluasiPekerjaanList, setFieldEvaluasiPekerjaanList] = useState(
-    DEFAULT_FIELD_EVALUASI
+  const [fieldEvaluasiPekerjaanList, setFieldEvaluasiPekerjaanList] =
+    useState(DEFAULT_FIELD_EVALUASI);
+  const [fieldEvaluasiVendorList, setFieldEvaluasiVendorList] = useState(
+    DEFAULT_FIELD_EVALUASI_VENDOR
   );
+  const [periodeEvaluasiPekerjaanList, setPeriodeEvaluasiPekerjaanList] =
+    useState(DEFAULT_PERIODE_EVALUASI);
 
   const router = useRouter();
   const params = useParams();
@@ -79,14 +92,12 @@ export default function BrandPage() {
         return;
       }
       setUser(user);
-
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Load activities
+        // Activities
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
@@ -94,7 +105,7 @@ export default function BrandPage() {
           setActivities(DEFAULT_ACTIVITIES);
         }
 
-        // Load pekerjaan
+        // Pekerjaan
         if (data.pekerjaan && Array.isArray(data.pekerjaan)) {
           setPekerjaan(data.pekerjaan);
         } else {
@@ -102,32 +113,29 @@ export default function BrandPage() {
           setPekerjaan([]);
         }
 
-        // Load prioritas
+        // Prioritas
         if (data.prioritasList && Array.isArray(data.prioritasList)) {
           setPrioritasList(data.prioritasList);
         } else {
           await setDoc(docRef, { prioritasList: DEFAULT_PRIORITAS }, { merge: true });
         }
 
-        // Load sumber
+        // Sumber
         if (data.sumberList && Array.isArray(data.sumberList)) {
           setSumberList(data.sumberList);
         } else {
           await setDoc(docRef, { sumberList: DEFAULT_SUMBER }, { merge: true });
         }
 
-        // Load sections
+        // Sections
         if (data.sections && Array.isArray(data.sections)) {
           setSections(data.sections);
         } else {
           await setDoc(docRef, { sections: DEFAULT_SECTIONS }, { merge: true });
         }
 
-        // ========== LOAD KATEGORI PEKERJAAN ==========
-        if (
-          data.kategoriPekerjaanList &&
-          Array.isArray(data.kategoriPekerjaanList)
-        ) {
+        // Kategori Pekerjaan
+        if (data.kategoriPekerjaanList && Array.isArray(data.kategoriPekerjaanList)) {
           setKategoriPekerjaanList(data.kategoriPekerjaanList);
         } else {
           await setDoc(
@@ -135,35 +143,37 @@ export default function BrandPage() {
             { kategoriPekerjaanList: DEFAULT_KATEGORI_KEGIATAN },
             { merge: true }
           );
-          setKategoriPekerjaanList(DEFAULT_KATEGORI_KEGIATAN);
         }
 
-        // ========== LOAD VENDOR SETTINGS ==========
+        // Vendor Kategori
         if (data.vendorKategoriList && Array.isArray(data.vendorKategoriList)) {
           setVendorKategoriList(data.vendorKategoriList);
         } else {
           await setDoc(docRef, { vendorKategoriList: DEFAULT_KATEGORI_VENDOR }, { merge: true });
         }
 
+        // Vendor Pertanyaan
         if (data.vendorPertanyaanList && Array.isArray(data.vendorPertanyaanList)) {
           setVendorPertanyaanList(data.vendorPertanyaanList);
         } else {
           await setDoc(docRef, { vendorPertanyaanList: DEFAULT_PERTANYAAN_VENDOR }, { merge: true });
         }
 
+        // Vendor Tujuan
         if (data.vendorTujuanList && Array.isArray(data.vendorTujuanList)) {
           setVendorTujuanList(data.vendorTujuanList);
         } else {
           await setDoc(docRef, { vendorTujuanList: DEFAULT_TUJUAN_KUNJUNGAN }, { merge: true });
         }
 
+        // Vendor Satuan MOQ
         if (data.vendorSatuanMoqList && Array.isArray(data.vendorSatuanMoqList)) {
           setVendorSatuanMoqList(data.vendorSatuanMoqList);
         } else {
           await setDoc(docRef, { vendorSatuanMoqList: SATUAN_MOQ }, { merge: true });
         }
 
-        // ========== LOAD FIELD EVALUASI ==========
+        // Field Evaluasi Kinerja
         if (
           data.fieldEvaluasiPekerjaanList &&
           Array.isArray(data.fieldEvaluasiPekerjaanList)
@@ -175,9 +185,35 @@ export default function BrandPage() {
             { fieldEvaluasiPekerjaanList: DEFAULT_FIELD_EVALUASI },
             { merge: true }
           );
-          setFieldEvaluasiPekerjaanList(DEFAULT_FIELD_EVALUASI);
         }
 
+        // Field Evaluasi Vendor
+        if (
+          data.fieldEvaluasiVendorList &&
+          Array.isArray(data.fieldEvaluasiVendorList)
+        ) {
+          setFieldEvaluasiVendorList(data.fieldEvaluasiVendorList);
+        } else {
+          await setDoc(
+            docRef,
+            { fieldEvaluasiVendorList: DEFAULT_FIELD_EVALUASI_VENDOR },
+            { merge: true }
+          );
+        }
+
+        // Periode Evaluasi
+        if (
+          data.periodeEvaluasiPekerjaanList &&
+          Array.isArray(data.periodeEvaluasiPekerjaanList)
+        ) {
+          setPeriodeEvaluasiPekerjaanList(data.periodeEvaluasiPekerjaanList);
+        } else {
+          await setDoc(
+            docRef,
+            { periodeEvaluasiPekerjaanList: DEFAULT_PERIODE_EVALUASI },
+            { merge: true }
+          );
+        }
       } else {
         // User baru
         await setDoc(docRef, {
@@ -192,14 +228,14 @@ export default function BrandPage() {
           vendorTujuanList: DEFAULT_TUJUAN_KUNJUNGAN,
           vendorSatuanMoqList: SATUAN_MOQ,
           fieldEvaluasiPekerjaanList: DEFAULT_FIELD_EVALUASI,
+          fieldEvaluasiVendorList: DEFAULT_FIELD_EVALUASI_VENDOR,
+          periodeEvaluasiPekerjaanList: DEFAULT_PERIODE_EVALUASI,
         });
         setActivities(DEFAULT_ACTIVITIES);
         setPekerjaan([]);
       }
-
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -228,7 +264,7 @@ export default function BrandPage() {
     await setDoc(docRef, updates, { merge: true });
   };
 
-  // ========== KATEGORI PEKERJAAN HANDLER ==========
+  // ========== KATEGORI PEKERJAAN ==========
   const handleUpdateKategoriPekerjaan = async (updatedList) => {
     setKategoriPekerjaanList(updatedList);
     await simpanSettings({ kategoriPekerjaanList: updatedList });
@@ -275,11 +311,7 @@ export default function BrandPage() {
                     ...b,
                     kegiatan: b.kegiatan.map((k) =>
                       k.id === editingKegiatan.id
-                        ? {
-                            ...k,
-                            ...editForm,
-                            updatedAt: new Date().toISOString(),
-                          }
+                        ? { ...k, ...editForm, updatedAt: new Date().toISOString() }
                         : k
                     ),
                   }
@@ -295,11 +327,9 @@ export default function BrandPage() {
   // ========== HAPUS KEGIATAN ==========
   const handleHapusKegiatan = async (kegId) => {
     if (!confirm("Hapus kegiatan ini? Data akan masuk history.")) return;
-
     const keg = brand.kegiatan.find((k) => k.id === kegId);
     if (!keg) return;
 
-    // Simpan ke history
     const docRef = doc(db, "users", user.uid);
     const docSnap = await getDoc(docRef);
     const data = docSnap.data();
@@ -308,7 +338,6 @@ export default function BrandPage() {
     history[key] = { ...keg, deletedAt: new Date().toISOString() };
     await setDoc(docRef, { pekerjaanHistory: history }, { merge: true });
 
-    // Hapus dari daftar
     const updated = pekerjaan.map((p) =>
       p.id === ptId
         ? {
@@ -366,10 +395,7 @@ export default function BrandPage() {
             ...p,
             brands: p.brands.map((b) =>
               b.id === brandId
-                ? {
-                    ...b,
-                    vendorList: [...(b.vendorList || []), newVendor],
-                  }
+                ? { ...b, vendorList: [...(b.vendorList || []), newVendor] }
                 : b
             ),
           }
@@ -457,6 +483,16 @@ export default function BrandPage() {
     await simpanSettings({ fieldEvaluasiPekerjaanList: updatedList });
   };
 
+  const handleUpdatePeriodeEvaluasi = async (updatedList) => {
+    setPeriodeEvaluasiPekerjaanList(updatedList);
+    await simpanSettings({ periodeEvaluasiPekerjaanList: updatedList });
+  };
+
+  const handleUpdateFieldEvaluasiVendor = async (updatedList) => {
+    setFieldEvaluasiVendorList(updatedList);
+    await simpanSettings({ fieldEvaluasiVendorList: updatedList });
+  };
+
   const handleUpdateEvaluasi = async (newEvaluasiData) => {
     const updated = pekerjaan.map((p) =>
       p.id === ptId
@@ -535,7 +571,9 @@ export default function BrandPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
         <div
-          className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
+          className={`${
+            sidebarCollapsed ? "w-12" : "w-64"
+          } transition-all duration-300 bg-base-100`}
         >
           <Sidebar
             activities={activities}
@@ -550,10 +588,7 @@ export default function BrandPage() {
           <div className="text-sm breadcrumbs mb-6">
             <ul>
               <li>
-                <a
-                  onClick={() => router.push("/dashboard")}
-                  className="cursor-pointer"
-                >
+                <a onClick={() => router.push("/dashboard")} className="cursor-pointer">
                   🏠 Dashboard
                 </a>
               </li>
@@ -588,10 +623,7 @@ export default function BrandPage() {
                   onChange={(e) => setEditNama(e.target.value)}
                   autoFocus
                 />
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleSimpanNamaBrand}
-                >
+                <button className="btn btn-primary btn-sm" onClick={handleSimpanNamaBrand}>
                   💾 Simpan
                 </button>
                 <button
@@ -635,10 +667,7 @@ export default function BrandPage() {
                 akan hilang.
               </p>
               <div className="flex gap-2">
-                <button
-                  className="btn btn-error btn-sm"
-                  onClick={handleHapusBrand}
-                >
+                <button className="btn btn-error btn-sm" onClick={handleHapusBrand}>
                   Ya, Hapus
                 </button>
                 <button
@@ -654,7 +683,9 @@ export default function BrandPage() {
           {/* TAB NAVIGATION */}
           <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
             <button
-              className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
+              className={`tab ${
+                activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""
+              }`}
               onClick={() => {
                 setActiveTab("kalender");
                 setSelectedVendorId(null);
@@ -663,19 +694,25 @@ export default function BrandPage() {
               📅 Kalender
             </button>
             <button
-              className={`tab ${activeTab === "vendor" ? "tab-active bg-blue-600 text-white" : ""}`}
+              className={`tab ${
+                activeTab === "vendor" ? "tab-active bg-blue-600 text-white" : ""
+              }`}
               onClick={() => setActiveTab("vendor")}
             >
               🏭 Vendor ({vendorList.length})
             </button>
             <button
-              className={`tab ${activeTab === "laporan" ? "tab-active bg-blue-600 text-white" : ""}`}
+              className={`tab ${
+                activeTab === "laporan" ? "tab-active bg-blue-600 text-white" : ""
+              }`}
               onClick={() => setActiveTab("laporan")}
             >
               📋 Laporan
             </button>
             <button
-              className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white" : ""}`}
+              className={`tab ${
+                activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white" : ""
+              }`}
               onClick={() => setActiveTab("evaluasi")}
             >
               📊 Evaluasi
@@ -695,7 +732,6 @@ export default function BrandPage() {
                 onUpdateKategoriList={handleUpdateKategoriPekerjaan}
               />
 
-              {/* Daftar Kegiatan dengan tombol Edit & Hapus */}
               {brand.kegiatan && brand.kegiatan.length > 0 && (
                 <div className="card bg-white shadow border border-gray-200 mt-4">
                   <div className="card-body p-4">
@@ -726,9 +762,7 @@ export default function BrandPage() {
                               </p>
                               <p className="text-xs text-gray-500">
                                 📅 {keg.tanggal} •{" "}
-                                {keg.status === "selesai"
-                                  ? "✅ Selesai"
-                                  : "⏳ Belum"}
+                                {keg.status === "selesai" ? "✅ Selesai" : "⏳ Belum"}
                               </p>
                             </div>
                             <div className="flex gap-1">
@@ -764,6 +798,8 @@ export default function BrandPage() {
                   vendor={selectedVendor}
                   kategoriVendorList={vendorKategoriList}
                   tujuanKunjunganList={vendorTujuanList}
+                  fieldEvaluasiVendorList={fieldEvaluasiVendorList}
+                  periodeEvaluasiList={periodeEvaluasiPekerjaanList}
                   onUpdateVendor={handleUpdateVendor}
                   onDeleteVendor={handleDeleteVendor}
                   onBack={() => setSelectedVendorId(null)}
@@ -800,10 +836,16 @@ export default function BrandPage() {
           {activeTab === "evaluasi" && (
             <EvaluasiPekerjaan
               kegiatanList={brand.kegiatan || []}
+              laporanData={laporanData}
               evaluasiData={evaluasiData}
+              vendorList={vendorList}
               fieldEvaluasiList={fieldEvaluasiPekerjaanList}
+              periodeEvaluasiList={periodeEvaluasiPekerjaanList}
+              fieldEvaluasiVendorList={fieldEvaluasiVendorList}
               onUpdateEvaluasi={handleUpdateEvaluasi}
               onUpdateFieldEvaluasi={handleUpdateFieldEvaluasi}
+              onUpdatePeriodeEvaluasi={handleUpdatePeriodeEvaluasi}
+              onUpdateFieldEvaluasiVendor={handleUpdateFieldEvaluasiVendor}
             />
           )}
         </div>
@@ -823,9 +865,7 @@ export default function BrandPage() {
                   className="input input-bordered w-full text-gray-800 bg-white"
                   placeholder="Judul kegiatan"
                   value={editForm.judul}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, judul: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, judul: e.target.value })}
                 />
                 <div className="flex gap-2">
                   <select
@@ -844,9 +884,7 @@ export default function BrandPage() {
                   <select
                     className="select select-bordered flex-1 text-gray-800 bg-white"
                     value={editForm.sumber}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, sumber: e.target.value })
-                    }
+                    onChange={(e) => setEditForm({ ...editForm, sumber: e.target.value })}
                   >
                     {sumberList.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -859,25 +897,18 @@ export default function BrandPage() {
                   type="date"
                   className="input input-bordered w-full text-gray-800 bg-white"
                   value={editForm.tanggal}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, tanggal: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, tanggal: e.target.value })}
                 />
                 <textarea
                   className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
                   rows="2"
                   placeholder="Catatan"
                   value={editForm.catatan}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, catatan: e.target.value })
-                  }
+                  onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })}
                 />
               </div>
               <div className="flex gap-2 mt-3">
-                <button
-                  className="btn btn-primary btn-sm flex-1"
-                  onClick={handleSimpanEdit}
-                >
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanEdit}>
                   💾 Simpan
                 </button>
                 <button

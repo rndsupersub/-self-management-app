@@ -1,7 +1,7 @@
 // components/VendorDetail.js
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   METODE_KUNJUNGAN,
   HASIL_KUNJUNGAN,
@@ -16,11 +16,23 @@ import {
   getLabelHasil,
   getWarnaHasil,
 } from "@/lib/vendorData";
+import {
+  DEFAULT_FIELD_EVALUASI_VENDOR,
+  DEFAULT_PERIODE_EVALUASI,
+  getPeriodeRange,
+  formatTanggalPendek,
+  formatTanggalPanjang,
+  tambahHari,
+  autoGenerateVendorSummary,
+  generateId as generateIdEval,
+} from "@/lib/evaluasiData";
 
 export default function VendorDetail({
   vendor,
   kategoriVendorList = [],
   tujuanKunjunganList = [],
+  fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR,
+  periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI,
   onUpdateVendor,
   onDeleteVendor,
   onBack,
@@ -30,7 +42,7 @@ export default function VendorDetail({
   const [filterTujuan, setFilterTujuan] = useState("all");
   const [confirmHapusVendor, setConfirmHapusVendor] = useState(false);
 
-  // Form kunjungan state
+  // ===== FORM KUNJUNGAN =====
   const [formKunjungan, setFormKunjungan] = useState({
     tanggal: new Date().toISOString().split("T")[0],
     tujuanId: tujuanKunjunganList[0]?.id || "scanning",
@@ -40,13 +52,53 @@ export default function VendorDetail({
     gdriveUrl: "",
   });
 
-  // ========== FILTER LOG ==========
-  const filteredLog = (vendor.logKunjungan || []).filter((log) => {
+  // ===== EVALUASI VENDOR STATE =====
+  const [activePeriode, setActivePeriode] = useState(
+    periodeEvaluasiList[0]?.id || "bulanan"
+  );
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [evalValues, setEvalValues] = useState({});
+  const [showHistoryEval, setShowHistoryEval] = useState(false);
+  const [savedEvalNotif, setSavedEvalNotif] = useState(false);
+  const [showEvalSection, setShowEvalSection] = useState(true);
+
+  // ===== PERIODE AKTIF =====
+  const periodeAktif = useMemo(() => {
+    const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
+    if (!def) return null;
+    return getPeriodeRange(def.tipe, selectedDate, def);
+  }, [activePeriode, selectedDate, periodeEvaluasiList]);
+
+  const evalKey = periodeAktif?.key;
+
+  // ===== AMBIL EVALUASI TERSIMPAN =====
+  const evalTersimpan = useMemo(() => {
+    if (!evalKey) return null;
+    return vendor?.evaluasi?.[activePeriode]?.[evalKey] || null;
+  }, [vendor, activePeriode, evalKey]);
+
+  // ===== LOAD KE FORM =====
+  useEffect(() => {
+    if (evalTersimpan?.fields) {
+      setEvalValues(evalTersimpan.fields);
+    } else {
+      const empty = {};
+      fieldEvaluasiVendorList.forEach((f) => {
+        empty[f.id] = f.tipe === "score" ? 5 : "";
+      });
+      setEvalValues(empty);
+    }
+  }, [evalTersimpan, fieldEvaluasiVendorList]);
+
+  // ===== FILTER LOG =====
+  const filteredLog = (vendor?.logKunjungan || []).filter((log) => {
     if (filterTujuan !== "all" && log.tujuanId !== filterTujuan) return false;
     return true;
   });
 
-  // ========== RESET FORM ==========
+  // ===== RESET FORM KUNJUNGAN =====
   const resetFormKunjungan = () => {
     setFormKunjungan({
       tanggal: new Date().toISOString().split("T")[0],
@@ -60,10 +112,9 @@ export default function VendorDetail({
     setShowFormKunjungan(false);
   };
 
-  // ========== TAMBAH/EDIT KUNJUNGAN ==========
+  // ===== TAMBAH/EDIT KUNJUNGAN =====
   const handleSimpanKunjungan = () => {
     if (!formKunjungan.tanggal) return;
-
     let updatedLog;
     if (editingKunjunganId) {
       updatedLog = (vendor.logKunjungan || []).map((log) =>
@@ -79,30 +130,23 @@ export default function VendorDetail({
       };
       updatedLog = [...(vendor.logKunjungan || []), newLog];
     }
-
     onUpdateVendor({
       ...vendor,
       logKunjungan: updatedLog,
       updatedAt: new Date().toISOString(),
     });
-
     resetFormKunjungan();
   };
 
-  // ========== HAPUS KUNJUNGAN ==========
   const handleHapusKunjungan = (id) => {
     if (!confirm("Hapus kunjungan ini?")) return;
-    const updatedLog = (vendor.logKunjungan || []).filter(
-      (log) => log.id !== id
-    );
     onUpdateVendor({
       ...vendor,
-      logKunjungan: updatedLog,
+      logKunjungan: (vendor.logKunjungan || []).filter((log) => log.id !== id),
       updatedAt: new Date().toISOString(),
     });
   };
 
-  // ========== EDIT KUNJUNGAN ==========
   const handleEditKunjungan = (log) => {
     setFormKunjungan({
       tanggal: log.tanggal,
@@ -116,7 +160,7 @@ export default function VendorDetail({
     setShowFormKunjungan(true);
   };
 
-  // ========== UBAH STATUS VENDOR ==========
+  // ===== UBAH STATUS =====
   const handleUbahStatus = (newStatus) => {
     onUpdateVendor({
       ...vendor,
@@ -125,11 +169,130 @@ export default function VendorDetail({
     });
   };
 
-  // ========== HAPUS VENDOR ==========
+  // ===== HAPUS VENDOR =====
   const handleHapusVendor = () => {
     onDeleteVendor(vendor.id);
     setConfirmHapusVendor(false);
   };
+
+  // ===== NAVIGASI PERIODE EVALUASI =====
+  const handlePrevEval = () => {
+    const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
+    if (!def) return;
+    const d = new Date(selectedDate);
+    if (def.tipe === "bulanan") d.setMonth(d.getMonth() - 1);
+    else if (def.tipe === "triwulan") d.setMonth(d.getMonth() - 3);
+    else if (def.tipe === "semester") d.setMonth(d.getMonth() - 6);
+    else if (def.tipe === "tahunan") d.setFullYear(d.getFullYear() - 1);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  };
+
+  const handleNextEval = () => {
+    const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
+    if (!def) return;
+    const d = new Date(selectedDate);
+    if (def.tipe === "bulanan") d.setMonth(d.getMonth() + 1);
+    else if (def.tipe === "triwulan") d.setMonth(d.getMonth() + 3);
+    else if (def.tipe === "semester") d.setMonth(d.getMonth() + 6);
+    else if (def.tipe === "tahunan") d.setFullYear(d.getFullYear() + 1);
+    setSelectedDate(d.toISOString().split("T")[0]);
+  };
+
+  // ===== UPDATE EVAL FIELD =====
+  const handleUpdateEvalValue = (fieldId, value) => {
+    setEvalValues({ ...evalValues, [fieldId]: value });
+  };
+
+  // ===== AUTO-GENERATE DARI LOG KUNJUNGAN =====
+  const handleAutoGenerateEval = () => {
+    if (!periodeAktif) return;
+    const summary = autoGenerateVendorSummary(
+      vendor,
+      periodeAktif.periodeMulai,
+      periodeAktif.periodeSelesai
+    );
+    const targetField = fieldEvaluasiVendorList[0];
+    if (targetField) {
+      setEvalValues({ ...evalValues, [targetField.id]: summary });
+    }
+  };
+
+  // ===== SIMPAN EVALUASI VENDOR =====
+  const handleSimpanEval = () => {
+    if (!periodeAktif || !onUpdateVendor) return;
+    const newEvaluasi = JSON.parse(JSON.stringify(vendor.evaluasi || {}));
+    if (!newEvaluasi[activePeriode]) newEvaluasi[activePeriode] = {};
+    newEvaluasi[activePeriode][periodeAktif.key] = {
+      periodeMulai: periodeAktif.periodeMulai,
+      periodeSelesai: periodeAktif.periodeSelesai,
+      label: periodeAktif.label,
+      tipe: periodeAktif.tipe,
+      fields: evalValues,
+      updatedAt: new Date().toISOString(),
+    };
+    onUpdateVendor({
+      ...vendor,
+      evaluasi: newEvaluasi,
+      updatedAt: new Date().toISOString(),
+    });
+    setSavedEvalNotif(true);
+    setTimeout(() => setSavedEvalNotif(false), 2000);
+  };
+
+  // ===== HISTORY EVAL =====
+  const historyEval = useMemo(() => {
+    const data = vendor?.evaluasi?.[activePeriode] || {};
+    return Object.entries(data)
+      .map(([k, val]) => ({ key: k, ...val }))
+      .sort((a, b) => b.key.localeCompare(a.key));
+  }, [vendor, activePeriode]);
+
+  // ===== RENDER FIELD INPUT =====
+  const renderEvalField = (field) => {
+    const val = evalValues[field.id] ?? (field.tipe === "score" ? 5 : "");
+    if (field.tipe === "score") {
+      return (
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min="1"
+            max="10"
+            step="1"
+            className="range range-primary range-sm flex-1"
+            value={val || 5}
+            onChange={(e) =>
+              handleUpdateEvalValue(field.id, parseInt(e.target.value))
+            }
+          />
+          <span className="badge badge-primary badge-sm font-bold w-10 text-center">
+            {val || 5}
+          </span>
+        </div>
+      );
+    }
+    if (field.tipe === "text") {
+      return (
+        <input
+          type="text"
+          className="input input-bordered input-sm w-full text-gray-800 bg-white"
+          placeholder={`Isi ${field.label}...`}
+          value={val}
+          onChange={(e) => handleUpdateEvalValue(field.id, e.target.value)}
+        />
+      );
+    }
+    return (
+      <textarea
+        className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
+        rows="2"
+        placeholder={`Isi ${field.label}...`}
+        value={val}
+        onChange={(e) => handleUpdateEvalValue(field.id, e.target.value)}
+      />
+    );
+  };
+
+  if (!vendor) return null;
 
   const kategoriData = kategoriVendorList.find(
     (k) => k.id === vendor.kategoriId
@@ -168,7 +331,6 @@ export default function VendorDetail({
                 <p className="text-sm text-gray-500">{kategoriData.label}</p>
               )}
             </div>
-
             <div className="flex gap-1">
               <button
                 className="btn btn-ghost btn-xs text-red-500"
@@ -180,17 +342,14 @@ export default function VendorDetail({
             </div>
           </div>
 
-          {/* Konfirmasi Hapus Vendor */}
           {confirmHapusVendor && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded p-3">
               <p className="text-sm text-red-700 mb-2">
-                Yakin mau hapus vendor ini? Semua log kunjungan bakal hilang.
+                Yakin mau hapus vendor ini? Semua log kunjungan dan evaluasi
+                bakal hilang.
               </p>
               <div className="flex gap-2">
-                <button
-                  className="btn btn-error btn-sm"
-                  onClick={handleHapusVendor}
-                >
+                <button className="btn btn-error btn-sm" onClick={handleHapusVendor}>
                   Ya, Hapus
                 </button>
                 <button
@@ -203,7 +362,6 @@ export default function VendorDetail({
             </div>
           )}
 
-          {/* Ubah Status */}
           <div className="mt-3">
             <p className="text-xs font-semibold text-gray-600 mb-1">
               Ubah Status:
@@ -227,12 +385,9 @@ export default function VendorDetail({
 
       {/* INFO CARDS: KONTAK, MOQ, HPP */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Kontak */}
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
-            <h3 className="text-sm font-bold text-gray-800 mb-2">
-              📞 Kontak
-            </h3>
+            <h3 className="text-sm font-bold text-gray-800 mb-2">📞 Kontak</h3>
             <div className="text-sm text-gray-700 space-y-1">
               {vendor.kontak?.nama && <p>👤 {vendor.kontak.nama}</p>}
               {vendor.kontak?.telp && <p>📱 {vendor.kontak.telp}</p>}
@@ -250,7 +405,6 @@ export default function VendorDetail({
           </div>
         </div>
 
-        {/* MOQ & HPP */}
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
             <h3 className="text-sm font-bold text-gray-800 mb-2">
@@ -276,7 +430,6 @@ export default function VendorDetail({
                 )}
               </p>
             </div>
-
             {vendor.catatan && (
               <div className="mt-3">
                 <p className="text-xs font-semibold text-gray-600 mb-1">
@@ -311,9 +464,7 @@ export default function VendorDetail({
                     </p>
                   )}
                   {q.tipe === "short" && (
-                    <p className="text-sm text-gray-800">
-                      {q.jawaban || "-"}
-                    </p>
+                    <p className="text-sm text-gray-800">{q.jawaban || "-"}</p>
                   )}
                   {q.tipe === "long" && (
                     <p className="text-sm text-gray-800 whitespace-pre-wrap">
@@ -326,6 +477,187 @@ export default function VendorDetail({
           </div>
         </div>
       )}
+
+      {/* ========== SECTION EVALUASI VENDOR (BARU) ========== */}
+      <div className="card bg-white shadow border border-purple-200">
+        <div className="card-body p-4">
+          <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+            <h3 className="text-sm font-bold text-gray-800">
+              📊 Evaluasi Kinerja Vendor
+            </h3>
+            <button
+              className="btn btn-ghost btn-xs text-gray-600"
+              onClick={() => setShowEvalSection(!showEvalSection)}
+            >
+              {showEvalSection ? "▲ Sembunyikan" : "▼ Tampilkan"}
+            </button>
+          </div>
+
+          {showEvalSection && periodeAktif && (
+            <>
+              {/* TAB FREKUENSI */}
+              <div className="tabs tabs-boxed bg-gray-50 border border-gray-200 p-1 w-fit mb-3">
+                {periodeEvaluasiList.map((freq) => (
+                  <button
+                    key={freq.id}
+                    className={`tab ${
+                      activePeriode === freq.id
+                        ? "tab-active bg-purple-600 text-white"
+                        : ""
+                    }`}
+                    onClick={() => setActivePeriode(freq.id)}
+                  >
+                    {freq.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* NAVIGASI PERIODE */}
+              <div className="bg-gray-50 rounded p-3 border border-gray-200 mb-3">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      className="btn btn-ghost btn-xs text-gray-700"
+                      onClick={handlePrevEval}
+                    >
+                      ‹
+                    </button>
+                    <h4 className="text-xs font-bold text-gray-800 min-w-[180px] text-center">
+                      {periodeAktif.label}
+                    </h4>
+                    <button
+                      className="btn btn-ghost btn-xs text-gray-700"
+                      onClick={handleNextEval}
+                    >
+                      ›
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="date"
+                      className="input input-bordered input-xs text-gray-800 bg-white"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                    <button
+                      className="btn btn-outline btn-xs text-gray-700"
+                      onClick={() =>
+                        setSelectedDate(
+                          new Date().toISOString().split("T")[0]
+                        )
+                      }
+                    >
+                      📅
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  📅 {formatTanggalPendek(periodeAktif.periodeMulai)} --{" "}
+                  {formatTanggalPendek(periodeAktif.periodeSelesai)}
+                </p>
+              </div>
+
+              {/* AUTO-GENERATE + FORM */}
+              <div className="flex justify-end mb-2">
+                <button
+                  className="btn btn-outline btn-xs text-gray-700"
+                  onClick={handleAutoGenerateEval}
+                  title="Isi dari log kunjungan vendor di periode ini"
+                >
+                  🔄 Auto-generate dari Log Kunjungan
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {fieldEvaluasiVendorList.map((field) => (
+                  <div key={field.id}>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                      {field.label}
+                    </label>
+                    {renderEvalField(field)}
+                  </div>
+                ))}
+              </div>
+
+              {evalTersimpan?.updatedAt && (
+                <p className="text-[10px] text-gray-500 mt-2">
+                  📅 Terakhir disimpan:{" "}
+                  {new Date(evalTersimpan.updatedAt).toLocaleString("id-ID")}
+                </p>
+              )}
+
+              <div className="flex gap-2 mt-3">
+                <button
+                  className="btn btn-primary btn-sm flex-1"
+                  onClick={handleSimpanEval}
+                  disabled={fieldEvaluasiVendorList.length === 0}
+                >
+                  💾 Simpan Evaluasi ({periodeAktif.label})
+                </button>
+              </div>
+
+              {savedEvalNotif && (
+                <div className="alert alert-success py-2 mt-2 text-xs">
+                  <span>✅ Evaluasi vendor berhasil disimpan!</span>
+                </div>
+              )}
+
+              {/* HISTORY EVAL */}
+              <div className="mt-4 border-t border-gray-200 pt-3">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-xs font-semibold text-gray-700">
+                    📚 History Evaluasi Vendor ({historyEval.length})
+                  </p>
+                  <button
+                    className="btn btn-ghost btn-xs text-gray-600"
+                    onClick={() => setShowHistoryEval(!showHistoryEval)}
+                  >
+                    {showHistoryEval ? "▲" : "▼"}
+                  </button>
+                </div>
+                {showHistoryEval && (
+                  <>
+                    {historyEval.length === 0 ? (
+                      <p className="text-[10px] text-gray-400 italic text-center py-2">
+                        Belum ada history.
+                      </p>
+                    ) : (
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {historyEval.map((ev) => (
+                          <details
+                            key={ev.key}
+                            className="border border-gray-200 rounded p-2 bg-white"
+                          >
+                            <summary className="text-xs font-semibold text-gray-800 cursor-pointer">
+                              📅 {ev.label || ev.key}
+                            </summary>
+                            <div className="mt-1 space-y-1">
+                              {fieldEvaluasiVendorList.map((f) => {
+                                const val = ev.fields?.[f.id];
+                                if (!val) return null;
+                                return (
+                                  <div key={f.id}>
+                                    <p className="text-[10px] font-semibold text-gray-600">
+                                      {f.label}
+                                    </p>
+                                    <p className="text-[10px] text-gray-700 whitespace-pre-wrap">
+                                      {val}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* LOG KUNJUNGAN */}
       <div className="card bg-white shadow border border-gray-200">
@@ -359,13 +691,11 @@ export default function VendorDetail({
             </div>
           </div>
 
-          {/* FORM KUNJUNGAN */}
           {showFormKunjungan && (
             <div className="bg-blue-50 rounded p-3 mb-3 space-y-3 border border-blue-200">
               <p className="text-xs font-semibold text-blue-700">
                 {editingKunjunganId ? "✏️ Edit Kunjungan" : "✏️ Tambah Kunjungan"}
               </p>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">
@@ -405,7 +735,6 @@ export default function VendorDetail({
                   </select>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block">
@@ -450,7 +779,6 @@ export default function VendorDetail({
                   </select>
                 </div>
               </div>
-
               <div>
                 <label className="text-xs text-gray-600 mb-1 block">
                   📝 Catatan
@@ -468,7 +796,6 @@ export default function VendorDetail({
                   }
                 />
               </div>
-
               <div>
                 <label className="text-xs text-gray-600 mb-1 block">
                   📁 Link Google Drive (opsional)
@@ -489,7 +816,6 @@ export default function VendorDetail({
                   📸 Foto Telegram akan otomatis masuk ke sini nanti.
                 </p>
               </div>
-
               <div className="flex gap-2">
                 <button
                   className="btn btn-primary btn-sm flex-1"
@@ -507,7 +833,6 @@ export default function VendorDetail({
             </div>
           )}
 
-          {/* LIST LOG */}
           {filteredLog.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <p className="text-3xl mb-2">📭</p>
@@ -567,13 +892,11 @@ export default function VendorDetail({
                           </button>
                         </div>
                       </div>
-
                       {log.catatan && (
                         <p className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 rounded border border-gray-200 mt-2">
                           📝 {log.catatan}
                         </p>
                       )}
-
                       {log.gdriveUrl && (
                         <a
                           href={log.gdriveUrl}
