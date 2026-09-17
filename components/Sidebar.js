@@ -18,7 +18,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   const isPekerjaan = currentPath[0] === "pekerjaan";
   const isBelajar = currentPath[0] === "belajar";
   const isBedahBuku = currentPath[0] === "bedah-buku";
-  const isBisnis = currentPath[0] === "bisnis";
+  const isKeuangan = currentPath[0] === "keuangan";
 
   const handleSelect = (pathArray) => {
     const url = `/dashboard/${pathArray.join("/")}`;
@@ -42,9 +42,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
             onClick={() => handleSelect(currentPathArray)}
           >
             <span className="flex-1 text-sm truncate">{item.label}</span>
-            {hasChildren && (
-              <span className="text-xs opacity-50">›</span>
-            )}
+            {hasChildren && <span className="text-xs opacity-50">›</span>}
           </div>
         </div>
       );
@@ -52,8 +50,8 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   };
 
   // ========== FILTER AKTIVITAS ==========
-  // Filter "mandarin" dari activities (udah dihapus dari default,
-  // tapi user lama mungkin masih punya data di Firestore).
+  // Filter "mandarin" (udah dihapus dari default, tapi user lama masih
+  // mungkin punya data di Firestore).
   const filteredActivities = (activities || []).filter(
     (a) => a.id !== "mandarin"
   );
@@ -95,6 +93,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         >
           🏠 Dashboard Utama
         </button>
+
         <button
           className={`btn btn-sm w-full justify-start gap-2 ${
             isPekerjaan ? "btn-primary" : "btn-ghost"
@@ -103,6 +102,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         >
           💼 Pekerjaan
         </button>
+
         <button
           className={`btn btn-sm w-full justify-start gap-2 ${
             isBelajar ? "btn-primary" : "btn-ghost"
@@ -111,6 +111,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         >
           📚 Belajar
         </button>
+
         <button
           className={`btn btn-sm w-full justify-start gap-2 ${
             isBedahBuku ? "btn-primary" : "btn-ghost"
@@ -118,6 +119,15 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
           onClick={() => router.push("/dashboard/bedah-buku")}
         >
           📚 Bedah Buku
+        </button>
+
+        <button
+          className={`btn btn-sm w-full justify-start gap-2 ${
+            isKeuangan ? "btn-primary" : "btn-ghost"
+          }`}
+          onClick={() => router.push("/dashboard/keuangan")}
+        >
+          💰 Keuangan
         </button>
       </div>
 
