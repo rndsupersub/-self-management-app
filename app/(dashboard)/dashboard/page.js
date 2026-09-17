@@ -6,11 +6,18 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+
 import Sidebar from "@/components/Sidebar";
 import Schedule from "@/components/Schedule";
-import Finance from "@/components/Finance";
+import RingkasanKeuangan from "@/components/RingkasanKeuangan";
+
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
+import {
+  DEFAULT_DOMPET,
+  DEFAULT_GOALS,
+  DEFAULT_SETTING,
+} from "@/lib/keuanganData";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -24,26 +31,35 @@ export default function Dashboard() {
     new Date().toISOString().split("T")[0]
   );
 
+  // Keuangan data (untuk ringkasan)
+  const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
+  const [goalsList, setGoalsList] = useState(DEFAULT_GOALS);
+  const [keuanganTransaksi, setKeuanganTransaksi] = useState({});
+  const [keuanganSetting, setKeuanganSetting] = useState(DEFAULT_SETTING);
+
   const router = useRouter();
 
-  // ========== FUNGSI MIGRASI NPD → BEDAH BUKU ==========
+  // ========== MIGRASI NPD → BEDAH BUKU + HAPUS MANDARIN ==========
   const runMigrasi = (data) => {
     let perluSimpan = false;
     const updates = {};
 
-    // ---- 1. MIGRASI ACTIVITIES ----
+    // 1. MIGRASI ACTIVITIES
     let activitiesBaru = data.activities;
     if (Array.isArray(activitiesBaru)) {
       const adaNpd = activitiesBaru.some((a) => a.id === "npd");
-      if (adaNpd) {
-        activitiesBaru = activitiesBaru.filter((a) => a.id !== "npd");
+      const adaMandarin = activitiesBaru.some((a) => a.id === "mandarin");
+      if (adaNpd || adaMandarin) {
+        activitiesBaru = activitiesBaru.filter(
+          (a) => a.id !== "npd" && a.id !== "mandarin"
+        );
         updates.activities = activitiesBaru;
         perluSimpan = true;
-        console.log("[MIGRASI] NPD dihapus dari activities.");
+        console.log("[MIGRASI] NPD + Mandarin dihapus dari activities.");
       }
     }
 
-    // ---- 2. MIGRASI JADWAL USER ----
+    // 2. MIGRASI JADWAL USER
     let jadwalBaru = data.jadwalUser;
     if (jadwalBaru?.kerja && Array.isArray(jadwalBaru.kerja)) {
       const adaNpdJadwal = jadwalBaru.kerja.some((item) => item.id === "npd");
@@ -67,29 +83,23 @@ export default function Dashboard() {
       }
     }
 
-    // ---- 3. MIGRASI DAILY PROGRESS ----
+    // 3. MIGRASI DAILY PROGRESS
     let progressBaru = data.dailyProgress;
     if (progressBaru && typeof progressBaru === "object") {
       let adaNpdProgress = false;
       const progressUpdated = { ...progressBaru };
-
       Object.keys(progressUpdated).forEach((tanggal) => {
         const dayData = progressUpdated[tanggal];
         if (dayData && dayData.npd) {
           adaNpdProgress = true;
           const newDayData = { ...dayData };
-
-          // Kalau bedah-buku belum ada, pindahin
           if (!newDayData["bedah-buku"]) {
             newDayData["bedah-buku"] = newDayData.npd;
           }
-          // Hapus NPD
           delete newDayData.npd;
-
           progressUpdated[tanggal] = newDayData;
         }
       });
-
       if (adaNpdProgress) {
         updates.dailyProgress = progressUpdated;
         progressBaru = progressUpdated;
@@ -101,13 +111,14 @@ export default function Dashboard() {
     return { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru };
   };
 
-  // ========== LOAD USER DATA + MIGRASI ==========
+  // ========== LOAD USER DATA ==========
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push("/login");
         return;
       }
+
       setUser(user);
 
       const docRef = doc(db, "users", user.uid);
@@ -125,27 +136,36 @@ export default function Dashboard() {
           progressBaru,
         } = runMigrasi(data);
 
-        // Kalau ada yang perlu disimpan, update Firestore
         if (perluSimpan) {
           await setDoc(docRef, updates, { merge: true });
           console.log("[MIGRASI] Firestore di-update:", updates);
         }
 
-        // Set state dari data yang udah dimigrasi
+        // Set activities
         if (Array.isArray(activitiesBaru)) {
           setActivities(activitiesBaru);
         } else {
-          await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
+          await setDoc(
+            docRef,
+            { activities: DEFAULT_ACTIVITIES },
+            { merge: true }
+          );
           setActivities(DEFAULT_ACTIVITIES);
         }
 
+        // Set jadwal
         if (jadwalBaru?.kerja && jadwalBaru?.minggu) {
           setJadwalUser(jadwalBaru);
         } else {
-          await setDoc(docRef, { jadwalUser: DEFAULT_JADWAL }, { merge: true });
+          await setDoc(
+            docRef,
+            { jadwalUser: DEFAULT_JADWAL },
+            { merge: true }
+          );
           setJadwalUser(DEFAULT_JADWAL);
         }
 
+        // Set progress
         if (
           progressBaru &&
           typeof progressBaru === "object" &&
@@ -156,12 +176,67 @@ export default function Dashboard() {
           await setDoc(docRef, { dailyProgress: {} }, { merge: true });
           setProgress({});
         }
+
+        // ========== LOAD KEUANGAN DATA ==========
+        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) {
+          setDompetList(data.keuanganDompet);
+        } else {
+          await setDoc(
+            docRef,
+            { keuanganDompet: DEFAULT_DOMPET },
+            { merge: true }
+          );
+          setDompetList(DEFAULT_DOMPET);
+        }
+
+        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) {
+          setGoalsList(data.keuanganGoals);
+        } else {
+          await setDoc(
+            docRef,
+            { keuanganGoals: DEFAULT_GOALS },
+            { merge: true }
+          );
+          setGoalsList(DEFAULT_GOALS);
+        }
+
+        if (
+          data.keuanganTransaksi &&
+          typeof data.keuanganTransaksi === "object" &&
+          !Array.isArray(data.keuanganTransaksi)
+        ) {
+          setKeuanganTransaksi(data.keuanganTransaksi);
+        } else {
+          await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true });
+          setKeuanganTransaksi({});
+        }
+
+        if (
+          data.keuanganSetting &&
+          typeof data.keuanganSetting === "object"
+        ) {
+          setKeuanganSetting({
+            ...DEFAULT_SETTING,
+            ...data.keuanganSetting,
+          });
+        } else {
+          await setDoc(
+            docRef,
+            { keuanganSetting: DEFAULT_SETTING },
+            { merge: true }
+          );
+          setKeuanganSetting(DEFAULT_SETTING);
+        }
       } else {
         // User baru
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
           jadwalUser: DEFAULT_JADWAL,
           dailyProgress: {},
+          keuanganDompet: DEFAULT_DOMPET,
+          keuanganGoals: DEFAULT_GOALS,
+          keuanganTransaksi: {},
+          keuanganSetting: DEFAULT_SETTING,
         });
         setActivities(DEFAULT_ACTIVITIES);
         setJadwalUser(DEFAULT_JADWAL);
@@ -185,7 +260,11 @@ export default function Dashboard() {
     const dayData = progress[date] || {};
     dayData[field] = { ...dayData[field], ...value };
     const newProgress = { ...progress, [date]: dayData };
-    await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
+    await setDoc(
+      docRef,
+      { dailyProgress: newProgress },
+      { merge: true }
+    );
     setProgress(newProgress);
   };
 
@@ -241,6 +320,7 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Jadwal */}
           <Schedule
             jadwalUser={jadwalUser}
             onUpdateJadwal={updateJadwal}
@@ -249,11 +329,21 @@ export default function Dashboard() {
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
           />
-          <div className="text-center text-base-content/50 mt-10">
+
+          {/* Placeholder */}
+          <div className="text-center text-base-content/50 mt-10 mb-6">
             <p className="text-2xl mb-2">📋</p>
             <p>Pilih aktivitas dari sidebar</p>
           </div>
-          <Finance />
+
+          {/* Ringkasan Keuangan */}
+          <RingkasanKeuangan
+            dompetList={dompetList}
+            goalsList={goalsList}
+            keuanganTransaksi={keuanganTransaksi}
+            setting={keuanganSetting}
+            onClickDetail={() => router.push("/dashboard/keuangan")}
+          />
         </div>
       </div>
     </div>
