@@ -50,10 +50,9 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   };
 
   // ========== FILTER AKTIVITAS ==========
-  // Filter "mandarin" (udah dihapus dari default, tapi user lama masih
-  // mungkin punya data di Firestore).
+  // Filter "mandarin" (pindah ke Belajar) + "fiqih" (pindah ke Belajar → Agama)
   const filteredActivities = (activities || []).filter(
-    (a) => a.id !== "mandarin"
+    (a) => a.id !== "mandarin" && a.id !== "fiqih"
   );
 
   if (collapsed) {
