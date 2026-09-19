@@ -9,15 +9,18 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import BelajarUpload from "@/components/BelajarUpload";
 import KaryaMingguan from "@/components/KaryaMingguan";
+import KalenderBelajar from "@/components/KalenderBelajar";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_KATEGORI,
+  DEFAULT_TARGET_HARIAN,
   findItem,
   updateItem,
   addItem,
   deleteItem,
   generateId,
   kategoriPunyaKaryaMingguan,
+  getLabelKategoriById,
 } from "@/lib/belajarData";
 
 export default function BelajarDetailPage() {
@@ -29,6 +32,11 @@ export default function BelajarDetailPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ nama: "" });
+
+  // Kalender belajar state
+  const [activeTab, setActiveTab] = useState("materi");
+  const [logHarian, setLogHarian] = useState({});
+  const [targetHarian, setTargetHarian] = useState(DEFAULT_TARGET_HARIAN);
 
   const router = useRouter();
   const params = useParams();
@@ -43,24 +51,21 @@ export default function BelajarDetailPage() {
         return;
       }
       setUser(user);
-
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data();
 
+        // Activities
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
-          await setDoc(
-            docRef,
-            { activities: DEFAULT_ACTIVITIES },
-            { merge: true }
-          );
+          await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
         }
 
+        // Kategori Belajar
         if (data.belajar && Array.isArray(data.belajar.kategori)) {
           setKategori(data.belajar.kategori);
         } else {
@@ -71,10 +76,43 @@ export default function BelajarDetailPage() {
           );
           setKategori(DEFAULT_KATEGORI);
         }
+
+        // Log Harian Belajar
+        if (
+          data.belajarLogHarian &&
+          typeof data.belajarLogHarian === "object" &&
+          !Array.isArray(data.belajarLogHarian)
+        ) {
+          setLogHarian(data.belajarLogHarian);
+        } else {
+          await setDoc(docRef, { belajarLogHarian: {} }, { merge: true });
+          setLogHarian({});
+        }
+
+        // Target Harian Belajar
+        if (
+          data.belajarTargetHarian &&
+          typeof data.belajarTargetHarian === "object" &&
+          !Array.isArray(data.belajarTargetHarian)
+        ) {
+          setTargetHarian({
+            ...DEFAULT_TARGET_HARIAN,
+            ...data.belajarTargetHarian,
+          });
+        } else {
+          await setDoc(
+            docRef,
+            { belajarTargetHarian: DEFAULT_TARGET_HARIAN },
+            { merge: true }
+          );
+          setTargetHarian(DEFAULT_TARGET_HARIAN);
+        }
       } else {
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
           belajar: { kategori: DEFAULT_KATEGORI },
+          belajarLogHarian: {},
+          belajarTargetHarian: DEFAULT_TARGET_HARIAN,
         });
         setActivities(DEFAULT_ACTIVITIES);
         setKategori(DEFAULT_KATEGORI);
@@ -88,15 +126,27 @@ export default function BelajarDetailPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ========== SIMPAN KE FIRESTORE ==========
+  // ========== SIMPAN KATEGORI KE FIRESTORE ==========
   const simpanKategori = async (newKategori) => {
     setKategori(newKategori);
     const docRef = doc(db, "users", user.uid);
-    await setDoc(
-      docRef,
-      { belajar: { kategori: newKategori } },
-      { merge: true }
-    );
+    await setDoc(docRef, { belajar: { kategori: newKategori } }, { merge: true });
+  };
+
+  // ========== SIMPAN LOG HARIAN ==========
+  const handleUpdateLog = async (newLogHarian) => {
+    setLogHarian(newLogHarian);
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { belajarLogHarian: newLogHarian }, { merge: true });
+  };
+
+  // ========== SIMPAN TARGET HARIAN ==========
+  const handleUpdateTarget = async (newTarget) => {
+    setTargetHarian(newTarget);
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { belajarTargetHarian: newTarget }, { merge: true });
   };
 
   // ========== CARI ITEM DI HIERARKI ==========
@@ -104,14 +154,13 @@ export default function BelajarDetailPage() {
   const item = result?.item || null;
   const level = path.length;
 
-  // Cek kategori utama (path[0]) buat deteksi Karya Mingguan
+  // Cek kategori utama (path[0]) buat deteksi Karya Mingguan & Kalender
   const kategoriUtama = path[0] || null;
   const punyaKaryaMingguan = kategoriPunyaKaryaMingguan(kategoriUtama);
 
   // ========== TAMBAH ITEM ==========
   const handleTambah = async () => {
     if (!formData.nama.trim() || !item) return;
-
     const newItem = {
       id: generateId("item"),
       nama: formData.nama,
@@ -123,7 +172,6 @@ export default function BelajarDetailPage() {
       newItem.tools = [];
     } else if (level === 3) {
       newItem.fitur = [];
-      // Karya Mingguan cuma buat kategori Design
       if (punyaKaryaMingguan) {
         newItem.karyaMingguan = [];
       }
@@ -146,8 +194,7 @@ export default function BelajarDetailPage() {
   // ========== HAPUS ITEM ==========
   const handleHapus = async (itemId, e) => {
     e.stopPropagation();
-    if (!confirm("Hapus item ini? Semua isi di dalamnya akan hilang."))
-      return;
+    if (!confirm("Hapus item ini? Semua isi di dalamnya akan hilang.")) return;
     const newPath = [...path, itemId];
     const newKategori = deleteItem(kategori, newPath);
     await simpanKategori(newKategori);
@@ -165,11 +212,7 @@ export default function BelajarDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        Loading...
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
   if (!item) {
@@ -202,12 +245,8 @@ export default function BelajarDetailPage() {
   const renderBreadcrumb = () => {
     const items = [
       { id: null, nama: "🏠 Dashboard", path: "/dashboard" },
+      { id: null, nama: "📚 Belajar", path: "/dashboard/belajar" },
     ];
-    items.push({
-      id: null,
-      nama: "📚 Belajar",
-      path: "/dashboard/belajar",
-    });
 
     let currentPath = "/dashboard/belajar";
     path.forEach((id, idx) => {
@@ -228,10 +267,7 @@ export default function BelajarDetailPage() {
           {items.map((b, idx) => (
             <li key={idx}>
               {idx < items.length - 1 ? (
-                <a
-                  onClick={() => router.push(b.path)}
-                  className="cursor-pointer"
-                >
+                <a onClick={() => router.push(b.path)} className="cursor-pointer">
                   {b.nama}
                 </a>
               ) : (
@@ -256,7 +292,6 @@ export default function BelajarDetailPage() {
         </div>
       );
     }
-
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((sub) => {
@@ -269,9 +304,7 @@ export default function BelajarDetailPage() {
             >
               <div className="card-body p-4">
                 <div className="flex justify-between items-start">
-                  <h2 className="card-title text-base text-gray-800">
-                    {sub.nama}
-                  </h2>
+                  <h2 className="card-title text-base text-gray-800">{sub.nama}</h2>
                   <button
                     className="btn btn-ghost btn-xs text-red-500"
                     onClick={(e) => handleHapus(sub.id, e)}
@@ -293,22 +326,53 @@ export default function BelajarDetailPage() {
 
   // ========== RENDER CONTENT ==========
   const renderContent = () => {
-    // LEVEL 1: Kategori → Sub-kategori
+    // LEVEL 1: Kategori → Tab Materi | Kalender
     if (level === 1) {
       return (
         <>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-800">
-              📁 Sub-kategori
-            </h2>
+          {/* TAB NAVIGATION */}
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
             <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowForm(!showForm)}
+              className={`tab ${activeTab === "materi" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("materi")}
             >
-              + Tambah Sub-kategori
+              📚 Materi
+            </button>
+            <button
+              className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("kalender")}
+            >
+              📅 Kalender
             </button>
           </div>
-          {renderList(item.subKategori || [])}
+
+          {/* TAB MATERI */}
+          {activeTab === "materi" && (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-gray-800">📁 Sub-kategori</h2>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowForm(!showForm)}
+                >
+                  + Tambah Sub-kategori
+                </button>
+              </div>
+              {renderList(item.subKategori || [])}
+            </>
+          )}
+
+          {/* TAB KALENDER */}
+          {activeTab === "kalender" && (
+            <KalenderBelajar
+              kategoriId={kategoriUtama}
+              kategoriData={kategori}
+              logHarian={logHarian}
+              targetHarian={targetHarian}
+              onUpdateLog={handleUpdateLog}
+              onUpdateTarget={handleUpdateTarget}
+            />
+          )}
         </>
       );
     }
@@ -425,9 +489,7 @@ export default function BelajarDetailPage() {
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
         <div
-          className={`${
-            sidebarCollapsed ? "w-12" : "w-64"
-          } transition-all duration-300 bg-base-100`}
+          className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
         >
           <Sidebar
             activities={activities}
@@ -461,10 +523,7 @@ export default function BelajarDetailPage() {
                   autoFocus
                 />
                 <div className="flex gap-2 mt-3">
-                  <button
-                    className="btn btn-primary btn-sm flex-1"
-                    onClick={handleTambah}
-                  >
+                  <button className="btn btn-primary btn-sm flex-1" onClick={handleTambah}>
                     ➕ Tambah
                   </button>
                   <button
