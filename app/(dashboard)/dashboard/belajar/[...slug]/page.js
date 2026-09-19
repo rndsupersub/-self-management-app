@@ -14,6 +14,7 @@ import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_KATEGORI,
   DEFAULT_TARGET_HARIAN,
+  WARNA_OPTIONS,
   findItem,
   updateItem,
   addItem,
@@ -21,6 +22,7 @@ import {
   generateId,
   kategoriPunyaKaryaMingguan,
   syncLogToMateri,
+  getWarnaStyle,
 } from "@/lib/belajarData";
 
 export default function BelajarDetailPage() {
@@ -37,6 +39,9 @@ export default function BelajarDetailPage() {
   const [activeTab, setActiveTab] = useState("materi");
   const [logHarian, setLogHarian] = useState({});
   const [targetHarian, setTargetHarian] = useState(DEFAULT_TARGET_HARIAN);
+
+  // Color picker state (untuk level 3 — tool)
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   const router = useRouter();
   const params = useParams();
@@ -130,26 +135,25 @@ export default function BelajarDetailPage() {
     await setDoc(docRef, { belajar: { kategori: newKategori } }, { merge: true });
   };
 
-  // ========== UPDATE LOG + SYNC KE MATERI (OPSI C) ==========
-  // Handler ini dipanggil dari KalenderBelajar.
-  // Kalau action "add" atau "edit" → append catatan ke materi.
-  // Kalau action "delete" → nggak hapus materi (karena materi mungkin udah dikurasi manual).
+  // ========== UPDATE LOG + SYNC KE MATERI ==========
   const handleUpdateLog = async (newLogHarian, meta = {}) => {
     const { action, log } = meta;
 
-    // 1. Update materi dulu kalau perlu
     let newKategori = kategori;
-    if ((action === "add" || action === "edit") && log) {
+    // Sync dari kalender → materi, KECUALI kalau sumber lognya "materi" (biar nggak duplikat)
+    if (
+      (action === "add" || action === "edit") &&
+      log &&
+      log.sumber !== "materi"
+    ) {
       newKategori = syncLogToMateri(kategori, log);
     }
 
-    // 2. Set state
     setLogHarian(newLogHarian);
     if (newKategori !== kategori) {
       setKategori(newKategori);
     }
 
-    // 3. Simpan ke Firestore
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
     const updates = { belajarLogHarian: newLogHarian };
@@ -217,12 +221,17 @@ export default function BelajarDetailPage() {
     await simpanKategori(newKategori);
   };
 
-  // ========== UPDATE ITEM (dari halaman materi) ==========
-  // Ini buat update catatan/gdrive/link di halaman fitur.
-  // Belum sync ke log kalender (nanti di FILE 4).
+  // ========== UPDATE ITEM ==========
   const handleUpdateItem = async (updatedFields) => {
     const newKategori = updateItem(kategori, path, updatedFields);
     await simpanKategori(newKategori);
+  };
+
+  // ========== UPDATE WARNA TOOL (khusus level 3) ==========
+  const handleUpdateWarnaTool = async (warnaId) => {
+    const newKategori = updateItem(kategori, path, { warna: warnaId });
+    await simpanKategori(newKategori);
+    setShowColorPicker(false);
   };
 
   const handleLogout = async () => {
@@ -405,12 +414,28 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 3: Tool → Fitur + Karya Mingguan
+    // LEVEL 3: Tool → Fitur + Karya Mingguan + COLOR PICKER
     if (level === 3) {
+      const warnaTool = item.warna || "gray";
+      const style = getWarnaStyle(warnaTool);
       return (
         <>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-800">📚 Fitur</h2>
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-800">📚 Fitur</h2>
+              {/* INDIKATOR WARNA TOOL + TOMBOL PICKER */}
+              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                <span className={`w-3 h-3 rounded-full ${style.bg}`} />
+                <span className="text-xs text-gray-500">Warna bar</span>
+                <button
+                  className="btn btn-ghost btn-xs text-gray-600"
+                  onClick={() => setShowColorPicker(!showColorPicker)}
+                  title="Ubah warna tool"
+                >
+                  🎨
+                </button>
+              </div>
+            </div>
             <button
               className="btn btn-primary btn-sm"
               onClick={() => setShowForm(!showForm)}
@@ -418,6 +443,43 @@ export default function BelajarDetailPage() {
               + Tambah Fitur
             </button>
           </div>
+
+          {/* COLOR PICKER MODAL */}
+          {showColorPicker && (
+            <div className="card bg-white shadow border border-blue-300 mb-4">
+              <div className="card-body p-4">
+                <p className="text-xs font-semibold text-blue-700 mb-2">
+                  🎨 Pilih Warna untuk Tool "{item.nama}"
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Warna ini dipakai buat bar di kalender belajar.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {WARNA_OPTIONS.map((w) => (
+                    <button
+                      key={w.id}
+                      className={`w-8 h-8 rounded ${w.bg} border-2 ${
+                        warnaTool === w.id
+                          ? "border-gray-800 ring-2 ring-gray-400"
+                          : "border-white"
+                      }`}
+                      onClick={() => handleUpdateWarnaTool(w.id)}
+                      title={w.label}
+                    />
+                  ))}
+                </div>
+                <div className="flex justify-end mt-3">
+                  <button
+                    className="btn btn-ghost btn-xs text-gray-600"
+                    onClick={() => setShowColorPicker(false)}
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {renderList(item.fitur || [])}
 
           {punyaKaryaMingguan && (
@@ -471,10 +533,31 @@ export default function BelajarDetailPage() {
       }
 
       // Leaf
-      return <BelajarUpload item={item} onUpdate={handleUpdateItem} />;
+      return (
+        <BelajarUpload
+          item={item}
+          onUpdate={handleUpdateItem}
+          path={path}
+          kategoriId={kategoriUtama}
+          logHarian={logHarian}
+          onUpdateLog={handleUpdateLog}
+          today={today}
+        />
+      );
     }
 
-    return <BelajarUpload item={item} onUpdate={handleUpdateItem} />;
+    // LEVEL 5+ (part leaf)
+    return (
+      <BelajarUpload
+        item={item}
+        onUpdate={handleUpdateItem}
+        path={path}
+        kategoriId={kategoriUtama}
+        logHarian={logHarian}
+        onUpdateLog={handleUpdateLog}
+        today={today}
+      />
+    );
   };
 
   return (
