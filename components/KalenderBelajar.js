@@ -13,11 +13,14 @@ import {
 
 export default function KalenderBelajar({
   kategoriId = "design",
+  subKategoriId = "",
   kategoriData = [],
   logHarian = {},
   targetHarian = {},
   onUpdateLog,
   onUpdateTarget,
+  subKategoriSiblings = [],
+  onPindahSubKategori,
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -60,7 +63,6 @@ export default function KalenderBelajar({
     const lastDay = new Date(year, month + 1, 0);
     const startDay = firstDay.getDay();
     const totalDays = lastDay.getDate();
-
     const days = [];
     for (let i = 0; i < startDay; i++) days.push(null);
     for (let d = 1; d <= totalDays; d++) {
@@ -84,17 +86,18 @@ export default function KalenderBelajar({
     setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
     setSelectedDate(now.toISOString().split("T")[0]);
   };
-
   const handleMonthChange = (e) =>
     setCurrentMonth(new Date(currentMonth.getFullYear(), parseInt(e.target.value), 1));
   const handleYearChange = (e) =>
     setCurrentMonth(new Date(parseInt(e.target.value), currentMonth.getMonth(), 1));
 
   // ========== LOG DI TANGGAL ==========
-  const logDiTanggal = selectedDate ? (logHarian[selectedDate] || []) : [];
-  const logDiTanggalByKategori = logDiTanggal.filter((l) => l.kategoriId === kategoriId);
+  const logDiTanggal = selectedDate ? logHarian[selectedDate] || [] : [];
+  const logDiTanggalByKategori = logDiTanggal.filter(
+    (l) => l.kategoriId === kategoriId && l.subKategoriId === subKategoriId
+  );
 
-  // ========== SEMUA LOG DI BULAN INI (buat list di bawah kalender) ==========
+  // ========== SEMUA LOG DI BULAN INI ==========
   const logBulanIni = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -104,13 +107,14 @@ export default function KalenderBelajar({
       if (!tanggal.startsWith(prefix)) return;
       (list || []).forEach((log) => {
         if (log.kategoriId !== kategoriId) return;
+        if (subKategoriId && log.subKategoriId !== subKategoriId) return;
         if (filterSubKategori !== "all" && log.subKategoriId !== filterSubKategori) return;
         if (filterTool !== "all" && log.toolId !== filterTool) return;
         result.push({ ...log, tanggal });
       });
     });
     return result.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
-  }, [logHarian, currentMonth, kategoriId, filterSubKategori, filterTool]);
+  }, [logHarian, currentMonth, kategoriId, subKategoriId, filterSubKategori, filterTool]);
 
   // ========== DAPETIN PATH LABEL ==========
   const getLabelByLog = (log) => {
@@ -153,7 +157,7 @@ export default function KalenderBelajar({
   // ========== RESET FORM ==========
   const resetFormData = () => {
     setFormData({
-      subKategoriId: subKategoriList[0]?.id || "",
+      subKategoriId: subKategoriId || subKategoriList[0]?.id || "",
       toolId: "",
       fiturId: "",
       partId: "",
@@ -215,7 +219,7 @@ export default function KalenderBelajar({
       catatan: formData.catatan,
       gdriveUrl: formData.gdriveUrl,
       telegramMessageId: "",
-      sumber: "kalender", // bedain log dari kalender vs dari materi
+      sumber: "kalender",
       updatedAt: new Date().toISOString(),
     };
 
@@ -247,7 +251,6 @@ export default function KalenderBelajar({
     setTargetInput(currentTarget.target);
     setEditTargetMode(true);
   };
-
   const handleSimpanTarget = () => {
     const t = parseInt(targetInput);
     if (!t || t <= 0) return;
@@ -267,16 +270,15 @@ export default function KalenderBelajar({
   const currentYear = new Date().getFullYear();
   const years = [];
   for (let y = currentYear - 1; y <= currentYear + 5; y++) years.push(y);
-
   const todayStr = new Date().toISOString().split("T")[0];
 
-  // Ambil semua log di tanggal tertentu (untuk bar warna)
   const getLogsByDate = (date) => {
     const logs = logHarian[date] || [];
-    return logs.filter((l) => l.kategoriId === kategoriId);
+    return logs.filter(
+      (l) => l.kategoriId === kategoriId && (!subKategoriId || l.subKategoriId === subKategoriId)
+    );
   };
 
-  // Ambil warna dari log (berdasarkan tool/fitur)
   const getWarnaLog = (log) => {
     const path = [log.kategoriId, log.subKategoriId, log.toolId];
     if (log.fiturId) path.push(log.fiturId);
@@ -287,7 +289,6 @@ export default function KalenderBelajar({
   const hitungLogHariIni = logDiTanggalByKategori.length;
   const targetTercapai = hitungLogHariIni >= (currentTarget.target || 1);
 
-  // Tool list buat filter
   const allToolsInKategori = useMemo(() => {
     const result = [];
     subKategoriList.forEach((sub) => {
@@ -300,13 +301,28 @@ export default function KalenderBelajar({
 
   return (
     <div className="space-y-4">
+      {/* TOMBOL NAVIGASI PINDAH SUB-KATEGORI */}
+      {subKategoriSiblings.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {subKategoriSiblings.map((sib) => (
+            <button
+              key={sib.id}
+              className="btn btn-outline btn-sm text-gray-700 hover:bg-blue-50"
+              onClick={() => onPindahSubKategori && onPindahSubKategori(sib.id)}
+            >
+              ← Pindah ke {sib.nama}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* TARGET HARIAN */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex justify-between items-center flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-gray-700">
-                🎯 Target Harian — {getLabelKategoriById(kategoriData, kategoriId)}
+                🎯 Target Harian --- {getLabelKategoriById(kategoriData, kategoriId)}
               </span>
               {!editTargetMode ? (
                 <>
@@ -335,7 +351,10 @@ export default function KalenderBelajar({
                   <button className="btn btn-primary btn-xs" onClick={handleSimpanTarget}>
                     ✓
                   </button>
-                  <button className="btn btn-ghost btn-xs" onClick={() => setEditTargetMode(false)}>
+                  <button
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => setEditTargetMode(false)}
+                  >
                     ✕
                   </button>
                 </>
@@ -677,7 +696,11 @@ export default function KalenderBelajar({
                           )}
                         </div>
                         <div className="flex gap-1">
-                          <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(log)} title="Edit">
+                          <button
+                            className="btn btn-ghost btn-xs"
+                            onClick={() => handleEdit(log)}
+                            title="Edit"
+                          >
                             ✏️
                           </button>
                           <button
@@ -703,7 +726,7 @@ export default function KalenderBelajar({
         <div className="card-body p-4">
           <div className="flex justify-between items-center flex-wrap gap-2 mb-3">
             <h3 className="text-sm font-bold text-gray-800">
-              📋 Semua Catatan Belajar — {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()} ({logBulanIni.length})
+              📋 Semua Catatan Belajar --- {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()} ({logBulanIni.length})
             </h3>
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-xs text-gray-500">Filter:</span>

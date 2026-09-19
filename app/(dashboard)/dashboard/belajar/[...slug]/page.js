@@ -23,6 +23,7 @@ import {
   kategoriPunyaKaryaMingguan,
   syncLogToMateri,
   getWarnaStyle,
+  getSubKategoriSiblings,
 } from "@/lib/belajarData";
 
 export default function BelajarDetailPage() {
@@ -40,7 +41,7 @@ export default function BelajarDetailPage() {
   const [logHarian, setLogHarian] = useState({});
   const [targetHarian, setTargetHarian] = useState(DEFAULT_TARGET_HARIAN);
 
-  // Color picker state (untuk level 3 — tool)
+  // Color picker state (untuk level 3 --- tool)
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   const router = useRouter();
@@ -138,9 +139,9 @@ export default function BelajarDetailPage() {
   // ========== UPDATE LOG + SYNC KE MATERI ==========
   const handleUpdateLog = async (newLogHarian, meta = {}) => {
     const { action, log } = meta;
-
     let newKategori = kategori;
-    // Sync dari kalender → materi, KECUALI kalau sumber lognya "materi" (biar nggak duplikat)
+
+    // Sync dari kalender → materi, KECUALI kalau sumber lognya "materi"
     if (
       (action === "add" || action === "edit") &&
       log &&
@@ -175,9 +176,22 @@ export default function BelajarDetailPage() {
   const result = findItem(kategori, path);
   const item = result?.item || null;
   const level = path.length;
-
   const kategoriUtama = path[0] || null;
+  const subKategoriUtama = path[1] || null;
   const punyaKaryaMingguan = kategoriPunyaKaryaMingguan(kategoriUtama);
+
+  // ========== SUB-KATEGORI SIBLINGS (BUAT TOMBOL NAVIGASI) ==========
+  const subKategoriSiblings = getSubKategoriSiblings(
+    kategori,
+    kategoriUtama,
+    subKategoriUtama
+  );
+
+  // ========== HANDLER PINDAH SUB-KATEGORI ==========
+  const handlePindahSubKategori = (subKategoriId) => {
+    if (!kategoriUtama || !subKategoriId) return;
+    router.push(`/dashboard/belajar/${kategoriUtama}/${subKategoriId}`);
+  };
 
   // ========== TAMBAH ITEM ==========
   const handleTambah = async () => {
@@ -186,7 +200,6 @@ export default function BelajarDetailPage() {
       id: generateId("item"),
       nama: formData.nama,
     };
-
     if (level === 1) {
       newItem.subKategori = [];
     } else if (level === 2) {
@@ -205,7 +218,6 @@ export default function BelajarDetailPage() {
         newItem.catatan = "";
       }
     }
-
     const newKategori = addItem(kategori, path, newItem);
     await simpanKategori(newKategori);
     setFormData({ nama: "" });
@@ -385,31 +397,67 @@ export default function BelajarDetailPage() {
           {activeTab === "kalender" && (
             <KalenderBelajar
               kategoriId={kategoriUtama}
+              subKategoriId=""
               kategoriData={kategori}
               logHarian={logHarian}
               targetHarian={targetHarian}
               onUpdateLog={handleUpdateLog}
               onUpdateTarget={handleUpdateTarget}
+              subKategoriSiblings={subKategoriSiblings}
+              onPindahSubKategori={handlePindahSubKategori}
             />
           )}
         </>
       );
     }
 
-    // LEVEL 2: Sub-kategori → Tools
+    // LEVEL 2: Sub-kategori → Tab Materi | Kalender + Tools
     if (level === 2) {
       return (
         <>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-gray-800">🛠️ Tools</h2>
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
             <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowForm(!showForm)}
+              className={`tab ${activeTab === "materi" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("materi")}
             >
-              + Tambah Tool
+              📚 Materi
+            </button>
+            <button
+              className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
+              onClick={() => setActiveTab("kalender")}
+            >
+              📅 Kalender
             </button>
           </div>
-          {renderList(item.tools || [])}
+
+          {activeTab === "materi" && (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-gray-800">🛠️ Tools</h2>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowForm(!showForm)}
+                >
+                  + Tambah Tool
+                </button>
+              </div>
+              {renderList(item.tools || [])}
+            </>
+          )}
+
+          {activeTab === "kalender" && (
+            <KalenderBelajar
+              kategoriId={kategoriUtama}
+              subKategoriId={subKategoriUtama}
+              kategoriData={kategori}
+              logHarian={logHarian}
+              targetHarian={targetHarian}
+              onUpdateLog={handleUpdateLog}
+              onUpdateTarget={handleUpdateTarget}
+              subKategoriSiblings={subKategoriSiblings}
+              onPindahSubKategori={handlePindahSubKategori}
+            />
+          )}
         </>
       );
     }
@@ -423,7 +471,6 @@ export default function BelajarDetailPage() {
           <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-gray-800">📚 Fitur</h2>
-              {/* INDIKATOR WARNA TOOL + TOMBOL PICKER */}
               <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1">
                 <span className={`w-3 h-3 rounded-full ${style.bg}`} />
                 <span className="text-xs text-gray-500">Warna bar</span>
@@ -444,7 +491,6 @@ export default function BelajarDetailPage() {
             </button>
           </div>
 
-          {/* COLOR PICKER MODAL */}
           {showColorPicker && (
             <div className="card bg-white shadow border border-blue-300 mb-4">
               <div className="card-body p-4">
@@ -514,7 +560,6 @@ export default function BelajarDetailPage() {
           </>
         );
       }
-
       if (item.fitur && item.fitur.length > 0) {
         return (
           <>
@@ -531,8 +576,6 @@ export default function BelajarDetailPage() {
           </>
         );
       }
-
-      // Leaf
       return (
         <BelajarUpload
           item={item}
@@ -573,7 +616,6 @@ export default function BelajarDetailPage() {
           </button>
         </div>
       </div>
-
       <div className="flex-1 flex overflow-hidden">
         <div
           className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
@@ -584,10 +626,8 @@ export default function BelajarDetailPage() {
             setCollapsed={setSidebarCollapsed}
           />
         </div>
-
         <div className="flex-1 overflow-y-auto p-6">
           {renderBreadcrumb()}
-
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800">{item.nama}</h1>
           </div>
