@@ -7,6 +7,8 @@ import {
   getLabelKategoriById,
   getDefaultTargetByKategori,
   formatTanggal,
+  getWarnaStyle,
+  getWarnaToolByPath,
 } from "@/lib/belajarData";
 
 export default function KalenderBelajar({
@@ -20,11 +22,15 @@ export default function KalenderBelajar({
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingLogId, setEditingLogId] = useState(null);
   const [editTargetMode, setEditTargetMode] = useState(false);
   const [targetInput, setTargetInput] = useState("");
 
-  // ========== FORM STATE ==========
+  // Filter
+  const [filterSubKategori, setFilterSubKategori] = useState("all");
+  const [filterTool, setFilterTool] = useState("all");
+
+  // Form state
   const [formData, setFormData] = useState({
     subKategoriId: "",
     toolId: "",
@@ -88,8 +94,26 @@ export default function KalenderBelajar({
   const logDiTanggal = selectedDate ? (logHarian[selectedDate] || []) : [];
   const logDiTanggalByKategori = logDiTanggal.filter((l) => l.kategoriId === kategoriId);
 
+  // ========== SEMUA LOG DI BULAN INI (buat list di bawah kalender) ==========
+  const logBulanIni = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+    const result = [];
+    Object.entries(logHarian || {}).forEach(([tanggal, list]) => {
+      if (!tanggal.startsWith(prefix)) return;
+      (list || []).forEach((log) => {
+        if (log.kategoriId !== kategoriId) return;
+        if (filterSubKategori !== "all" && log.subKategoriId !== filterSubKategori) return;
+        if (filterTool !== "all" && log.toolId !== filterTool) return;
+        result.push({ ...log, tanggal });
+      });
+    });
+    return result.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  }, [logHarian, currentMonth, kategoriId, filterSubKategori, filterTool]);
+
   // ========== DAPETIN PATH LABEL ==========
-  const getLabelByPath = (log) => {
+  const getLabelByLog = (log) => {
     const parts = [];
     const sub = subKategoriList.find((s) => s.id === log.subKategoriId);
     if (sub) parts.push(sub.nama);
@@ -116,12 +140,12 @@ export default function KalenderBelajar({
     if (date === selectedDate) {
       setSelectedDate(null);
       setShowForm(false);
-      setEditingIndex(null);
+      setEditingLogId(null);
       return;
     }
     setSelectedDate(date);
     setShowForm(false);
-    setEditingIndex(null);
+    setEditingLogId(null);
     setErrorMsg("");
     resetFormData();
   };
@@ -138,29 +162,24 @@ export default function KalenderBelajar({
     });
   };
 
-  // ========== TOOL LIST (dari sub-kategori terpilih) ==========
+  // ========== TOOL LIST ==========
   const subKategoriTerpilih = subKategoriList.find((s) => s.id === formData.subKategoriId);
   const toolList = subKategoriTerpilih?.tools || [];
-
   const toolTerpilih = toolList.find((t) => t.id === formData.toolId);
   const fiturList = toolTerpilih?.fitur || [];
-
   const fiturTerpilih = fiturList.find((f) => f.id === formData.fiturId);
   const partList = fiturTerpilih?.parts || [];
 
   // ========== BUKA FORM TAMBAH ==========
   const handleBukaFormTambah = () => {
     resetFormData();
-    setEditingIndex(null);
+    setEditingLogId(null);
     setErrorMsg("");
     setShowForm(true);
   };
 
   // ========== BUKA FORM EDIT ==========
-  const handleEdit = (index) => {
-    const log = logDiTanggalByKategori[index];
-    // Cari index sebenarnya di logDiTanggal
-    const realIndex = logDiTanggal.findIndex((l) => l === log);
+  const handleEdit = (log) => {
     setFormData({
       subKategoriId: log.subKategoriId || "",
       toolId: log.toolId || "",
@@ -169,7 +188,7 @@ export default function KalenderBelajar({
       catatan: log.catatan || "",
       gdriveUrl: log.gdriveUrl || "",
     });
-    setEditingIndex(realIndex);
+    setEditingLogId(log.id);
     setErrorMsg("");
     setShowForm(true);
   };
@@ -177,25 +196,17 @@ export default function KalenderBelajar({
   // ========== SIMPAN LOG ==========
   const handleSimpan = () => {
     setErrorMsg("");
-
-    if (!formData.subKategoriId) {
-      setErrorMsg("Pilih sub-kategori dulu.");
-      return;
-    }
-    if (!formData.toolId) {
-      setErrorMsg("Pilih tool dulu.");
-      return;
-    }
+    if (!formData.subKategoriId) { setErrorMsg("Pilih sub-kategori dulu."); return; }
+    if (!formData.toolId) { setErrorMsg("Pilih tool dulu."); return; }
     if (!formData.catatan.trim() && !formData.gdriveUrl.trim()) {
-      setErrorMsg("Isi catatan atau link GDrive.");
-      return;
+      setErrorMsg("Isi catatan atau link GDrive."); return;
     }
 
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
     if (!updated[selectedDate]) updated[selectedDate] = [];
 
     const newLog = {
-      id: editingIndex !== null ? logDiTanggal[editingIndex]?.id : `log_${Date.now()}`,
+      id: editingLogId || `log_${Date.now()}`,
       kategoriId,
       subKategoriId: formData.subKategoriId,
       toolId: formData.toolId,
@@ -203,36 +214,32 @@ export default function KalenderBelajar({
       partId: formData.partId || "",
       catatan: formData.catatan,
       gdriveUrl: formData.gdriveUrl,
-      telegramMessageId: "", // Nanti diisi bot Telegram
+      telegramMessageId: "",
+      sumber: "kalender", // bedain log dari kalender vs dari materi
       updatedAt: new Date().toISOString(),
     };
 
-    if (editingIndex !== null) {
-      // Hapus yang lama, tambah yang baru (biar bisa pindah kategori juga)
-      const oldLog = logDiTanggal[editingIndex];
-      updated[selectedDate] = updated[selectedDate].filter((l) => l !== oldLog);
-      updated[selectedDate].push(newLog);
+    if (editingLogId) {
+      updated[selectedDate] = updated[selectedDate].map((l) =>
+        l.id === editingLogId ? newLog : l
+      );
     } else {
       updated[selectedDate].push(newLog);
     }
 
-    onUpdateLog(updated);
+    onUpdateLog(updated, { action: editingLogId ? "edit" : "add", log: newLog });
     setShowForm(false);
-    setEditingIndex(null);
+    setEditingLogId(null);
     resetFormData();
   };
 
   // ========== HAPUS LOG ==========
-  const handleHapus = (index) => {
-    if (!confirm("Hapus catatan belajar ini?")) return;
-    const logToDelete = logDiTanggalByKategori[index];
-    const realIndex = logDiTanggal.findIndex((l) => l === logToDelete);
+  const handleHapus = (log) => {
+    if (!confirm("Hapus catatan belajar ini? Yang di halaman materi juga bakal kehapus.")) return;
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
-    updated[selectedDate] = updated[selectedDate].filter((l) => l !== logToDelete);
-    if (updated[selectedDate].length === 0) {
-      delete updated[selectedDate];
-    }
-    onUpdateLog(updated);
+    updated[selectedDate] = (updated[selectedDate] || []).filter((l) => l.id !== log.id);
+    if (updated[selectedDate].length === 0) delete updated[selectedDate];
+    onUpdateLog(updated, { action: "delete", log });
   };
 
   // ========== EDIT TARGET ==========
@@ -263,13 +270,33 @@ export default function KalenderBelajar({
 
   const todayStr = new Date().toISOString().split("T")[0];
 
-  const getLogCountByDate = (date) => {
+  // Ambil semua log di tanggal tertentu (untuk bar warna)
+  const getLogsByDate = (date) => {
     const logs = logHarian[date] || [];
-    return logs.filter((l) => l.kategoriId === kategoriId).length;
+    return logs.filter((l) => l.kategoriId === kategoriId);
+  };
+
+  // Ambil warna dari log (berdasarkan tool/fitur)
+  const getWarnaLog = (log) => {
+    const path = [log.kategoriId, log.subKategoriId, log.toolId];
+    if (log.fiturId) path.push(log.fiturId);
+    if (log.partId) path.push(log.partId);
+    return getWarnaToolByPath(kategoriData, path);
   };
 
   const hitungLogHariIni = logDiTanggalByKategori.length;
   const targetTercapai = hitungLogHariIni >= (currentTarget.target || 1);
+
+  // Tool list buat filter
+  const allToolsInKategori = useMemo(() => {
+    const result = [];
+    subKategoriList.forEach((sub) => {
+      (sub.tools || []).forEach((t) => {
+        result.push({ ...t, subKategoriId: sub.id, subKategoriNama: sub.nama });
+      });
+    });
+    return result;
+  }, [subKategoriList]);
 
   return (
     <div className="space-y-4">
@@ -308,17 +335,19 @@ export default function KalenderBelajar({
                   <button className="btn btn-primary btn-xs" onClick={handleSimpanTarget}>
                     ✓
                   </button>
-                  <button
-                    className="btn btn-ghost btn-xs"
-                    onClick={() => setEditTargetMode(false)}
-                  >
+                  <button className="btn btn-ghost btn-xs" onClick={() => setEditTargetMode(false)}>
                     ✕
                   </button>
                 </>
               )}
             </div>
             <span className="text-xs text-gray-500">
-              Target diisi per kategori, bisa diubah kapan aja
+              {hitungLogHariIni > 0 && (
+                <>
+                  Hari ini: {hitungLogHariIni}/{currentTarget.target}{" "}
+                  {targetTercapai && <span className="text-green-600 font-bold">✅</span>}
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -330,12 +359,8 @@ export default function KalenderBelajar({
           {/* Navigasi */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex items-center gap-1">
-              <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear} title="Tahun sebelumnya">
-                «
-              </button>
-              <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth} title="Bulan sebelumnya">
-                ‹
-              </button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear}>«</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth}>‹</button>
             </div>
             <div className="flex items-center gap-2">
               <select
@@ -358,12 +383,8 @@ export default function KalenderBelajar({
               </select>
             </div>
             <div className="flex items-center gap-1">
-              <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextMonth} title="Bulan berikutnya">
-                ›
-              </button>
-              <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextYear} title="Tahun berikutnya">
-                »
-              </button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextMonth}>›</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextYear}>»</button>
             </div>
           </div>
 
@@ -388,7 +409,7 @@ export default function KalenderBelajar({
               if (!item) return <div key={idx} className="aspect-square" />;
               const isSelected = item.date === selectedDate;
               const isToday = item.date === todayStr;
-              const logCount = getLogCountByDate(item.date);
+              const logs = getLogsByDate(item.date);
               const holiday = HOLIDAYS[item.date];
               const isHolidayDate = !!holiday;
 
@@ -406,16 +427,32 @@ export default function KalenderBelajar({
               return (
                 <button
                   key={item.date}
-                  className={`aspect-square rounded border ${boxClass} relative transition text-sm`}
+                  className={`aspect-square rounded border ${boxClass} relative transition text-sm p-1 flex flex-col`}
                   onClick={() => handleDateClick(item.date)}
                   title={holiday || ""}
                 >
-                  <span className="absolute top-1 left-2">{item.day}</span>
-                  {logCount > 0 && (
-                    <span className="absolute bottom-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-green-500 text-white text-[9px] flex items-center justify-center font-bold">
-                      {logCount}
-                    </span>
-                  )}
+                  <span className="text-xs">{item.day}</span>
+                  {/* BAR WARNA */}
+                  <div className="flex-1 flex flex-col gap-0.5 mt-0.5 overflow-hidden">
+                    {logs.slice(0, 3).map((log, i) => {
+                      const warna = getWarnaLog(log);
+                      const style = getWarnaStyle(warna);
+                      return (
+                        <div
+                          key={log.id || i}
+                          className={`${style.bg} ${style.text} text-[8px] px-1 rounded truncate leading-tight`}
+                          title={getLabelByLog(log)}
+                        >
+                          {log.toolId || log.fiturId || "•"}
+                        </div>
+                      );
+                    })}
+                    {logs.length > 3 && (
+                      <span className="text-[8px] text-gray-500 leading-none">
+                        +{logs.length - 3}
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -436,10 +473,8 @@ export default function KalenderBelajar({
               <span>Tanggal Dipilih</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="w-4 h-4 rounded-full bg-green-500 text-white text-[8px] flex items-center justify-center font-bold">
-                1
-              </span>
-              <span>Ada Catatan Belajar</span>
+              <span className="w-4 h-2 rounded bg-purple-500" />
+              <span>Bar = catatan belajar (warna per tool)</span>
             </div>
           </div>
         </div>
@@ -470,10 +505,9 @@ export default function KalenderBelajar({
             {showForm && (
               <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3">
                 <p className="text-xs font-semibold text-blue-700">
-                  {editingIndex !== null ? "✏️ Edit Catatan Belajar" : "✏️ Tambah Catatan Belajar"}
+                  {editingLogId ? "✏️ Edit Catatan Belajar" : "✏️ Tambah Catatan Belajar"}
                 </p>
 
-                {/* Sub-kategori */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">Sub-Kategori</label>
                   <select
@@ -496,7 +530,6 @@ export default function KalenderBelajar({
                   </select>
                 </div>
 
-                {/* Tool */}
                 {formData.subKategoriId && (
                   <div>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Tool</label>
@@ -520,7 +553,6 @@ export default function KalenderBelajar({
                   </div>
                 )}
 
-                {/* Fitur */}
                 {formData.toolId && fiturList.length > 0 && (
                   <div>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Fitur / Materi</label>
@@ -539,7 +571,6 @@ export default function KalenderBelajar({
                   </div>
                 )}
 
-                {/* Part (kalau ada) */}
                 {formData.fiturId && partList.length > 0 && (
                   <div>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Part</label>
@@ -556,19 +587,17 @@ export default function KalenderBelajar({
                   </div>
                 )}
 
-                {/* Catatan */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">📝 Catatan</label>
                   <textarea
                     className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
                     rows="3"
-                    placeholder="Catatan belajar hari ini... (apa yang dipelajari, apa yang udah paham, apa yang masih bingung)"
+                    placeholder="Catatan belajar hari ini..."
                     value={formData.catatan}
                     onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
                   />
                 </div>
 
-                {/* GDrive */}
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">
                     📁 Link Google Drive (opsional)
@@ -593,13 +622,13 @@ export default function KalenderBelajar({
 
                 <div className="flex gap-2">
                   <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan}>
-                    {editingIndex !== null ? "💾 Simpan" : "➕ Tambah"}
+                    {editingLogId ? "💾 Simpan" : "➕ Tambah"}
                   </button>
                   <button
                     className="btn btn-ghost btn-sm text-gray-700"
                     onClick={() => {
                       setShowForm(false);
-                      setEditingIndex(null);
+                      setEditingLogId(null);
                     }}
                   >
                     Batal
@@ -608,7 +637,7 @@ export default function KalenderBelajar({
               </div>
             )}
 
-            {/* LIST LOG */}
+            {/* LIST LOG TANGGAL */}
             {!showForm && logDiTanggalByKategori.length === 0 && (
               <div className="text-center py-6 text-gray-400">
                 <p className="text-2xl mb-2">📖</p>
@@ -618,19 +647,138 @@ export default function KalenderBelajar({
 
             {!showForm && logDiTanggalByKategori.length > 0 && (
               <div className="space-y-2">
-                {logDiTanggalByKategori.map((log, idx) => (
+                {logDiTanggalByKategori.map((log, idx) => {
+                  const warna = getWarnaLog(log);
+                  const style = getWarnaStyle(warna);
+                  return (
+                    <div key={log.id || idx} className="p-3 rounded border border-gray-200 bg-gray-50">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`w-2 h-2 rounded-full ${style.bg}`} />
+                            <p className="text-sm font-semibold text-gray-800">
+                              {getLabelByLog(log)}
+                            </p>
+                          </div>
+                          {log.catatan && (
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap mt-1 bg-white p-2 rounded border border-gray-200">
+                              📝 {log.catatan}
+                            </p>
+                          )}
+                          {log.gdriveUrl && (
+                            <a
+                              href={log.gdriveUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs link link-primary mt-1 inline-block"
+                            >
+                              📁 GDrive
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex gap-1">
+                          <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(log)} title="Edit">
+                            ✏️
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-xs text-red-500"
+                            onClick={() => handleHapus(log)}
+                            title="Hapus"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* LIST SEMUA CATATAN BULAN INI */}
+      <div className="card bg-white shadow border border-gray-200">
+        <div className="card-body p-4">
+          <div className="flex justify-between items-center flex-wrap gap-2 mb-3">
+            <h3 className="text-sm font-bold text-gray-800">
+              📋 Semua Catatan Belajar — {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()} ({logBulanIni.length})
+            </h3>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs text-gray-500">Filter:</span>
+              <select
+                className="select select-bordered select-xs text-gray-800 bg-white"
+                value={filterSubKategori}
+                onChange={(e) => {
+                  setFilterSubKategori(e.target.value);
+                  setFilterTool("all");
+                }}
+              >
+                <option value="all">Semua Sub-Kategori</option>
+                {subKategoriList.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nama}</option>
+                ))}
+              </select>
+              <select
+                className="select select-bordered select-xs text-gray-800 bg-white"
+                value={filterTool}
+                onChange={(e) => setFilterTool(e.target.value)}
+              >
+                <option value="all">Semua Tool</option>
+                {allToolsInKategori
+                  .filter((t) => filterSubKategori === "all" || t.subKategoriId === filterSubKategori)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>{t.nama}</option>
+                  ))}
+              </select>
+              {(filterSubKategori !== "all" || filterTool !== "all") && (
+                <button
+                  className="btn btn-ghost btn-xs text-gray-500"
+                  onClick={() => {
+                    setFilterSubKategori("all");
+                    setFilterTool("all");
+                  }}
+                >
+                  ✕ Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {logBulanIni.length === 0 ? (
+            <p className="text-xs text-gray-400 italic text-center py-4">
+              Belum ada catatan belajar di bulan ini.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {logBulanIni.map((log, idx) => {
+                const warna = getWarnaLog(log);
+                const style = getWarnaStyle(warna);
+                return (
                   <div
-                    key={log.id || idx}
-                    className="p-3 rounded border border-gray-200 bg-gray-50"
+                    key={`${log.tanggal}_${log.id || idx}`}
+                    className="p-3 rounded border border-gray-200 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
+                    onClick={() => {
+                      setSelectedDate(log.tanggal);
+                      setShowForm(false);
+                      setEditingLogId(null);
+                    }}
                   >
-                    <div className="flex justify-between items-start mb-1">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800">
-                          {getLabelByPath(log)}
-                        </p>
+                    <div className="flex items-start gap-2">
+                      <span className={`w-2 h-2 rounded-full ${style.bg} mt-1.5 flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-2">
+                          <p className="text-sm font-semibold text-gray-800">
+                            {getLabelByLog(log)}
+                          </p>
+                          <span className="text-xs text-gray-500 flex-shrink-0">
+                            📅 {formatTanggal(log.tanggal, "pendek")}
+                          </span>
+                        </div>
                         {log.catatan && (
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap mt-1 bg-white p-2 rounded border border-gray-200">
-                            📝 {log.catatan}
+                          <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
+                            {log.catatan.length > 150 ? log.catatan.substring(0, 150) + "..." : log.catatan}
                           </p>
                         )}
                         {log.gdriveUrl && (
@@ -639,41 +787,26 @@ export default function KalenderBelajar({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs link link-primary mt-1 inline-block"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             📁 GDrive
                           </a>
                         )}
                       </div>
-                      <div className="flex gap-1">
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          onClick={() => handleEdit(idx)}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-xs text-red-500"
-                          onClick={() => handleHapus(idx)}
-                          title="Hapus"
-                        >
-                          🗑️
-                        </button>
-                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {!selectedDate && (
         <div className="card bg-white shadow border border-gray-200">
-          <div className="card-body p-8 text-center text-gray-400">
-            <p className="text-3xl mb-2">👆</p>
-            <p className="text-sm">Klik salah satu tanggal di kalender untuk lihat / tambah catatan belajar.</p>
+          <div className="card-body p-6 text-center text-gray-400">
+            <p className="text-2xl mb-2">👆</p>
+            <p className="text-sm">Klik tanggal di kalender untuk tambah / lihat catatan. Atau klik catatan di list bawah.</p>
           </div>
         </div>
       )}

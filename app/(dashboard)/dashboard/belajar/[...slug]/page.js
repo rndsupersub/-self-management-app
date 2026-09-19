@@ -20,7 +20,7 @@ import {
   deleteItem,
   generateId,
   kategoriPunyaKaryaMingguan,
-  getLabelKategoriById,
+  syncLogToMateri,
 } from "@/lib/belajarData";
 
 export default function BelajarDetailPage() {
@@ -57,7 +57,6 @@ export default function BelajarDetailPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Activities
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
@@ -65,7 +64,6 @@ export default function BelajarDetailPage() {
           setActivities(DEFAULT_ACTIVITIES);
         }
 
-        // Kategori Belajar
         if (data.belajar && Array.isArray(data.belajar.kategori)) {
           setKategori(data.belajar.kategori);
         } else {
@@ -77,7 +75,6 @@ export default function BelajarDetailPage() {
           setKategori(DEFAULT_KATEGORI);
         }
 
-        // Log Harian Belajar
         if (
           data.belajarLogHarian &&
           typeof data.belajarLogHarian === "object" &&
@@ -89,7 +86,6 @@ export default function BelajarDetailPage() {
           setLogHarian({});
         }
 
-        // Target Harian Belajar
         if (
           data.belajarTargetHarian &&
           typeof data.belajarTargetHarian === "object" &&
@@ -126,22 +122,44 @@ export default function BelajarDetailPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ========== SIMPAN KATEGORI KE FIRESTORE ==========
+  // ========== SIMPAN KATEGORI ==========
   const simpanKategori = async (newKategori) => {
     setKategori(newKategori);
+    if (!user) return;
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, { belajar: { kategori: newKategori } }, { merge: true });
   };
 
-  // ========== SIMPAN LOG HARIAN ==========
-  const handleUpdateLog = async (newLogHarian) => {
+  // ========== UPDATE LOG + SYNC KE MATERI (OPSI C) ==========
+  // Handler ini dipanggil dari KalenderBelajar.
+  // Kalau action "add" atau "edit" → append catatan ke materi.
+  // Kalau action "delete" → nggak hapus materi (karena materi mungkin udah dikurasi manual).
+  const handleUpdateLog = async (newLogHarian, meta = {}) => {
+    const { action, log } = meta;
+
+    // 1. Update materi dulu kalau perlu
+    let newKategori = kategori;
+    if ((action === "add" || action === "edit") && log) {
+      newKategori = syncLogToMateri(kategori, log);
+    }
+
+    // 2. Set state
     setLogHarian(newLogHarian);
+    if (newKategori !== kategori) {
+      setKategori(newKategori);
+    }
+
+    // 3. Simpan ke Firestore
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { belajarLogHarian: newLogHarian }, { merge: true });
+    const updates = { belajarLogHarian: newLogHarian };
+    if (newKategori !== kategori) {
+      updates.belajar = { kategori: newKategori };
+    }
+    await setDoc(docRef, updates, { merge: true });
   };
 
-  // ========== SIMPAN TARGET HARIAN ==========
+  // ========== UPDATE TARGET ==========
   const handleUpdateTarget = async (newTarget) => {
     setTargetHarian(newTarget);
     if (!user) return;
@@ -149,12 +167,11 @@ export default function BelajarDetailPage() {
     await setDoc(docRef, { belajarTargetHarian: newTarget }, { merge: true });
   };
 
-  // ========== CARI ITEM DI HIERARKI ==========
+  // ========== CARI ITEM ==========
   const result = findItem(kategori, path);
   const item = result?.item || null;
   const level = path.length;
 
-  // Cek kategori utama (path[0]) buat deteksi Karya Mingguan & Kalender
   const kategoriUtama = path[0] || null;
   const punyaKaryaMingguan = kategoriPunyaKaryaMingguan(kategoriUtama);
 
@@ -200,7 +217,9 @@ export default function BelajarDetailPage() {
     await simpanKategori(newKategori);
   };
 
-  // ========== UPDATE ITEM ==========
+  // ========== UPDATE ITEM (dari halaman materi) ==========
+  // Ini buat update catatan/gdrive/link di halaman fitur.
+  // Belum sync ke log kalender (nanti di FILE 4).
   const handleUpdateItem = async (updatedFields) => {
     const newKategori = updateItem(kategori, path, updatedFields);
     await simpanKategori(newKategori);
@@ -247,20 +266,14 @@ export default function BelajarDetailPage() {
       { id: null, nama: "🏠 Dashboard", path: "/dashboard" },
       { id: null, nama: "📚 Belajar", path: "/dashboard/belajar" },
     ];
-
     let currentPath = "/dashboard/belajar";
     path.forEach((id, idx) => {
       currentPath += `/${id}`;
       const subResult = findItem(kategori, path.slice(0, idx + 1));
       if (subResult?.item) {
-        items.push({
-          id,
-          nama: subResult.item.nama,
-          path: currentPath,
-        });
+        items.push({ id, nama: subResult.item.nama, path: currentPath });
       }
     });
-
     return (
       <div className="text-sm breadcrumbs mb-6">
         <ul>
@@ -330,7 +343,6 @@ export default function BelajarDetailPage() {
     if (level === 1) {
       return (
         <>
-          {/* TAB NAVIGATION */}
           <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
             <button
               className={`tab ${activeTab === "materi" ? "tab-active bg-blue-600 text-white" : ""}`}
@@ -346,7 +358,6 @@ export default function BelajarDetailPage() {
             </button>
           </div>
 
-          {/* TAB MATERI */}
           {activeTab === "materi" && (
             <>
               <div className="flex justify-between items-center mb-4">
@@ -362,7 +373,6 @@ export default function BelajarDetailPage() {
             </>
           )}
 
-          {/* TAB KALENDER */}
           {activeTab === "kalender" && (
             <KalenderBelajar
               kategoriId={kategoriUtama}
@@ -395,7 +405,7 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 3: Tool → Fitur + Karya Mingguan (conditional)
+    // LEVEL 3: Tool → Fitur + Karya Mingguan
     if (level === 3) {
       return (
         <>
@@ -410,7 +420,6 @@ export default function BelajarDetailPage() {
           </div>
           {renderList(item.fitur || [])}
 
-          {/* KARYA MINGGUAN — cuma muncul kalau kategori Design */}
           {punyaKaryaMingguan && (
             <div className="mt-6">
               <KaryaMingguan
@@ -427,7 +436,6 @@ export default function BelajarDetailPage() {
 
     // LEVEL 4: Group atau Leaf
     if (level === 4) {
-      // Group dengan parts (misal Blender Guru --- Donut)
       if (item.parts) {
         return (
           <>
@@ -445,7 +453,6 @@ export default function BelajarDetailPage() {
         );
       }
 
-      // Group dengan nested fitur (misal Basic Features)
       if (item.fitur && item.fitur.length > 0) {
         return (
           <>
@@ -463,17 +470,15 @@ export default function BelajarDetailPage() {
         );
       }
 
-      // Leaf (misal Pen Tool)
+      // Leaf
       return <BelajarUpload item={item} onUpdate={handleUpdateItem} />;
     }
 
-    // LEVEL 5+: Leaf
     return <BelajarUpload item={item} onUpdate={handleUpdateItem} />;
   };
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
@@ -487,7 +492,6 @@ export default function BelajarDetailPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <div
           className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
         >
@@ -498,16 +502,13 @@ export default function BelajarDetailPage() {
           />
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {renderBreadcrumb()}
 
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-800">{item.nama}</h1>
           </div>
 
-          {/* Form Tambah */}
           {showForm && (
             <div className="card bg-white shadow border border-gray-200 mb-4">
               <div className="card-body p-4">
@@ -537,7 +538,6 @@ export default function BelajarDetailPage() {
             </div>
           )}
 
-          {/* Content */}
           {renderContent()}
         </div>
       </div>
