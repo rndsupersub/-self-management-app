@@ -11,9 +11,14 @@ export default function BelajarUpload({
   logHarian = {},
   onUpdateLog,
   today,
+  mode = "hasil-belajar", // "materi" | "hasil-belajar"
 }) {
+  const isMateriMode = mode === "materi";
+  const fieldName = isMateriMode ? "materi" : "catatan";
+
   const [gdriveUrl, setGdriveUrl] = useState(item?.gdriveUrl || "");
   const [catatan, setCatatan] = useState(item?.catatan || "");
+  const [materi, setMateri] = useState(item?.materi || "");
   const [isEditing, setIsEditing] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -21,24 +26,35 @@ export default function BelajarUpload({
   useEffect(() => {
     setGdriveUrl(item?.gdriveUrl || "");
     setCatatan(item?.catatan || "");
+    setMateri(item?.materi || "");
   }, [item?.id]);
 
-  // ========== RIWAYAT BELAJAR DARI LOG ==========
+  // ========== RIWAYAT BELAJAR DARI LOG (cuma mode hasil-belajar) ==========
   const riwayat = [];
-  Object.entries(logHarian || {}).forEach(([tanggal, list]) => {
-    (list || []).forEach((log) => {
-      if (log.kategoriId !== kategoriId) return;
-      if ((log.subKategoriId || "") !== (path[1] || "")) return;
-      if ((log.toolId || "") !== (path[2] || "")) return;
-      if ((log.fiturId || "") !== (path[3] || "")) return;
-      if ((log.partId || "") !== (path[4] || "")) return;
-      riwayat.push({ ...log, tanggal });
+  if (!isMateriMode) {
+    Object.entries(logHarian || {}).forEach(([tanggal, list]) => {
+      (list || []).forEach((log) => {
+        if (log.kategoriId !== kategoriId) return;
+        if ((log.subKategoriId || "") !== (path[1] || "")) return;
+        if ((log.toolId || "") !== (path[2] || "")) return;
+        if ((log.fiturId || "") !== (path[3] || "")) return;
+        if ((log.partId || "") !== (path[4] || "")) return;
+        riwayat.push({ ...log, tanggal });
+      });
     });
-  });
-  riwayat.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+    riwayat.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+  }
 
-  // ========== SIMPAN ==========
-  const handleSimpan = () => {
+  // ========== SIMPAN MATERI ==========
+  const handleSimpanMateri = () => {
+    onUpdate({ materi });
+    setIsEditing(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  // ========== SIMPAN HASIL BELAJAR ==========
+  const handleSimpanHasilBelajar = () => {
     // 1. Update materi
     onUpdate({ gdriveUrl, catatan });
 
@@ -47,7 +63,6 @@ export default function BelajarUpload({
       const updated = JSON.parse(JSON.stringify(logHarian || {}));
       if (!updated[today]) updated[today] = [];
 
-      // Cari log dengan sumber "materi" untuk fitur ini di hari ini
       const idx = updated[today].findIndex(
         (l) =>
           l.sumber === "materi" &&
@@ -84,11 +99,85 @@ export default function BelajarUpload({
   };
 
   const handleBatal = () => {
-    setGdriveUrl(item?.gdriveUrl || "");
-    setCatatan(item?.catatan || "");
+    if (isMateriMode) {
+      setMateri(item?.materi || "");
+    } else {
+      setGdriveUrl(item?.gdriveUrl || "");
+      setCatatan(item?.catatan || "");
+    }
     setIsEditing(false);
   };
 
+  // ========== MODE MATERI ==========
+  if (isMateriMode) {
+    const hasMateri = !!item?.materi;
+    return (
+      <div className="space-y-4">
+        <div className="card bg-white shadow border border-gray-200">
+          <div className="card-body p-4">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-base font-bold text-gray-800">📚 Materi</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Ringkasan dari kitab referensi. Lo bisa edit sesuai kebutuhan.
+                </p>
+              </div>
+              {!isEditing && (
+                <button
+                  className="btn btn-ghost btn-xs text-gray-600"
+                  onClick={() => setIsEditing(true)}
+                >
+                  {hasMateri ? "✏️ Edit" : "➕ Tambah"}
+                </button>
+              )}
+            </div>
+
+            {!isEditing && hasMateri && (
+              <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 p-3 rounded border border-gray-200">
+                {item.materi}
+              </p>
+            )}
+
+            {!isEditing && !hasMateri && (
+              <div className="text-center py-6 text-gray-400">
+                <p className="text-2xl mb-2">📭</p>
+                <p className="text-sm">Belum ada materi. Klik "+ Tambah" untuk mulai.</p>
+              </div>
+            )}
+
+            {isEditing && (
+              <div className="space-y-3">
+                <textarea
+                  className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
+                  rows="10"
+                  placeholder="Tulis materi di sini..."
+                  value={materi}
+                  onChange={(e) => setMateri(e.target.value)}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanMateri}>
+                    💾 Simpan
+                  </button>
+                  <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBatal}>
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {saved && (
+              <div className="alert alert-success mt-3 py-2">
+                <span className="text-sm">✅ Materi berhasil disimpan!</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== MODE HASIL BELAJAR ==========
   const hasContent = item?.gdriveUrl || item?.catatan;
 
   return (
@@ -97,7 +186,12 @@ export default function BelajarUpload({
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-base font-bold text-gray-800">📤 Hasil Belajar</h3>
+            <div>
+              <h3 className="text-base font-bold text-gray-800">📝 Hasil Belajar</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Catatan belajar lo sendiri. Nanti bisa dihubungkan ke Telegram.
+              </p>
+            </div>
             {!isEditing && (
               <button
                 className="btn btn-ghost btn-xs text-gray-600"
@@ -152,7 +246,7 @@ export default function BelajarUpload({
                 <textarea
                   className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
                   rows="5"
-                  placeholder="Catatan belajar..."
+                  placeholder="Catatan belajar lo hari ini..."
                   value={catatan}
                   onChange={(e) => setCatatan(e.target.value)}
                   autoFocus
@@ -174,7 +268,7 @@ export default function BelajarUpload({
                 </p>
               </div>
               <div className="flex gap-2">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan}>
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanHasilBelajar}>
                   💾 Simpan
                 </button>
                 <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBatal}>

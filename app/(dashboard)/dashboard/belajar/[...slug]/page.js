@@ -128,6 +128,13 @@ export default function BelajarDetailPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
+  // Reset activeTab tiap kali path berubah (biar balik ke "materi" default)
+  useEffect(() => {
+    setActiveTab("materi");
+    setShowColorPicker(false);
+    setShowForm(false);
+  }, [path.join("/")]);
+
   // ========== SIMPAN KATEGORI ==========
   const simpanKategori = async (newKategori) => {
     setKategori(newKategori);
@@ -141,7 +148,6 @@ export default function BelajarDetailPage() {
     const { action, log } = meta;
     let newKategori = kategori;
 
-    // Sync dari kalender → materi, KECUALI kalau sumber lognya "materi"
     if (
       (action === "add" || action === "edit") &&
       log &&
@@ -211,9 +217,11 @@ export default function BelajarDetailPage() {
       }
     } else if (level === 4) {
       if (item.parts) {
+        newItem.materi = "";
         newItem.gdriveUrl = "";
         newItem.catatan = "";
       } else if (item.fitur) {
+        newItem.materi = "";
         newItem.gdriveUrl = "";
         newItem.catatan = "";
       }
@@ -358,26 +366,31 @@ export default function BelajarDetailPage() {
     );
   };
 
+  // ========== RENDER TAB BAR ==========
+  const renderTabs = (tabs) => (
+    <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          className={`tab ${activeTab === t.id ? "tab-active bg-blue-600 text-white" : ""}`}
+          onClick={() => setActiveTab(t.id)}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+
   // ========== RENDER CONTENT ==========
   const renderContent = () => {
     // LEVEL 1: Kategori → Tab Materi | Kalender
     if (level === 1) {
       return (
         <>
-          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
-            <button
-              className={`tab ${activeTab === "materi" ? "tab-active bg-blue-600 text-white" : ""}`}
-              onClick={() => setActiveTab("materi")}
-            >
-              📚 Materi
-            </button>
-            <button
-              className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
-              onClick={() => setActiveTab("kalender")}
-            >
-              📅 Kalender
-            </button>
-          </div>
+          {renderTabs([
+            { id: "materi", label: "📚 Materi" },
+            { id: "kalender", label: "📅 Kalender" },
+          ])}
 
           {activeTab === "materi" && (
             <>
@@ -415,20 +428,10 @@ export default function BelajarDetailPage() {
     if (level === 2) {
       return (
         <>
-          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
-            <button
-              className={`tab ${activeTab === "materi" ? "tab-active bg-blue-600 text-white" : ""}`}
-              onClick={() => setActiveTab("materi")}
-            >
-              📚 Materi
-            </button>
-            <button
-              className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
-              onClick={() => setActiveTab("kalender")}
-            >
-              📅 Kalender
-            </button>
-          </div>
+          {renderTabs([
+            { id: "materi", label: "📚 Materi" },
+            { id: "kalender", label: "📅 Kalender" },
+          ])}
 
           {activeTab === "materi" && (
             <>
@@ -462,81 +465,104 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 3: Tool → Fitur + Karya Mingguan + COLOR PICKER
+    // LEVEL 3: Tool → Tab Materi (Fitur + Karya Mingguan + Color Picker) | Kalender
     if (level === 3) {
       const warnaTool = item.warna || "gray";
       const style = getWarnaStyle(warnaTool);
       return (
         <>
-          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-gray-800">📚 Fitur</h2>
-              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1">
-                <span className={`w-3 h-3 rounded-full ${style.bg}`} />
-                <span className="text-xs text-gray-500">Warna bar</span>
+          {renderTabs([
+            { id: "materi", label: "📚 Materi" },
+            { id: "kalender", label: "📅 Kalender" },
+          ])}
+
+          {activeTab === "materi" && (
+            <>
+              <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-gray-800">📚 Fitur</h2>
+                  <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                    <span className={`w-3 h-3 rounded-full ${style.bg}`} />
+                    <span className="text-xs text-gray-500">Warna bar</span>
+                    <button
+                      className="btn btn-ghost btn-xs text-gray-600"
+                      onClick={() => setShowColorPicker(!showColorPicker)}
+                      title="Ubah warna tool"
+                    >
+                      🎨
+                    </button>
+                  </div>
+                </div>
                 <button
-                  className="btn btn-ghost btn-xs text-gray-600"
-                  onClick={() => setShowColorPicker(!showColorPicker)}
-                  title="Ubah warna tool"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowForm(!showForm)}
                 >
-                  🎨
+                  + Tambah Fitur
                 </button>
               </div>
-            </div>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowForm(!showForm)}
-            >
-              + Tambah Fitur
-            </button>
-          </div>
 
-          {showColorPicker && (
-            <div className="card bg-white shadow border border-blue-300 mb-4">
-              <div className="card-body p-4">
-                <p className="text-xs font-semibold text-blue-700 mb-2">
-                  🎨 Pilih Warna untuk Tool "{item.nama}"
-                </p>
-                <p className="text-xs text-gray-500 mb-3">
-                  Warna ini dipakai buat bar di kalender belajar.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {WARNA_OPTIONS.map((w) => (
-                    <button
-                      key={w.id}
-                      className={`w-8 h-8 rounded ${w.bg} border-2 ${
-                        warnaTool === w.id
-                          ? "border-gray-800 ring-2 ring-gray-400"
-                          : "border-white"
-                      }`}
-                      onClick={() => handleUpdateWarnaTool(w.id)}
-                      title={w.label}
-                    />
-                  ))}
+              {showColorPicker && (
+                <div className="card bg-white shadow border border-blue-300 mb-4">
+                  <div className="card-body p-4">
+                    <p className="text-xs font-semibold text-blue-700 mb-2">
+                      🎨 Pilih Warna untuk Tool "{item.nama}"
+                    </p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Warna ini dipakai buat bar di kalender belajar.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {WARNA_OPTIONS.map((w) => (
+                        <button
+                          key={w.id}
+                          className={`w-8 h-8 rounded ${w.bg} border-2 ${
+                            warnaTool === w.id
+                              ? "border-gray-800 ring-2 ring-gray-400"
+                              : "border-white"
+                          }`}
+                          onClick={() => handleUpdateWarnaTool(w.id)}
+                          title={w.label}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex justify-end mt-3">
+                      <button
+                        className="btn btn-ghost btn-xs text-gray-600"
+                        onClick={() => setShowColorPicker(false)}
+                      >
+                        Tutup
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-end mt-3">
-                  <button
-                    className="btn btn-ghost btn-xs text-gray-600"
-                    onClick={() => setShowColorPicker(false)}
-                  >
-                    Tutup
-                  </button>
+              )}
+
+              {renderList(item.fitur || [])}
+
+              {punyaKaryaMingguan && (
+                <div className="mt-6">
+                  <KaryaMingguan
+                    karyaMingguan={item.karyaMingguan || []}
+                    onUpdate={(newKarya) => {
+                      handleUpdateItem({ karyaMingguan: newKarya });
+                    }}
+                  />
                 </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
-          {renderList(item.fitur || [])}
-
-          {punyaKaryaMingguan && (
-            <div className="mt-6">
-              <KaryaMingguan
-                karyaMingguan={item.karyaMingguan || []}
-                onUpdate={(newKarya) => {
-                  handleUpdateItem({ karyaMingguan: newKarya });
-                }}
-              />
-            </div>
+          {activeTab === "kalender" && (
+            <KalenderBelajar
+              kategoriId={kategoriUtama}
+              subKategoriId={subKategoriUtama}
+              kategoriData={kategori}
+              logHarian={logHarian}
+              targetHarian={targetHarian}
+              onUpdateLog={handleUpdateLog}
+              onUpdateTarget={handleUpdateTarget}
+              subKategoriSiblings={subKategoriSiblings}
+              onPindahSubKategori={handlePindahSubKategori}
+            />
           )}
         </>
       );
@@ -544,62 +570,145 @@ export default function BelajarDetailPage() {
 
     // LEVEL 4: Group atau Leaf
     if (level === 4) {
-      if (item.parts) {
+      // Kalau grup (item.parts ATAU item.fitur.length > 0): tab Materi | Kalender
+      if (item.parts || (item.fitur && item.fitur.length > 0)) {
+        const isParts = !!item.parts;
         return (
           <>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-800">📹 Part</h2>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowForm(!showForm)}
-              >
-                + Tambah Part
-              </button>
-            </div>
-            {renderList(item.parts)}
+            {renderTabs([
+              { id: "materi", label: "📚 Materi" },
+              { id: "kalender", label: "📅 Kalender" },
+            ])}
+
+            {activeTab === "materi" && (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-bold text-gray-800">
+                    {isParts ? "📹 Part" : "📚 Fitur"}
+                  </h2>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setShowForm(!showForm)}
+                  >
+                    {isParts ? "+ Tambah Part" : "+ Tambah Fitur"}
+                  </button>
+                </div>
+                {renderList(isParts ? item.parts : item.fitur)}
+              </>
+            )}
+
+            {activeTab === "kalender" && (
+              <KalenderBelajar
+                kategoriId={kategoriUtama}
+                subKategoriId={subKategoriUtama}
+                kategoriData={kategori}
+                logHarian={logHarian}
+                targetHarian={targetHarian}
+                onUpdateLog={handleUpdateLog}
+                onUpdateTarget={handleUpdateTarget}
+                subKategoriSiblings={subKategoriSiblings}
+                onPindahSubKategori={handlePindahSubKategori}
+              />
+            )}
           </>
         );
       }
-      if (item.fitur && item.fitur.length > 0) {
-        return (
-          <>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-800">📚 Fitur</h2>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowForm(!showForm)}
-              >
-                + Tambah Fitur
-              </button>
-            </div>
-            {renderList(item.fitur)}
-          </>
-        );
-      }
+
+      // Leaf: tab Materi | Hasil Belajar | Kalender
       return (
-        <BelajarUpload
-          item={item}
-          onUpdate={handleUpdateItem}
-          path={path}
-          kategoriId={kategoriUtama}
-          logHarian={logHarian}
-          onUpdateLog={handleUpdateLog}
-          today={today}
-        />
+        <>
+          {renderTabs([
+            { id: "materi", label: "📚 Materi" },
+            { id: "hasil-belajar", label: "📝 Hasil Belajar" },
+            { id: "kalender", label: "📅 Kalender" },
+          ])}
+
+          {activeTab === "materi" && (
+            <BelajarUpload
+              item={item}
+              onUpdate={handleUpdateItem}
+              path={path}
+              kategoriId={kategoriUtama}
+              mode="materi"
+            />
+          )}
+
+          {activeTab === "hasil-belajar" && (
+            <BelajarUpload
+              item={item}
+              onUpdate={handleUpdateItem}
+              path={path}
+              kategoriId={kategoriUtama}
+              logHarian={logHarian}
+              onUpdateLog={handleUpdateLog}
+              today={today}
+              mode="hasil-belajar"
+            />
+          )}
+
+          {activeTab === "kalender" && (
+            <KalenderBelajar
+              kategoriId={kategoriUtama}
+              subKategoriId={subKategoriUtama}
+              kategoriData={kategori}
+              logHarian={logHarian}
+              targetHarian={targetHarian}
+              onUpdateLog={handleUpdateLog}
+              onUpdateTarget={handleUpdateTarget}
+              subKategoriSiblings={subKategoriSiblings}
+              onPindahSubKategori={handlePindahSubKategori}
+            />
+          )}
+        </>
       );
     }
 
-    // LEVEL 5+ (part leaf)
+    // LEVEL 5+ (part leaf): sama kayak leaf
     return (
-      <BelajarUpload
-        item={item}
-        onUpdate={handleUpdateItem}
-        path={path}
-        kategoriId={kategoriUtama}
-        logHarian={logHarian}
-        onUpdateLog={handleUpdateLog}
-        today={today}
-      />
+      <>
+        {renderTabs([
+          { id: "materi", label: "📚 Materi" },
+          { id: "hasil-belajar", label: "📝 Hasil Belajar" },
+          { id: "kalender", label: "📅 Kalender" },
+        ])}
+
+        {activeTab === "materi" && (
+          <BelajarUpload
+            item={item}
+            onUpdate={handleUpdateItem}
+            path={path}
+            kategoriId={kategoriUtama}
+            mode="materi"
+          />
+        )}
+
+        {activeTab === "hasil-belajar" && (
+          <BelajarUpload
+            item={item}
+            onUpdate={handleUpdateItem}
+            path={path}
+            kategoriId={kategoriUtama}
+            logHarian={logHarian}
+            onUpdateLog={handleUpdateLog}
+            today={today}
+            mode="hasil-belajar"
+          />
+        )}
+
+        {activeTab === "kalender" && (
+          <KalenderBelajar
+            kategoriId={kategoriUtama}
+            subKategoriId={subKategoriUtama}
+            kategoriData={kategori}
+            logHarian={logHarian}
+            targetHarian={targetHarian}
+            onUpdateLog={handleUpdateLog}
+            onUpdateTarget={handleUpdateTarget}
+            subKategoriSiblings={subKategoriSiblings}
+            onPindahSubKategori={handlePindahSubKategori}
+          />
+        )}
+      </>
     );
   };
 
