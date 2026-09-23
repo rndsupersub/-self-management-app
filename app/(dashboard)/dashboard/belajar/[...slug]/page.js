@@ -84,7 +84,7 @@ export default function BelajarDetailPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // Reset activeTab tiap path berubah
+  // Reset activeTab tiap path / kategori berubah
   useEffect(() => {
     const result = findItem(kategori, path);
     const itm = result?.item || null;
@@ -270,7 +270,7 @@ export default function BelajarDetailPage() {
   );
 
   const renderContent = () => {
-    // LEVEL 1: Kategori
+    // LEVEL 1
     if (level === 1) {
       return (
         <>
@@ -294,7 +294,7 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 2: Sub-kategori
+    // LEVEL 2
     if (level === 2) {
       return (
         <>
@@ -318,7 +318,7 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 3: Tool
+    // LEVEL 3
     if (level === 3) {
       const warnaTool = item.warna || "gray";
       const style = getWarnaStyle(warnaTool);
@@ -372,9 +372,8 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 4: Group ATAU Leaf
+    // LEVEL 4
     if (level === 4) {
-      // Kalau punya anak (parts atau fitur.length > 0): Group → [Materi] [Kalender]
       if (item.parts || (item.fitur && item.fitur.length > 0)) {
         const isParts = !!item.parts;
         return (
@@ -399,7 +398,6 @@ export default function BelajarDetailPage() {
         );
       }
 
-      // LEAF: cuma [Hasil Belajar] [Kalender]
       return (
         <>
           {renderTabs([
@@ -407,7 +405,17 @@ export default function BelajarDetailPage() {
             { id: "kalender", label: "📅 Kalender" },
           ])}
           {activeTab === "hasil-belajar" && (
-            <BelajarUpload item={item} onUpdate={handleUpdateItem} path={path} kategoriId={kategoriUtama} logHarian={logHarian} onUpdateLog={handleUpdateLog} today={today} mode="hasil-belajar" />
+            <BelajarUpload
+              item={item}
+              onUpdate={handleUpdateItem}
+              path={path}
+              kategoriId={kategoriUtama}
+              kategoriData={kategori}
+              logHarian={logHarian}
+              onUpdateLog={handleUpdateLog}
+              today={today}
+              mode="hasil-belajar"
+            />
           )}
           {activeTab === "kalender" && (
             <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={handlePindahSubKategori} />
@@ -416,7 +424,7 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 5+: semua leaf → cuma [Hasil Belajar] [Kalender]
+    // LEVEL 5+
     return (
       <>
         {renderTabs([
@@ -424,7 +432,17 @@ export default function BelajarDetailPage() {
           { id: "kalender", label: "📅 Kalender" },
         ])}
         {activeTab === "hasil-belajar" && (
-          <BelajarUpload item={item} onUpdate={handleUpdateItem} path={path} kategoriId={kategoriUtama} logHarian={logHarian} onUpdateLog={handleUpdateLog} today={today} mode="hasil-belajar" />
+          <BelajarUpload
+            item={item}
+            onUpdate={handleUpdateItem}
+            path={path}
+            kategoriId={kategoriUtama}
+            kategoriData={kategori}
+            logHarian={logHarian}
+            onUpdateLog={handleUpdateLog}
+            today={today}
+            mode="hasil-belajar"
+          />
         )}
         {activeTab === "kalender" && (
           <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={handlePindahSubKategori} />
