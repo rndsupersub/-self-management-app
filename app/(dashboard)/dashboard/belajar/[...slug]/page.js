@@ -84,13 +84,16 @@ export default function BelajarDetailPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // Reset activeTab tiap path / kategori berubah
+  // Reset activeTab tiap path berubah
   useEffect(() => {
     const result = findItem(kategori, path);
     const itm = result?.item || null;
     const lvl = path.length;
-    const isLeaf4 = lvl === 4 && itm && !itm.parts && (!itm.fitur || itm.fitur.length === 0);
-    const isLeaf5Plus = lvl >= 5;
+    const hasParts = itm?.parts && itm.parts.length > 0;
+    const hasFitur = itm?.fitur && itm.fitur.length > 0;
+    const isGroup = hasParts || hasFitur;
+    const isLeaf4 = lvl === 4 && !isGroup;
+    const isLeaf5Plus = lvl >= 5 && !isGroup;
     const isLeaf = isLeaf4 || isLeaf5Plus;
 
     if (isLeaf) setActiveTab("hasil-belajar");
@@ -149,7 +152,7 @@ export default function BelajarDetailPage() {
     if (level === 1) newItem.subKategori = [];
     else if (level === 2) newItem.tools = [];
     else if (level === 3) { newItem.fitur = []; if (punyaKaryaMingguan) newItem.karyaMingguan = []; }
-    else if (level === 4) { newItem.materi = ""; newItem.gdriveUrl = ""; newItem.catatan = ""; }
+    else { newItem.materi = ""; newItem.gdriveUrl = ""; newItem.catatan = ""; }
     const newKategori = addItem(kategori, path, newItem);
     await simpanKategori(newKategori);
     setFormData({ nama: "" });
@@ -232,7 +235,7 @@ export default function BelajarDetailPage() {
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
             <p className="text-3xl mb-2">📭</p>
-            <p className="text-sm">Belum ada item di sini.</p>
+            <p className="text-sm">Belum ada item di sini. Klik "+ Tambah" untuk mulai.</p>
           </div>
         </div>
       );
@@ -372,10 +375,15 @@ export default function BelajarDetailPage() {
       );
     }
 
-    // LEVEL 4
-    if (level === 4) {
-      if (item.parts || (item.fitur && item.fitur.length > 0)) {
-        const isParts = !!item.parts;
+    // LEVEL 4+
+    if (level >= 4) {
+      const hasParts = item.parts && item.parts.length > 0;
+      const hasFitur = item.fitur && item.fitur.length > 0;
+      const isGroup = hasParts || hasFitur;
+
+      if (isGroup) {
+        const isParts = hasParts;
+        const childrenList = isParts ? item.parts : item.fitur;
         return (
           <>
             {renderTabs([
@@ -386,9 +394,11 @@ export default function BelajarDetailPage() {
               <>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-bold text-gray-800">{isParts ? "📹 Part" : "📚 Fitur"}</h2>
-                  <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>{isParts ? "+ Tambah Part" : "+ Tambah Fitur"}</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>
+                    {isParts ? "+ Tambah Part" : "+ Tambah Fitur"}
+                  </button>
                 </div>
-                {renderList(isParts ? item.parts : item.fitur)}
+                {renderList(childrenList)}
               </>
             )}
             {activeTab === "kalender" && (
@@ -398,8 +408,17 @@ export default function BelajarDetailPage() {
         );
       }
 
+      // LEAF: bisa nambah anak + tab Hasil Belajar | Kalender
       return (
         <>
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+            <p className="text-xs text-gray-500 italic">
+              📂 Ini halaman leaf. Mau tambah sub-fitur di sini? Klik tombol →
+            </p>
+            <button className="btn btn-outline btn-xs" onClick={() => setShowForm(!showForm)}>
+              + Tambah Fitur
+            </button>
+          </div>
           {renderTabs([
             { id: "hasil-belajar", label: "📝 Hasil Belajar" },
             { id: "kalender", label: "📅 Kalender" },
@@ -423,32 +442,6 @@ export default function BelajarDetailPage() {
         </>
       );
     }
-
-    // LEVEL 5+
-    return (
-      <>
-        {renderTabs([
-          { id: "hasil-belajar", label: "📝 Hasil Belajar" },
-          { id: "kalender", label: "📅 Kalender" },
-        ])}
-        {activeTab === "hasil-belajar" && (
-          <BelajarUpload
-            item={item}
-            onUpdate={handleUpdateItem}
-            path={path}
-            kategoriId={kategoriUtama}
-            kategoriData={kategori}
-            logHarian={logHarian}
-            onUpdateLog={handleUpdateLog}
-            today={today}
-            mode="hasil-belajar"
-          />
-        )}
-        {activeTab === "kalender" && (
-          <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={handlePindahSubKategori} />
-        )}
-      </>
-    );
   };
 
   return (
