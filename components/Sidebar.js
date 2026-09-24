@@ -19,6 +19,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   const isBelajar = currentPath[0] === "belajar";
   const isBedahBuku = currentPath[0] === "bedah-buku";
   const isKeuangan = currentPath[0] === "keuangan";
+  const isYoutube = currentPath[0] === "youtube"; // Penanda menu YouTube aktif
 
   const handleSelect = (pathArray) => {
     const url = `/dashboard/${pathArray.join("/")}`;
@@ -127,6 +128,16 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
           onClick={() => router.push("/dashboard/keuangan")}
         >
           💰 Keuangan
+        </button>
+
+        {/* MENU YOUTUBE (BARU) */}
+        <button
+          className={`btn btn-sm w-full justify-start gap-2 ${
+            isYoutube ? "btn-primary" : "btn-ghost"
+          }`}
+          onClick={() => router.push("/dashboard/youtube")}
+        >
+          📺 YouTube
         </button>
       </div>
 
