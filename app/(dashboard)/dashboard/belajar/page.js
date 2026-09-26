@@ -46,11 +46,7 @@ export default function BelajarPage() {
         if (data.belajar && Array.isArray(data.belajar.kategori)) {
           setKategori(data.belajar.kategori);
         } else {
-          await setDoc(
-            docRef,
-            { belajar: { kategori: DEFAULT_KATEGORI } },
-            { merge: true }
-          );
+          await setDoc(docRef, { belajar: { kategori: DEFAULT_KATEGORI } }, { merge: true });
           setKategori(DEFAULT_KATEGORI);
         }
       } else {
@@ -96,6 +92,17 @@ export default function BelajarPage() {
     e.stopPropagation();
     if (!confirm("Hapus kategori ini? Semua sub-kategori dan kegiatan di dalamnya akan hilang.")) return;
     const updated = kategori.filter((k) => k.id !== katId);
+    await simpanKategori(updated);
+  };
+
+  // ========== RENAME KATEGORI (BARU) ==========
+  const handleRenameKategori = async (katId, currentNama, e) => {
+    e.stopPropagation();
+    const newNama = window.prompt("Ganti nama kategori jadi:", currentNama);
+    if (!newNama || !newNama.trim() || newNama.trim() === currentNama) return;
+    const updated = kategori.map((k) =>
+      k.id === katId ? { ...k, nama: newNama.trim() } : k
+    );
     await simpanKategori(updated);
   };
 
@@ -229,22 +236,29 @@ export default function BelajarPage() {
                   <div
                     key={kat.id}
                     className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer"
-                    onClick={() =>
-                      router.push(`/dashboard/belajar/${kat.id}`)
-                    }
+                    onClick={() => router.push(`/dashboard/belajar/${kat.id}`)}
                   >
                     <div className="card-body p-4">
-                      <div className="flex justify-between items-start">
-                        <h2 className="card-title text-base text-gray-800">
+                      <div className="flex justify-between items-start gap-2">
+                        <h2 className="card-title text-base text-gray-800 flex-1">
                           {kat.nama}
                         </h2>
-                        <button
-                          className="btn btn-ghost btn-xs text-red-500"
-                          onClick={(e) => handleHapusKategori(kat.id, e)}
-                          title="Hapus Kategori"
-                        >
-                          🗑️
-                        </button>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            className="btn btn-ghost btn-xs text-blue-500"
+                            onClick={(e) => handleRenameKategori(kat.id, kat.nama, e)}
+                            title="Rename Kategori"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-xs text-red-500"
+                            onClick={(e) => handleHapusKategori(kat.id, e)}
+                            title="Hapus Kategori"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500">
                         {totalSub} Sub-kategori • {totalTool} Tool

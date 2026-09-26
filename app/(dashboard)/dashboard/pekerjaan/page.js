@@ -65,6 +65,13 @@ export default function PekerjaanPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
+  // ========== SIMPAN PEKERJAAN ==========
+  const simpanPekerjaan = async (updated) => {
+    setPekerjaan(updated);
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { pekerjaan: updated }, { merge: true });
+  };
+
   // ========== TAMBAH PT ==========
   const handleTambahPT = async () => {
     if (!formData.nama.trim()) return;
@@ -74,9 +81,7 @@ export default function PekerjaanPage() {
       brands: [],
     };
     const updated = [...pekerjaan, newPT];
-    setPekerjaan(updated);
-    const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { pekerjaan: updated }, { merge: true });
+    await simpanPekerjaan(updated);
     setFormData({ nama: "" });
     setShowForm(false);
   };
@@ -86,9 +91,18 @@ export default function PekerjaanPage() {
     e.stopPropagation();
     if (!confirm("Hapus PT ini? Semua brand dan kegiatan akan hilang.")) return;
     const updated = pekerjaan.filter((p) => p.id !== ptId);
-    setPekerjaan(updated);
-    const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { pekerjaan: updated }, { merge: true });
+    await simpanPekerjaan(updated);
+  };
+
+  // ========== RENAME PT (BARU) ==========
+  const handleRenamePT = async (ptId, currentNama, e) => {
+    e.stopPropagation();
+    const newNama = window.prompt("Ganti nama PT jadi:", currentNama);
+    if (!newNama || !newNama.trim() || newNama.trim() === currentNama) return;
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId ? { ...p, nama: newNama.trim() } : p
+    );
+    await simpanPekerjaan(updated);
   };
 
   const handleLogout = async () => {
@@ -215,22 +229,29 @@ export default function PekerjaanPage() {
                   <div
                     key={pt.id}
                     className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer"
-                    onClick={() =>
-                      router.push(`/dashboard/pekerjaan/${pt.id}`)
-                    }
+                    onClick={() => router.push(`/dashboard/pekerjaan/${pt.id}`)}
                   >
                     <div className="card-body p-4">
-                      <div className="flex justify-between items-start">
-                        <h2 className="card-title text-base text-gray-800">
+                      <div className="flex justify-between items-start gap-2">
+                        <h2 className="card-title text-base text-gray-800 flex-1">
                           🏢 {pt.nama}
                         </h2>
-                        <button
-                          className="btn btn-ghost btn-xs text-red-500"
-                          onClick={(e) => handleHapusPT(pt.id, e)}
-                          title="Hapus PT"
-                        >
-                          🗑️
-                        </button>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            className="btn btn-ghost btn-xs text-blue-500"
+                            onClick={(e) => handleRenamePT(pt.id, pt.nama, e)}
+                            title="Rename PT"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-xs text-red-500"
+                            onClick={(e) => handleHapusPT(pt.id, e)}
+                            title="Hapus PT"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500">
                         {totalBrand} Brand • {totalKegiatan} Kegiatan

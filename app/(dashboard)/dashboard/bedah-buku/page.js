@@ -162,6 +162,17 @@ export default function BedahBukuPage() {
     await simpanBedahBuku({ ...bedahBuku, buku: updatedList });
   };
 
+  // ========== RENAME BUKU (BARU) ==========
+  const handleRenameBuku = async (bukuId, currentJudul, e) => {
+    e.stopPropagation();
+    const newJudul = window.prompt("Ganti judul buku jadi:", currentJudul);
+    if (!newJudul || !newJudul.trim() || newJudul.trim() === currentJudul) return;
+    const updatedList = bedahBuku.buku.map((b) =>
+      b.id === bukuId ? { ...b, judul: newJudul.trim() } : b
+    );
+    await simpanBedahBuku({ ...bedahBuku, buku: updatedList });
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
@@ -410,7 +421,7 @@ export default function BedahBukuPage() {
                               }
                             >
                               <div className="card-body p-4">
-                                <div className="flex justify-between items-start mb-2">
+                                <div className="flex justify-between items-start mb-2 gap-2">
                                   <div className="flex-1">
                                     <h3 className="text-base font-bold text-gray-800 leading-tight">
                                       📖 {buku.judul}
@@ -419,13 +430,24 @@ export default function BedahBukuPage() {
                                       ✍️ {buku.penulis}
                                     </p>
                                   </div>
-                                  <button
-                                    className="btn btn-ghost btn-xs text-red-500"
-                                    onClick={(e) => handleHapusBuku(buku.id, e)}
-                                    title="Hapus buku"
-                                  >
-                                    🗑️
-                                  </button>
+                                  <div className="flex gap-1 shrink-0">
+                                    <button
+                                      className="btn btn-ghost btn-xs text-blue-500"
+                                      onClick={(e) =>
+                                        handleRenameBuku(buku.id, buku.judul, e)
+                                      }
+                                      title="Rename buku"
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      className="btn btn-ghost btn-xs text-red-500"
+                                      onClick={(e) => handleHapusBuku(buku.id, e)}
+                                      title="Hapus buku"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
                                 </div>
 
                                 {/* Progress bar */}
