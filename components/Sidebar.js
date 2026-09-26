@@ -2,59 +2,65 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { DEFAULT_MENUS } from "@/lib/defaultData";
 
-export default function Sidebar({ activities, collapsed, setCollapsed }) {
+export default function Sidebar({ collapsed, setCollapsed }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Ambil path aktif dari URL: /dashboard/teknik/semester_1 →
-  // ["teknik", "semester_1"]
+  const [menus, setMenus] = useState(DEFAULT_MENUS);
+  const [loadingMenus, setLoadingMenus] = useState(true);
+
+  // ========== FETCH MENUS DARI FIRESTORE ==========
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setMenus(DEFAULT_MENUS);
+        setLoadingMenus(false);
+        return;
+      }
+      try {
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.menus) && data.menus.length > 0) {
+            setMenus(data.menus);
+          } else {
+            setMenus(DEFAULT_MENUS);
+          }
+        } else {
+          setMenus(DEFAULT_MENUS);
+        }
+      } catch (err) {
+        console.error("[Sidebar] Gagal fetch menus:", err);
+        setMenus(DEFAULT_MENUS);
+      }
+      setLoadingMenus(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const visibleMenus = menus
+    .filter((m) => m.visible !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
   const currentPath = pathname
     .replace("/dashboard", "")
     .split("/")
     .filter(Boolean);
 
   const isDashboardHome = currentPath.length === 0;
-  const isPekerjaan = currentPath[0] === "pekerjaan";
-  const isBelajar = currentPath[0] === "belajar";
-  const isBedahBuku = currentPath[0] === "bedah-buku";
-  const isKeuangan = currentPath[0] === "keuangan";
-  const isYoutube = currentPath[0] === "youtube"; // Penanda menu YouTube aktif
+  const currentTopId = currentPath[0] || null;
 
-  const handleSelect = (pathArray) => {
-    const url = `/dashboard/${pathArray.join("/")}`;
-    router.push(url);
+  const handleNavigate = (menu) => {
+    if (menu.id === "dashboard") router.push("/dashboard");
+    else router.push(`/dashboard/${menu.id}`);
   };
-
-  const renderTree = (items, parentPath = [], depth = 0) => {
-    return items.map((item) => {
-      const hasChildren = item.children && item.children.length > 0;
-      const currentPathArray = [...parentPath, item.id];
-      const isSelected =
-        currentPath.join("/") === currentPathArray.join("/");
-
-      return (
-        <div key={item.id} className="select-none">
-          <div
-            className={`flex items-center gap-1 py-1.5 px-2 rounded cursor-pointer hover:bg-base-300 transition ${
-              isSelected ? "bg-primary/20 text-primary font-medium" : ""
-            }`}
-            style={{ paddingLeft: `${depth * 16 + 8}px` }}
-            onClick={() => handleSelect(currentPathArray)}
-          >
-            <span className="flex-1 text-sm truncate">{item.label}</span>
-            {hasChildren && <span className="text-xs opacity-50">›</span>}
-          </div>
-        </div>
-      );
-    });
-  };
-
-  // ========== FILTER AKTIVITAS ==========
-  // Filter "mandarin" (pindah ke Belajar) + "fiqih" (pindah ke Belajar → Agama)
-  const filteredActivities = (activities || []).filter(
-    (a) => a.id !== "mandarin" && a.id !== "fiqih"
-  );
 
   if (collapsed) {
     return (
@@ -73,7 +79,7 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
   return (
     <div className="h-full flex flex-col border-r border-base-300 bg-base-100">
       <div className="flex items-center justify-between p-2 border-b border-base-300">
-        <span className="text-sm font-bold">📋 Aktivitas</span>
+        <span className="text-sm font-bold">📋 Menu</span>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => setCollapsed(true)}
@@ -83,71 +89,38 @@ export default function Sidebar({ activities, collapsed, setCollapsed }) {
         </button>
       </div>
 
-      {/* MENU TETAP */}
-      <div className="p-2 border-b border-base-300 space-y-1">
-        <button
-          className={`btn btn-sm w-full justify-start gap-2 ${
-            isDashboardHome ? "btn-primary" : "btn-ghost"
-          }`}
-          onClick={() => router.push("/dashboard")}
-        >
-          🏠 Dashboard Utama
-        </button>
-
-        <button
-          className={`btn btn-sm w-full justify-start gap-2 ${
-            isPekerjaan ? "btn-primary" : "btn-ghost"
-          }`}
-          onClick={() => router.push("/dashboard/pekerjaan")}
-        >
-          💼 Pekerjaan
-        </button>
-
-        <button
-          className={`btn btn-sm w-full justify-start gap-2 ${
-            isBelajar ? "btn-primary" : "btn-ghost"
-          }`}
-          onClick={() => router.push("/dashboard/belajar")}
-        >
-          📚 Belajar
-        </button>
-
-        <button
-          className={`btn btn-sm w-full justify-start gap-2 ${
-            isBedahBuku ? "btn-primary" : "btn-ghost"
-          }`}
-          onClick={() => router.push("/dashboard/bedah-buku")}
-        >
-          📚 Bedah Buku
-        </button>
-
-        <button
-          className={`btn btn-sm w-full justify-start gap-2 ${
-            isKeuangan ? "btn-primary" : "btn-ghost"
-          }`}
-          onClick={() => router.push("/dashboard/keuangan")}
-        >
-          💰 Keuangan
-        </button>
-
-        {/* MENU YOUTUBE (BARU) */}
-        <button
-          className={`btn btn-sm w-full justify-start gap-2 ${
-            isYoutube ? "btn-primary" : "btn-ghost"
-          }`}
-          onClick={() => router.push("/dashboard/youtube")}
-        >
-          📺 YouTube
-        </button>
-      </div>
-
-      {/* DAFTAR AKTIVITAS */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {renderTree(filteredActivities)}
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {loadingMenus ? (
+          <p className="text-xs text-base-content/50 italic text-center py-4">
+            Memuat menu...
+          </p>
+        ) : visibleMenus.length === 0 ? (
+          <p className="text-xs text-base-content/50 italic text-center py-4">
+            Belum ada menu. Klik "Kelola Menu" di navbar.
+          </p>
+        ) : (
+          visibleMenus.map((menu) => {
+            const isActive =
+              menu.id === "dashboard"
+                ? isDashboardHome
+                : currentTopId === menu.id;
+            return (
+              <button
+                key={menu.id}
+                className={`btn btn-sm w-full justify-start gap-2 ${
+                  isActive ? "btn-primary" : "btn-ghost"
+                }`}
+                onClick={() => handleNavigate(menu)}
+              >
+                {menu.label}
+              </button>
+            );
+          })
+        )}
       </div>
 
       <div className="p-2 border-t border-base-300 text-xs text-base-content/50">
-        {filteredActivities.length} aktivitas
+        {visibleMenus.length} menu aktif
       </div>
     </div>
   );

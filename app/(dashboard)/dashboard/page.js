@@ -10,15 +10,11 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
-import ActivityManager from "@/components/ActivityManager";
+import MenuManager from "@/components/MenuManager";
 
-import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
+import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
-import {
-  DEFAULT_DOMPET,
-  DEFAULT_GOALS,
-  DEFAULT_SETTING,
-} from "@/lib/keuanganData";
+import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -26,6 +22,7 @@ export default function Dashboard() {
   const [today, setToday] = useState("");
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
+  const [menus, setMenus] = useState(DEFAULT_MENUS);
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
@@ -38,6 +35,24 @@ export default function Dashboard() {
   const [keuanganSetting, setKeuanganSetting] = useState(DEFAULT_SETTING);
 
   const router = useRouter();
+
+  // ========== BUILD MENUS DARI OLD DATA ==========
+  const buildMenusFromOldData = (activitiesLama) => {
+    const menusBaru = DEFAULT_MENUS.map((m) => ({ ...m }));
+    (activitiesLama || []).forEach((act) => {
+      if (!menusBaru.find((m) => m.id === act.id)) {
+        menusBaru.push({
+          id: act.id,
+          label: act.label,
+          type: "standard",
+          required: false,
+          visible: true,
+          order: menusBaru.length,
+        });
+      }
+    });
+    return menusBaru;
+  };
 
   // ========== MIGRASI NPD → BEDAH BUKU + HAPUS MANDARIN ==========
   const runMigrasi = (data) => {
@@ -95,7 +110,31 @@ export default function Dashboard() {
       }
     }
 
-    return { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru };
+    // === MIGRASI MENUS ===
+    let menusBaru = data.menus;
+    if (!Array.isArray(menusBaru) || menusBaru.length === 0) {
+      menusBaru = buildMenusFromOldData(activitiesBaru);
+      updates.menus = menusBaru;
+      perluSimpan = true;
+    }
+
+    // === MENUS ARSIP (default empty) ===
+    let menusArsip = data.menusArsip;
+    if (!Array.isArray(menusArsip)) {
+      menusArsip = [];
+      updates.menusArsip = menusArsip;
+      perluSimpan = true;
+    }
+
+    return {
+      perluSimpan,
+      updates,
+      activitiesBaru,
+      jadwalBaru,
+      progressBaru,
+      menusBaru,
+      menusArsip,
+    };
   };
 
   // ========== LOAD USER DATA ==========
@@ -111,13 +150,27 @@ export default function Dashboard() {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru } = runMigrasi(data);
+        const {
+          perluSimpan,
+          updates,
+          activitiesBaru,
+          jadwalBaru,
+          progressBaru,
+          menusBaru,
+        } = runMigrasi(data);
+
         if (perluSimpan) await setDoc(docRef, updates, { merge: true });
 
         if (Array.isArray(activitiesBaru)) setActivities(activitiesBaru);
         else {
           await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
+        }
+
+        if (Array.isArray(menusBaru)) setMenus(menusBaru);
+        else {
+          await setDoc(docRef, { menus: DEFAULT_MENUS }, { merge: true });
+          setMenus(DEFAULT_MENUS);
         }
 
         if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru);
@@ -161,6 +214,8 @@ export default function Dashboard() {
       } else {
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
+          menus: DEFAULT_MENUS,
+          menusArsip: [],
           jadwalUser: DEFAULT_JADWAL,
           dailyProgress: {},
           keuanganDompet: DEFAULT_DOMPET,
@@ -169,6 +224,7 @@ export default function Dashboard() {
           keuanganSetting: DEFAULT_SETTING,
         });
         setActivities(DEFAULT_ACTIVITIES);
+        setMenus(DEFAULT_MENUS);
         setJadwalUser(DEFAULT_JADWAL);
         setProgress({});
       }
@@ -200,12 +256,14 @@ export default function Dashboard() {
     await setDoc(docRef, { jadwalUser: newJadwal }, { merge: true });
   };
 
-  // ========== UPDATE ACTIVITIES (dari ActivityManager) ==========
-  const handleUpdateActivities = async (newActivities) => {
-    setActivities(newActivities);
+  // ========== UPDATE MENUS ==========
+  const handleUpdateMenus = async (newMenus, newArsip) => {
+    setMenus(newMenus);
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { activities: newActivities }, { merge: true });
+    const updates = { menus: newMenus };
+    if (newArsip) updates.menusArsip = newArsip;
+    await setDoc(docRef, updates, { merge: true });
   };
 
   const handleLogout = async () => {
@@ -219,13 +277,17 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
         <div className="flex gap-2 items-center">
-          <ActivityManager activities={activities} onUpdate={handleUpdateActivities} />
+          <MenuManager
+            menus={menus}
+            activities={activities}
+            user={user}
+            onUpdate={handleUpdateMenus}
+          />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
@@ -234,16 +296,14 @@ export default function Dashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
           <Sidebar
-            activities={activities}
+            menus={menus}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
           />
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
           <Schedule
             jadwalUser={jadwalUser}
@@ -256,7 +316,7 @@ export default function Dashboard() {
 
           <div className="text-center text-base-content/50 mt-10 mb-6">
             <p className="text-2xl mb-2">📋</p>
-            <p>Pilih aktivitas dari sidebar</p>
+            <p>Pilih menu dari sidebar</p>
           </div>
 
           <RingkasanKeuangan
