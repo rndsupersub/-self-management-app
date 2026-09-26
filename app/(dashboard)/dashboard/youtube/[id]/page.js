@@ -6,14 +6,15 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
-
-const KONTEN_STATUS = [
-  { id: "idea", nama: "Ide/Script", color: "bg-gray-500" },
-  { id: "recording", nama: "Recording", color: "bg-yellow-500" },
-  { id: "editing", nama: "Editing", color: "bg-blue-500" },
-  { id: "ready", nama: "Ready to Upload", color: "bg-green-500" },
-  { id: "publish", nama: "Published", color: "bg-purple-600" }
-];
+import { 
+  YOUTUBE_CHANNELS, 
+  KONTEN_STATUS, 
+  TIPE_KONTEN, 
+  generateYoutubeId, 
+  getTargetHarian, 
+  getWeekDates, 
+  formatDateShort 
+} from "@/lib/youtubeData";
 
 export default function YouTubeDetailPage() {
   const [user, setUser] = useState(null);
@@ -29,7 +30,16 @@ export default function YouTubeDetailPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDateStr, setSelectedDateStr] = useState("");
-  const [form, setForm] = useState({ id: "", judul: "", tipe: "short", tanggal: "", status: "idea", linkYoutube: "", gdriveUrl: "", catatan: "" });
+  const [form, setForm] = useState({ 
+    id: "", 
+    judul: "", 
+    tipe: "short", 
+    tanggal: "", 
+    status: "idea", 
+    linkYoutube: "", 
+    gdriveUrl: "", 
+    catatan: "" 
+  });
 
   const router = useRouter();
   const params = useParams();
@@ -45,7 +55,11 @@ export default function YouTubeDetailPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         if (data.activities) setActivities(data.activities);
-        if (data.youtube && data.youtube.channels) setChannels(data.youtube.channels);
+        if (data.youtube && data.youtube.channels) {
+          setChannels(data.youtube.channels);
+        } else {
+          setChannels(YOUTUBE_CHANNELS);
+        }
         if (data.youtube_logs) setLogs(data.youtube_logs);
       }
       setLoading(false);
@@ -64,26 +78,26 @@ export default function YouTubeDetailPage() {
     router.push("/login");
   };
 
-  // Kalender Logic
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const listBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = new Date(year, month, 1).getDay();
-  const days = Array(firstDayOfMonth).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
-
-  const getLocalDateString = (y, m, d) => {
-    const date = new Date(y, m, d);
-    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
-  };
-
+  // Kalender Logic - Weekly
+  const weekDates = getWeekDates(currentDate.toISOString().split("T")[0]);
   const channelLogs = logs.filter(log => log.channel === channelId);
+
+  const getLogsForDate = (dateStr) => channelLogs.filter(l => l.tanggal === dateStr);
 
   // Form Handlers
   const openModal = (dateStr = today, logData = null) => {
     setSelectedDateStr(dateStr);
     if (logData) setForm(logData);
-    else setForm({ id: "", judul: "", tipe: "short", tanggal: dateStr, status: "idea", linkYoutube: "", gdriveUrl: "", catatan: "" });
+    else setForm({ 
+      id: "", 
+      judul: "", 
+      tipe: "short", 
+      tanggal: dateStr, 
+      status: "idea", 
+      linkYoutube: "", 
+      gdriveUrl: "", 
+      catatan: "" 
+    });
     setIsModalOpen(true);
   };
 
@@ -94,7 +108,7 @@ export default function YouTubeDetailPage() {
     const payload = { ...form, channel: channelId };
     let updatedLogs;
     if (form.id) updatedLogs = logs.map((l) => (l.id === form.id ? payload : l));
-    else updatedLogs = [...logs, { ...payload, id: `yt_${Date.now()}` }];
+    else updatedLogs = [...logs, { ...payload, id: generateYoutubeId() }];
 
     setLogs(updatedLogs);
     await saveLogsToFirestore(updatedLogs);
@@ -111,7 +125,7 @@ export default function YouTubeDetailPage() {
 
   if (loading) return <div className="flex justify-center items-center h-screen bg-base-200">Loading...</div>;
 
-  const currentChannel = channels.find(c => c.id === channelId);
+  const currentChannel = channels.find(c => c.id === channelId) || YOUTUBE_CHANNELS.find(c => c.id === channelId);
   if (!currentChannel) return <div className="flex justify-center items-center h-screen bg-base-200">Channel tidak ditemukan.</div>;
 
   return (
@@ -150,45 +164,54 @@ export default function YouTubeDetailPage() {
                 <div className="flex justify-between items-center mb-4">
                    <div className="flex items-center gap-4">
                       <div className="flex gap-1">
-                        <button className="btn btn-sm btn-ghost" onClick={() => setCurrentDate(new Date(year - 1, month, 1))}>«</button>
-                        <button className="btn btn-sm btn-ghost" onClick={() => setCurrentDate(new Date(year, month - 1, 1))}>‹</button>
+                        <button className="btn btn-sm btn-ghost" onClick={() => {
+                          const newDate = new Date(currentDate);
+                          newDate.setDate(newDate.getDate() - 7);
+                          setCurrentDate(newDate);
+                        }}>‹</button>
                       </div>
-                      <div className="font-bold text-gray-800 text-lg">{listBulan[month]} {year}</div>
+                      <div className="font-bold text-gray-800 text-lg">
+                        Minggu {formatDateShort(weekDates[0])} - {formatDateShort(weekDates[6])}
+                      </div>
                       <div className="flex gap-1">
-                        <button className="btn btn-sm btn-ghost" onClick={() => setCurrentDate(new Date(year, month + 1, 1))}>›</button>
-                        <button className="btn btn-sm btn-ghost" onClick={() => setCurrentDate(new Date(year + 1, month, 1))}>»</button>
+                        <button className="btn btn-sm btn-ghost" onClick={() => {
+                          const newDate = new Date(currentDate);
+                          newDate.setDate(newDate.getDate() + 7);
+                          setCurrentDate(newDate);
+                        }}>›</button>
                       </div>
                    </div>
-                   <button className="btn btn-outline btn-sm" onClick={() => setCurrentDate(new Date())}>Hari Ini</button>
+                   <button className="btn btn-outline btn-sm" onClick={() => setCurrentDate(new Date())}>Minggu Ini</button>
                 </div>
                 
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-                    {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((d, i) => (
-                      <div key={d} className={`text-center py-2 text-sm font-bold ${i === 0 ? "text-red-500" : "text-gray-700"}`}>{d}</div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 bg-gray-200 gap-px">
-                    {days.map((day, idx) => {
-                      if (!day) return <div key={`empty-${idx}`} className="bg-white min-h-[100px]"></div>;
-                      const dateStr = getLocalDateString(year, month, day);
-                      const dayLogs = channelLogs.filter(l => l.tanggal === dateStr);
-                      const isToday = dateStr === today;
-                      
-                      return (
-                        <div key={day} className="bg-white min-h-[100px] p-2 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => openModal(dateStr)}>
-                          <div className={`text-right text-sm font-semibold mb-1 ${isToday ? "text-blue-600" : "text-gray-700"}`}>{day}</div>
-                          <div className="space-y-1">
-                            {dayLogs.map(log => (
-                              <div key={log.id} className="text-xs truncate bg-blue-50 text-blue-700 px-1.5 py-1 rounded border border-blue-200">
-                                {log.tipe === "short" ? "📱" : "🖥️"} {log.judul}
-                              </div>
-                            ))}
+                <div className="grid grid-cols-7 gap-2">
+                  {weekDates.map((dateStr) => {
+                    const dayLogs = getLogsForDate(dateStr);
+                    const target = getTargetHarian(dateStr);
+                    const isToday = dateStr === today;
+                    const dayName = new Date(dateStr).toLocaleDateString("id-ID", { weekday: "short" });
+                    const dayNum = new Date(dateStr).getDate();
+                    
+                    return (
+                      <div key={dateStr} className={`border rounded-lg p-2 min-h-[200px] cursor-pointer hover:bg-gray-50 ${isToday ? 'border-blue-500 border-2' : 'border-gray-200'}`} onClick={() => openModal(dateStr)}>
+                        <div className="text-center mb-2">
+                          <div className="text-xs font-semibold text-gray-500">{dayName}</div>
+                          <div className={`text-lg font-bold ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>{dayNum}</div>
+                          <div className="text-xs text-gray-500 mt-1">{target.label}</div>
+                          <div className="text-xs font-mono mt-1">
+                            {dayLogs.length} / {target.target} {target.satuan}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="space-y-1">
+                          {dayLogs.map(log => (
+                            <div key={log.id} className="text-xs truncate bg-blue-50 text-blue-700 px-1.5 py-1 rounded border border-blue-200">
+                              {log.tipe === "short" ? "📱" : "🖥️"} {log.judul}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -241,8 +264,7 @@ export default function YouTubeDetailPage() {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Tipe</label>
                   <select className="select select-bordered w-full bg-white text-gray-800" value={form.tipe} onChange={e => setForm({...form, tipe: e.target.value})}>
-                    <option value="short">📱 Short</option>
-                    <option value="video">🖥️ Video</option>
+                    {TIPE_KONTEN.map(t => <option key={t.id} value={t.id}>{t.nama}</option>)}
                   </select>
                 </div>
                 <div>
@@ -257,9 +279,15 @@ export default function YouTubeDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Link GDrive / Mentahan</label>
-                <input type="url" className="input input-bordered w-full bg-white text-gray-800" value={form.gdriveUrl} onChange={e => setForm({...form, gdriveUrl: e.target.value})} />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Link YouTube</label>
+                <input type="url" className="input input-bordered w-full bg-white text-gray-800" value={form.linkYoutube} onChange={e => setForm({...form, linkYoutube: e.target.value})} placeholder="https://youtube.com/..." />
               </div>
+              {form.tipe === "video" && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Link GDrive (Thumbnail / Mentahan)</label>
+                  <input type="url" className="input input-bordered w-full bg-white text-gray-800" value={form.gdriveUrl} onChange={e => setForm({...form, gdriveUrl: e.target.value})} placeholder="https://drive.google.com/..." />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Catatan</label>
                 <textarea className="textarea textarea-bordered w-full bg-white text-gray-800" value={form.catatan} onChange={e => setForm({...form, catatan: e.target.value})}></textarea>

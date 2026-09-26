@@ -6,26 +6,21 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
+import { YOUTUBE_CHANNELS } from "@/lib/youtubeData";
 
 const generateId = (prefix = "ch") => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-
-const DEFAULT_CHANNELS = [
-  { id: "ch_utama", nama: "🎥 Channel Utama" },
-  { id: "ch_shorts", nama: "📱 Channel Shorts" }
-];
 
 export default function YouTubePage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState("");
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
-  const [channels, setChannels] = useState(DEFAULT_CHANNELS);
+  const [channels, setChannels] = useState(YOUTUBE_CHANNELS);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ nama: "" });
   const router = useRouter();
 
-  // ========== LOAD USER DATA ==========
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -46,16 +41,16 @@ export default function YouTubePage() {
         if (data.youtube && Array.isArray(data.youtube.channels)) {
           setChannels(data.youtube.channels);
         } else {
-          await setDoc(docRef, { youtube: { channels: DEFAULT_CHANNELS } }, { merge: true });
-          setChannels(DEFAULT_CHANNELS);
+          await setDoc(docRef, { youtube: { channels: YOUTUBE_CHANNELS } }, { merge: true });
+          setChannels(YOUTUBE_CHANNELS);
         }
       } else {
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
-          youtube: { channels: DEFAULT_CHANNELS },
+          youtube: { channels: YOUTUBE_CHANNELS },
         });
         setActivities(DEFAULT_ACTIVITIES);
-        setChannels(DEFAULT_CHANNELS);
+        setChannels(YOUTUBE_CHANNELS);
       }
       setLoading(false);
     });
