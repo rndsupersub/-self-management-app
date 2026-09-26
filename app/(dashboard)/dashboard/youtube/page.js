@@ -76,6 +76,17 @@ export default function YouTubePage() {
     setShowForm(false);
   };
 
+  // ========== RENAME CHANNEL (BARU) ==========
+  const handleRenameChannel = async (chId, currentNama, e) => {
+    e.stopPropagation();
+    const newNama = window.prompt("Ganti nama channel jadi:", currentNama);
+    if (!newNama || !newNama.trim() || newNama.trim() === currentNama) return;
+    const updated = channels.map((c) =>
+      c.id === chId ? { ...c, nama: newNama.trim() } : c
+    );
+    await simpanChannels(updated);
+  };
+
   const handleHapusChannel = async (chId, e) => {
     e.stopPropagation();
     if (!confirm("Hapus channel ini? Semua konten di dalamnya akan hilang.")) return;
@@ -114,7 +125,7 @@ export default function YouTubePage() {
             <h1 className="text-2xl font-bold text-gray-800">📺 YouTube</h1>
             <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Channel</button>
           </div>
-          
+
           {showForm && (
             <div className="card bg-white shadow border border-gray-200 mb-4">
               <div className="card-body p-4">
@@ -142,7 +153,10 @@ export default function YouTubePage() {
                   <div className="card-body p-4">
                     <div className="flex justify-between items-start">
                       <h2 className="card-title text-base text-gray-800">{ch.nama}</h2>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusChannel(ch.id, e)} title="Hapus Channel">🗑️</button>
+                      <div className="flex gap-1">
+                        <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenameChannel(ch.id, ch.nama, e)} title="Rename Channel">✏️</button>
+                        <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusChannel(ch.id, e)} title="Hapus Channel">🗑️</button>
+                      </div>
                     </div>
                     <div className="card-actions justify-end mt-2"><span className="text-gray-400 text-sm">Buka →</span></div>
                   </div>

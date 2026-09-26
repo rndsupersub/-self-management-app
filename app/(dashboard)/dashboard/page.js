@@ -10,6 +10,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
+import ActivityManager from "@/components/ActivityManager";
 
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
@@ -31,7 +32,6 @@ export default function Dashboard() {
     new Date().toISOString().split("T")[0]
   );
 
-  // Keuangan data (untuk ringkasan)
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
   const [goalsList, setGoalsList] = useState(DEFAULT_GOALS);
   const [keuanganTransaksi, setKeuanganTransaksi] = useState({});
@@ -44,7 +44,6 @@ export default function Dashboard() {
     let perluSimpan = false;
     const updates = {};
 
-    // 1. MIGRASI ACTIVITIES
     let activitiesBaru = data.activities;
     if (Array.isArray(activitiesBaru)) {
       const adaNpd = activitiesBaru.some((a) => a.id === "npd");
@@ -55,11 +54,9 @@ export default function Dashboard() {
         );
         updates.activities = activitiesBaru;
         perluSimpan = true;
-        console.log("[MIGRASI] NPD + Mandarin dihapus dari activities.");
       }
     }
 
-    // 2. MIGRASI JADWAL USER
     let jadwalBaru = data.jadwalUser;
     if (jadwalBaru?.kerja && Array.isArray(jadwalBaru.kerja)) {
       const adaNpdJadwal = jadwalBaru.kerja.some((item) => item.id === "npd");
@@ -68,22 +65,15 @@ export default function Dashboard() {
           ...jadwalBaru,
           kerja: jadwalBaru.kerja.map((item) =>
             item.id === "npd"
-              ? {
-                  ...item,
-                  id: "bedah-buku",
-                  label: "📚 Bedah Buku",
-                  unit: "10 halaman",
-                }
+              ? { ...item, id: "bedah-buku", label: "📚 Bedah Buku", unit: "10 halaman" }
               : item
           ),
         };
         updates.jadwalUser = jadwalBaru;
         perluSimpan = true;
-        console.log("[MIGRASI] NPD di jadwal diganti jadi Bedah Buku.");
       }
     }
 
-    // 3. MIGRASI DAILY PROGRESS
     let progressBaru = data.dailyProgress;
     if (progressBaru && typeof progressBaru === "object") {
       let adaNpdProgress = false;
@@ -93,9 +83,7 @@ export default function Dashboard() {
         if (dayData && dayData.npd) {
           adaNpdProgress = true;
           const newDayData = { ...dayData };
-          if (!newDayData["bedah-buku"]) {
-            newDayData["bedah-buku"] = newDayData.npd;
-          }
+          if (!newDayData["bedah-buku"]) newDayData["bedah-buku"] = newDayData.npd;
           delete newDayData.npd;
           progressUpdated[tanggal] = newDayData;
         }
@@ -104,7 +92,6 @@ export default function Dashboard() {
         updates.dailyProgress = progressUpdated;
         progressBaru = progressUpdated;
         perluSimpan = true;
-        console.log("[MIGRASI] Progress NPD dipindah ke Bedah Buku.");
       }
     }
 
@@ -118,117 +105,60 @@ export default function Dashboard() {
         router.push("/login");
         return;
       }
-
       setUser(user);
-
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
         const data = docSnap.data();
+        const { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru } = runMigrasi(data);
+        if (perluSimpan) await setDoc(docRef, updates, { merge: true });
 
-        // Jalankan migrasi
-        const {
-          perluSimpan,
-          updates,
-          activitiesBaru,
-          jadwalBaru,
-          progressBaru,
-        } = runMigrasi(data);
-
-        if (perluSimpan) {
-          await setDoc(docRef, updates, { merge: true });
-          console.log("[MIGRASI] Firestore di-update:", updates);
-        }
-
-        // Set activities
-        if (Array.isArray(activitiesBaru)) {
-          setActivities(activitiesBaru);
-        } else {
-          await setDoc(
-            docRef,
-            { activities: DEFAULT_ACTIVITIES },
-            { merge: true }
-          );
+        if (Array.isArray(activitiesBaru)) setActivities(activitiesBaru);
+        else {
+          await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
         }
 
-        // Set jadwal
-        if (jadwalBaru?.kerja && jadwalBaru?.minggu) {
-          setJadwalUser(jadwalBaru);
-        } else {
-          await setDoc(
-            docRef,
-            { jadwalUser: DEFAULT_JADWAL },
-            { merge: true }
-          );
+        if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru);
+        else {
+          await setDoc(docRef, { jadwalUser: DEFAULT_JADWAL }, { merge: true });
           setJadwalUser(DEFAULT_JADWAL);
         }
 
-        // Set progress
-        if (
-          progressBaru &&
-          typeof progressBaru === "object" &&
-          !Array.isArray(progressBaru)
-        ) {
+        if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru))
           setProgress(progressBaru || {});
-        } else {
+        else {
           await setDoc(docRef, { dailyProgress: {} }, { merge: true });
           setProgress({});
         }
 
-        // ========== LOAD KEUANGAN DATA ==========
-        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) {
-          setDompetList(data.keuanganDompet);
-        } else {
-          await setDoc(
-            docRef,
-            { keuanganDompet: DEFAULT_DOMPET },
-            { merge: true }
-          );
+        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet);
+        else {
+          await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true });
           setDompetList(DEFAULT_DOMPET);
         }
 
-        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) {
-          setGoalsList(data.keuanganGoals);
-        } else {
-          await setDoc(
-            docRef,
-            { keuanganGoals: DEFAULT_GOALS },
-            { merge: true }
-          );
+        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) setGoalsList(data.keuanganGoals);
+        else {
+          await setDoc(docRef, { keuanganGoals: DEFAULT_GOALS }, { merge: true });
           setGoalsList(DEFAULT_GOALS);
         }
 
-        if (
-          data.keuanganTransaksi &&
-          typeof data.keuanganTransaksi === "object" &&
-          !Array.isArray(data.keuanganTransaksi)
-        ) {
+        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi))
           setKeuanganTransaksi(data.keuanganTransaksi);
-        } else {
+        else {
           await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true });
           setKeuanganTransaksi({});
         }
 
-        if (
-          data.keuanganSetting &&
-          typeof data.keuanganSetting === "object"
-        ) {
-          setKeuanganSetting({
-            ...DEFAULT_SETTING,
-            ...data.keuanganSetting,
-          });
-        } else {
-          await setDoc(
-            docRef,
-            { keuanganSetting: DEFAULT_SETTING },
-            { merge: true }
-          );
+        if (data.keuanganSetting && typeof data.keuanganSetting === "object")
+          setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting });
+        else {
+          await setDoc(docRef, { keuanganSetting: DEFAULT_SETTING }, { merge: true });
           setKeuanganSetting(DEFAULT_SETTING);
         }
       } else {
-        // User baru
         await setDoc(docRef, {
           activities: DEFAULT_ACTIVITIES,
           jadwalUser: DEFAULT_JADWAL,
@@ -242,10 +172,8 @@ export default function Dashboard() {
         setJadwalUser(DEFAULT_JADWAL);
         setProgress({});
       }
-
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -260,11 +188,7 @@ export default function Dashboard() {
     const dayData = progress[date] || {};
     dayData[field] = { ...dayData[field], ...value };
     const newProgress = { ...progress, [date]: dayData };
-    await setDoc(
-      docRef,
-      { dailyProgress: newProgress },
-      { merge: true }
-    );
+    await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
     setProgress(newProgress);
   };
 
@@ -276,17 +200,21 @@ export default function Dashboard() {
     await setDoc(docRef, { jadwalUser: newJadwal }, { merge: true });
   };
 
+  // ========== UPDATE ACTIVITIES (dari ActivityManager) ==========
+  const handleUpdateActivities = async (newActivities) => {
+    setActivities(newActivities);
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { activities: newActivities }, { merge: true });
+  };
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/login");
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        Loading...
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
 
   return (
@@ -297,6 +225,7 @@ export default function Dashboard() {
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
         <div className="flex gap-2 items-center">
+          <ActivityManager activities={activities} onUpdate={handleUpdateActivities} />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
@@ -306,11 +235,7 @@ export default function Dashboard() {
 
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar */}
-        <div
-          className={`${
-            sidebarCollapsed ? "w-12" : "w-64"
-          } transition-all duration-300 bg-base-100`}
-        >
+        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
           <Sidebar
             activities={activities}
             collapsed={sidebarCollapsed}
@@ -320,7 +245,6 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Jadwal */}
           <Schedule
             jadwalUser={jadwalUser}
             onUpdateJadwal={updateJadwal}
@@ -330,13 +254,11 @@ export default function Dashboard() {
             setSelectedDate={setSelectedDate}
           />
 
-          {/* Placeholder */}
           <div className="text-center text-base-content/50 mt-10 mb-6">
             <p className="text-2xl mb-2">📋</p>
             <p>Pilih aktivitas dari sidebar</p>
           </div>
 
-          {/* Ringkasan Keuangan */}
           <RingkasanKeuangan
             dompetList={dompetList}
             goalsList={goalsList}
