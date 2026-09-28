@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
+  const [menusCustom, setMenusCustom] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
@@ -54,7 +55,7 @@ export default function Dashboard() {
     return menusBaru;
   };
 
-  // ========== MIGRASI NPD → BEDAH BUKU + HAPUS MANDARIN ==========
+  // ========== MIGRASI ==========
   const runMigrasi = (data) => {
     let perluSimpan = false;
     const updates = {};
@@ -110,7 +111,6 @@ export default function Dashboard() {
       }
     }
 
-    // === MIGRASI MENUS ===
     let menusBaru = data.menus;
     if (!Array.isArray(menusBaru) || menusBaru.length === 0) {
       menusBaru = buildMenusFromOldData(activitiesBaru);
@@ -118,11 +118,17 @@ export default function Dashboard() {
       perluSimpan = true;
     }
 
-    // === MENUS ARSIP (default empty) ===
     let menusArsip = data.menusArsip;
     if (!Array.isArray(menusArsip)) {
       menusArsip = [];
       updates.menusArsip = menusArsip;
+      perluSimpan = true;
+    }
+
+    let menusCustomBaru = data.menusCustom;
+    if (!menusCustomBaru || typeof menusCustomBaru !== "object") {
+      menusCustomBaru = {};
+      updates.menusCustom = menusCustomBaru;
       perluSimpan = true;
     }
 
@@ -133,7 +139,7 @@ export default function Dashboard() {
       jadwalBaru,
       progressBaru,
       menusBaru,
-      menusArsip,
+      menusCustomBaru,
     };
   };
 
@@ -157,6 +163,7 @@ export default function Dashboard() {
           jadwalBaru,
           progressBaru,
           menusBaru,
+          menusCustomBaru,
         } = runMigrasi(data);
 
         if (perluSimpan) await setDoc(docRef, updates, { merge: true });
@@ -171,6 +178,12 @@ export default function Dashboard() {
         else {
           await setDoc(docRef, { menus: DEFAULT_MENUS }, { merge: true });
           setMenus(DEFAULT_MENUS);
+        }
+
+        if (menusCustomBaru && typeof menusCustomBaru === "object") setMenusCustom(menusCustomBaru);
+        else {
+          await setDoc(docRef, { menusCustom: {} }, { merge: true });
+          setMenusCustom({});
         }
 
         if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru);
@@ -216,6 +229,7 @@ export default function Dashboard() {
           activities: DEFAULT_ACTIVITIES,
           menus: DEFAULT_MENUS,
           menusArsip: [],
+          menusCustom: {},
           jadwalUser: DEFAULT_JADWAL,
           dailyProgress: {},
           keuanganDompet: DEFAULT_DOMPET,
@@ -225,6 +239,7 @@ export default function Dashboard() {
         });
         setActivities(DEFAULT_ACTIVITIES);
         setMenus(DEFAULT_MENUS);
+        setMenusCustom({});
         setJadwalUser(DEFAULT_JADWAL);
         setProgress({});
       }
@@ -237,7 +252,6 @@ export default function Dashboard() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ========== UPDATE PROGRESS ==========
   const updateProgress = async (date, field, value) => {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
@@ -248,7 +262,6 @@ export default function Dashboard() {
     setProgress(newProgress);
   };
 
-  // ========== UPDATE JADWAL ==========
   const updateJadwal = async (newJadwal) => {
     if (!user) return;
     setJadwalUser(newJadwal);
@@ -256,7 +269,6 @@ export default function Dashboard() {
     await setDoc(docRef, { jadwalUser: newJadwal }, { merge: true });
   };
 
-  // ========== UPDATE MENUS ==========
   const handleUpdateMenus = async (newMenus, newArsip) => {
     setMenus(newMenus);
     if (!user) return;
@@ -285,8 +297,14 @@ export default function Dashboard() {
           <MenuManager
             menus={menus}
             activities={activities}
+            menusCustom={menusCustom}
             user={user}
             onUpdate={handleUpdateMenus}
+            onUpdateCustom={async (newCustom) => {
+              setMenusCustom(newCustom);
+              if (!user) return;
+              await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true });
+            }}
           />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>

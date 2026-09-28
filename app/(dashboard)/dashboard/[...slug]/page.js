@@ -6,13 +6,14 @@ import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
+import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import Sidebar from "@/components/Sidebar";
 import SuratDetail from "@/components/SuratDetail";
 import MurajaahTracker from "@/components/MurajaahTracker";
 import WeeklyTest from "@/components/WeeklyTest";
 import HeatmapCalendar from "@/components/HeatmapCalendar";
 import BisnisCalendar from "@/components/BisnisCalendar";
+import MenuCustomTracker from "@/components/MenuCustomTracker";
 
 export default function ActivityPage() {
   const [user, setUser] = useState(null);
@@ -20,6 +21,8 @@ export default function ActivityPage() {
   const [today, setToday] = useState("");
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
+  const [menus, setMenus] = useState(DEFAULT_MENUS);
+  const [menusCustom, setMenusCustom] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
   const params = useParams();
@@ -36,12 +39,28 @@ export default function ActivityPage() {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
+
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
           await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
         }
+
+        if (data.menus && Array.isArray(data.menus)) {
+          setMenus(data.menus);
+        } else {
+          await setDoc(docRef, { menus: DEFAULT_MENUS }, { merge: true });
+          setMenus(DEFAULT_MENUS);
+        }
+
+        if (data.menusCustom && typeof data.menusCustom === "object") {
+          setMenusCustom(data.menusCustom);
+        } else {
+          await setDoc(docRef, { menusCustom: {} }, { merge: true });
+          setMenusCustom({});
+        }
+
         if (typeof data.dailyProgress === "object" && !Array.isArray(data.dailyProgress)) {
           setProgress(data.dailyProgress || {});
         } else {
@@ -49,8 +68,15 @@ export default function ActivityPage() {
           setProgress({});
         }
       } else {
-        await setDoc(docRef, { activities: DEFAULT_ACTIVITIES, dailyProgress: {} });
+        await setDoc(docRef, {
+          activities: DEFAULT_ACTIVITIES,
+          menus: DEFAULT_MENUS,
+          menusCustom: {},
+          dailyProgress: {},
+        });
         setActivities(DEFAULT_ACTIVITIES);
+        setMenus(DEFAULT_MENUS);
+        setMenusCustom({});
         setProgress({});
       }
       setLoading(false);
@@ -95,6 +121,11 @@ export default function ActivityPage() {
   const selectedActivity = findItem(activities, slug);
   const parentPath = findParentPath(activities, slug).slice(0, -1);
 
+  // ========== CEK MENU CUSTOM ==========
+  const slugId = slug[0];
+  const isCustomMenu = slugId && menusCustom[slugId];
+  const customMenu = isCustomMenu ? menusCustom[slugId] : null;
+
   const updateProgress = async (field, value) => {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
@@ -105,14 +136,38 @@ export default function ActivityPage() {
     setProgress(newProgress);
   };
 
-  // Update kegiatan bisnis (langsung ke field root, bukan dailyProgress)
+  // Update progress khusus menu custom: per tanggal + menuId
+  const updateCustomProgress = async (tanggal, menuId, value) => {
+    if (!user) return;
+    const docRef = doc(db, "users", user.uid);
+    const dayData = progress[tanggal] || {};
+    const newProgress = {
+      ...progress,
+      [tanggal]: { ...dayData, [menuId]: value },
+    };
+    await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
+    setProgress(newProgress);
+  };
+
+  // Update menu custom metadata (target, subItems, dll)
+  const updateCustomMenu = async (menuId, updates) => {
+    if (!user) return;
+    const current = menusCustom[menuId] || {};
+    const newMenusCustom = {
+      ...menusCustom,
+      [menuId]: { ...current, ...updates },
+    };
+    setMenusCustom(newMenusCustom);
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { menusCustom: newMenusCustom }, { merge: true });
+  };
+
   const updateBisnisKegiatan = async (field, value) => {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, { [field]: value }, { merge: true });
   };
 
-  // Hapus kegiatan bisnis (pindah ke history)
   const deleteBisnisKegiatan = async (date, deleted) => {
     if (!user || !deleted) return;
     const docRef = doc(db, "users", user.uid);
@@ -187,12 +242,23 @@ export default function ActivityPage() {
                   </li>
                 );
               })}
-              {selectedActivity && <li>{selectedActivity.label}</li>}
+              {isCustomMenu && <li>{customMenu.label}</li>}
+              {!isCustomMenu && selectedActivity && <li>{selectedActivity.label}</li>}
             </ul>
           </div>
 
+          {/* ==== MENU CUSTOM TRACKER ==== */}
+          {isCustomMenu && (
+            <MenuCustomTracker
+              menu={customMenu}
+              progress={progress}
+              onUpdateProgress={updateCustomProgress}
+              onUpdateMenu={updateCustomMenu}
+            />
+          )}
+
           {/* ==== HALAMAN BISNIS ==== */}
-          {isBisnisMain && user && (
+          {!isCustomMenu && isBisnisMain && user && (
             <div>
               <h1 className="text-2xl font-bold mb-6">💼 Kalender Bisnis</h1>
               <BisnisCalendar
@@ -205,17 +271,14 @@ export default function ActivityPage() {
           )}
 
           {/* ==== HALAMAN HAFALAN UTAMA ==== */}
-          {isHafalanMain && (
+          {!isCustomMenu && isHafalanMain && (
             <div className="space-y-4">
               <h1 className="text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
                 <WeeklyTest progressData={progressData} onUpdate={updateProgress} />
               </div>
-
               <HeatmapCalendar progress={progress} activityId="hafalan" />
-
               <div className="mt-6">
                 <h2 className="text-lg font-semibold mb-3">📚 Daftar Juz</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -225,7 +288,6 @@ export default function ActivityPage() {
                       (s) => todayProgress[s.id]?.hafalan?.selesai
                     ).length || 0;
                     const pct = totalSurat > 0 ? Math.round((suratSelesai / totalSurat) * 100) : 0;
-
                     return (
                       <div
                         key={juz.id}
@@ -248,7 +310,7 @@ export default function ActivityPage() {
           )}
 
           {/* ==== HALAMAN JUZ ==== */}
-          {isHafalanJuz && selectedActivity && (
+          {!isCustomMenu && isHafalanJuz && selectedActivity && (
             <div>
               <div className="flex items-center gap-2 mb-6">
                 <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
@@ -256,12 +318,10 @@ export default function ActivityPage() {
                   {selectedActivity.children?.length || 0} surat
                 </span>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {selectedActivity.children?.map((surat) => {
                   const suratProgress = todayProgress[surat.id] || {};
                   const selesai = suratProgress?.hafalan?.selesai;
-
                   return (
                     <div
                       key={surat.id}
@@ -284,7 +344,7 @@ export default function ActivityPage() {
           )}
 
           {/* ==== HALAMAN SURAT ==== */}
-          {isHafalanSurat && selectedActivity && (
+          {!isCustomMenu && isHafalanSurat && selectedActivity && (
             <div>
               <h1 className="text-2xl font-bold mb-6">{selectedActivity.label}</h1>
               <SuratDetail
@@ -295,8 +355,8 @@ export default function ActivityPage() {
             </div>
           )}
 
-          {/* ==== HALAMAN AKTIVITAS UMUM (NON-HAFALAN, NON-BISNIS) ==== */}
-          {!isHafalanMain && !isHafalanJuz && !isHafalanSurat && !isBisnisMain && selectedActivity && (
+          {/* ==== HALAMAN AKTIVITAS UMUM ==== */}
+          {!isCustomMenu && !isHafalanMain && !isHafalanJuz && !isHafalanSurat && !isBisnisMain && selectedActivity && (
             <div>
               <div className="flex items-center gap-2 mb-6">
                 <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
@@ -323,7 +383,6 @@ export default function ActivityPage() {
                       </div>
                     </div>
                   </div>
-
                   <div className="card bg-base-100 shadow">
                     <div className="card-body p-4">
                       <h3 className="card-title text-sm">✏️ Update Progress</h3>
@@ -380,10 +439,13 @@ export default function ActivityPage() {
             </div>
           )}
 
-          {!selectedActivity && (
+          {!isCustomMenu && !selectedActivity && (
             <div className="text-center text-base-content/50 mt-20">
               <p className="text-2xl mb-2">📋</p>
               <p>Aktivitas tidak ditemukan</p>
+              <p className="text-xs mt-2 text-gray-400">
+                Kalau ini menu custom, pastikan sudah dibuat di "Kelola Menu" dan klik "Tambah Menu Custom".
+              </p>
             </div>
           )}
         </div>

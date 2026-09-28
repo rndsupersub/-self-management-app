@@ -31,6 +31,7 @@ function SortableRow({ menu, onRename, onHide, onDelete }) {
       <span {...attributes} {...listeners} className="cursor-grab select-none px-1" title="Geser untuk reorder">☰</span>
       <span className="flex-1 text-sm truncate">{menu.label}</span>
       {menu.required && <span className="text-xs badge badge-ghost">🔒</span>}
+      {menu.type === "custom" && <span className="text-xs badge badge-ghost badge-xs">custom</span>}
       <button className="btn btn-ghost btn-xs" onClick={() => onRename(menu)} title="Rename">✏️</button>
       {!menu.required && (
         <>
@@ -42,7 +43,14 @@ function SortableRow({ menu, onRename, onHide, onDelete }) {
   );
 }
 
-export default function MenuManager({ menus = [], activities = [], user, onUpdate }) {
+export default function MenuManager({
+  menus = [],
+  activities = [],
+  menusCustom = {},
+  user,
+  onUpdate,
+  onUpdateCustom,
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState("aktif");
   const [localMenus, setLocalMenus] = useState(menus);
@@ -77,6 +85,10 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
     await setDoc(doc(db, "users", user.uid), { menusArsip: newArsip }, { merge: true });
   }
 
+  async function saveMenusCustom(newMenusCustom) {
+    if (onUpdateCustom) onUpdateCustom(newMenusCustom);
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -101,6 +113,13 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
     const updated = localMenus.map((m) => m.id === menu.id ? { ...m, label: newName.trim() } : m);
     setLocalMenus(updated);
     onUpdate(updated, arsip);
+    // Kalau menu custom, update juga di menusCustom
+    if (menu.type === "custom" && menusCustom[menu.id]) {
+      saveMenusCustom({
+        ...menusCustom,
+        [menu.id]: { ...menusCustom[menu.id], label: newName.trim() },
+      });
+    }
     setToast({ msg: `"${menu.label}" → "${newName.trim()}"`, undoFn: () => { setLocalMenus(before); onUpdate(before, arsip); } });
   };
 
@@ -122,12 +141,31 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
     if (!confirm(`Hapus menu "${menu.label}"? Bisa di-restore dari tab Arsip.`)) return;
     const before = [...localMenus];
     const beforeArsip = [...arsip];
+    const beforeCustom = { ...menusCustom };
+
     const updated = localMenus.filter((m) => m.id !== menu.id);
     const newArsip = [...arsip, { ...menu, deletedAt: new Date().toISOString() }];
+
     setLocalMenus(updated);
     saveArsip(newArsip);
     onUpdate(updated, newArsip);
-    setToast({ msg: `"${menu.label}" dipindah ke Arsip`, undoFn: () => { setLocalMenus(before); saveArsip(beforeArsip); onUpdate(before, beforeArsip); } });
+
+    // Kalau menu custom, hapus dari menusCustom juga
+    if (menu.type === "custom" && menusCustom[menu.id]) {
+      const newCustom = { ...menusCustom };
+      delete newCustom[menu.id];
+      saveMenusCustom(newCustom);
+    }
+
+    setToast({
+      msg: `"${menu.label}" dipindah ke Arsip`,
+      undoFn: () => {
+        setLocalMenus(before);
+        saveArsip(beforeArsip);
+        onUpdate(before, beforeArsip);
+        if (menu.type === "custom") saveMenusCustom(beforeCustom);
+      },
+    });
   };
 
   const handleRestore = (menu) => {
@@ -138,6 +176,22 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
     setLocalMenus(updated);
     saveArsip(newArsip);
     onUpdate(updated, newArsip);
+
+    // Kalau menu custom, restore juga ke menusCustom
+    if (menu.type === "custom" && !menusCustom[menu.id]) {
+      saveMenusCustom({
+        ...menusCustom,
+        [menu.id]: {
+          id: menu.id,
+          label: menu.label,
+          target: null,
+          unit: "",
+          subItems: [],
+          createdAt: new Date().toISOString(),
+        },
+      });
+    }
+
     setToast({ msg: `"${menu.label}" dipulihkan` });
   };
 
@@ -147,15 +201,20 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
     const fresh = DEFAULT_MENUS.map((m) => ({ ...m }));
     setLocalMenus(fresh);
     onUpdate(fresh, arsip);
+    // Reset menusCustom juga
+    saveMenusCustom({});
     setToast({ msg: "Menu di-reset ke default" });
   };
 
   const handleAddCustom = () => {
     if (!customName.trim()) return;
     const id = `custom_${Date.now()}`;
+    const label = `${customIcon} ${customName.trim()}`;
+
+    // 1. Tambah ke menus (buat sidebar)
     const newMenu = {
       id,
-      label: `${customIcon} ${customName.trim()}`,
+      label,
       type: "custom",
       required: false,
       visible: true,
@@ -164,6 +223,20 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
     const updated = [...localMenus, newMenu];
     setLocalMenus(updated);
     onUpdate(updated, arsip);
+
+    // 2. Tambah ke menusCustom (buat tracker metadata)
+    saveMenusCustom({
+      ...menusCustom,
+      [id]: {
+        id,
+        label,
+        target: null,
+        unit: "",
+        subItems: [],
+        createdAt: new Date().toISOString(),
+      },
+    });
+
     setCustomName("");
     setCustomIcon("📌");
     setToast({ msg: `Menu "${customName.trim()}" ditambahkan` });
@@ -212,6 +285,9 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
                         <input type="text" className="input input-bordered input-sm flex-1" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Nama menu (misal: Journaling)" />
                         <button className="btn btn-primary btn-sm" onClick={handleAddCustom} disabled={!customName.trim()}>Tambah</button>
                       </div>
+                      <p className="text-xs text-base-content/50 mt-2">
+                        💡 Menu custom bakal punya tracker sendiri (target, catatan, sub-item, kalender).
+                      </p>
                     </div>
                   </>
                 )}
@@ -236,6 +312,7 @@ export default function MenuManager({ menus = [], activities = [], user, onUpdat
                     arsip.map((m) => (
                       <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
                         <span className="flex-1 text-sm truncate">{m.label}</span>
+                        {m.type === "custom" && <span className="text-xs badge badge-ghost badge-xs">custom</span>}
                         <button className="btn btn-ghost btn-xs" onClick={() => handleRestore(m)}>↩️ Restore</button>
                       </div>
                     ))
