@@ -32,6 +32,9 @@ export default function Dashboard() {
     new Date().toISOString().split("T")[0]
   );
 
+  // DATA MENTAH USER (untuk deteksi otomatis jadwal)
+  const [userData, setUserData] = useState(null);
+
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
   const [goalsList, setGoalsList] = useState(DEFAULT_GOALS);
   const [keuanganTransaksi, setKeuanganTransaksi] = useState({});
@@ -171,6 +174,8 @@ export default function Dashboard() {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
+        setUserData(data);  // Simpan raw data
+
         const {
           perluSimpan,
           updates,
@@ -240,7 +245,7 @@ export default function Dashboard() {
           setKeuanganSetting(DEFAULT_SETTING);
         }
       } else {
-        await setDoc(docRef, {
+        const initialData = {
           activities: DEFAULT_ACTIVITIES,
           menus: DEFAULT_MENUS,
           menusArsip: [],
@@ -253,7 +258,9 @@ export default function Dashboard() {
           keuanganGoals: DEFAULT_GOALS,
           keuanganTransaksi: {},
           keuanganSetting: DEFAULT_SETTING,
-        });
+        };
+        await setDoc(docRef, initialData);
+        setUserData(initialData);
         setActivities(DEFAULT_ACTIVITIES);
         setMenus(DEFAULT_MENUS);
         setMenusCustom({});
@@ -279,6 +286,8 @@ export default function Dashboard() {
     const newProgress = { ...progress, [date]: dayData };
     await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
     setProgress(newProgress);
+    // Update userData juga biar Schedule re-render
+    setUserData((prev) => ({ ...prev, dailyProgress: newProgress }));
   };
 
   const updateJadwal = async (newJadwal) => {
@@ -349,6 +358,7 @@ export default function Dashboard() {
             onUpdateProgress={updateProgress}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
+            userData={userData}
           />
 
           <div className="text-center text-base-content/50 mt-10 mb-6">

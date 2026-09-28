@@ -8,6 +8,7 @@ import {
   isHariIni,
   tambahHari,
   formatTanggalPanjang,
+  deteksiJadwalOtomatis,
 } from "@/lib/jadwalData";
 import KelolaJadwal from "./KelolaJadwal";
 
@@ -18,6 +19,7 @@ export default function Schedule({
   onUpdateProgress,
   selectedDate,
   setSelectedDate,
+  userData,  // NEW: seluruh data user dari Firestore (buat deteksi otomatis)
 }) {
   const [showKelola, setShowKelola] = useState(false);
 
@@ -27,25 +29,63 @@ export default function Schedule({
     [jadwalUser, selectedDate]
   );
 
-  // Progress hari yang dipilih (bukan hari ini)
+  // Progress hari yang dipilih
   const dayProgress = progress?.[selectedDate] || {};
 
-  // ========== CEK SELESAI ==========
-  const isDone = (id) => dayProgress?.[id]?.selesai || false;
+  // ========== CEK SELESAI (MANUAL ATAU OTOMATIS) ==========
+  const getStatus = (item) => {
+    // 1. Cek manual (user override)
+    const manual = dayProgress?.[item.id];
+    if (manual?.selesai === true) {
+      return {
+        auto: false,
+        selesai: true,
+        pilihan: manual.pilihan || null,
+        label: manual.label || null,
+        warna: manual.warna || null,
+      };
+    }
+    if (manual?.selesai === false && manual?.override) {
+      // User sengaja set belum
+      return { auto: false, selesai: false };
+    }
 
-  // ========== TANDAI SELESAI ==========
-  const handleDone = (id) => {
-    onUpdateProgress(selectedDate, id, { selesai: true });
+    // 2. Cek otomatis dari userData
+    const auto = deteksiJadwalOtomatis(item.id, selectedDate, userData);
+    if (auto.auto) {
+      return {
+        auto: true,
+        selesai: true,
+        pilihan: auto.label,
+        label: auto.label,
+        warna: auto.warna,
+      };
+    }
+
+    // 3. Default: belum
+    return { auto: false, selesai: false };
+  };
+
+  // ========== TANDAI SELESAI (MANUAL OVERRIDE) ==========
+  const handleDone = (id, pilihan = null) => {
+    const updates = { selesai: true, override: true };
+    if (pilihan) updates.pilihan = pilihan;
+    onUpdateProgress(selectedDate, id, updates);
   };
 
   // ========== BATALKAN ==========
   const handleUndo = (id) => {
-    onUpdateProgress(selectedDate, id, { selesai: false });
+    onUpdateProgress(selectedDate, id, { selesai: false, override: true });
   };
 
-  // ========== PILIH MANUAL ==========
+  // ========== RESET AUTO (biar balik ke deteksi otomatis) ==========
+  const handleResetAuto = (id) => {
+    onUpdateProgress(selectedDate, id, { selesai: false, override: false, pilihan: null });
+  };
+
+  // ========== PILIH MANUAL (OVERRIDE) ==========
   const handleManualPilih = (id, pilihan) => {
-    onUpdateProgress(selectedDate, id, { pilihan });
+    onUpdateProgress(selectedDate, id, { selesai: true, pilihan, override: true });
   };
 
   // ========== NAVIGASI ==========
@@ -109,8 +149,10 @@ export default function Schedule({
         {/* DAFTAR JADWAL */}
         <div className="divide-y divide-base-200">
           {jadwal.map((item) => {
-            const done = isDone(item.id);
-            const pilihan = dayProgress?.[item.id]?.pilihan;
+            const status = getStatus(item);
+            const done = status.selesai;
+            const auto = status.auto;
+            const pilihanTampil = status.pilihan;
 
             return (
               <div
@@ -130,6 +172,16 @@ export default function Schedule({
                     <span className="text-xs text-base-content/50 ml-1">
                       ({item.unit})
                     </span>
+                    {auto && done && (
+                      <span className="text-xs text-info ml-2 italic">
+                        ⚡ auto
+                      </span>
+                    )}
+                    {pilihanTampil && (
+                      <span className="text-xs ml-2 font-semibold">
+                        → {pilihanTampil}
+                      </span>
+                    )}
                   </span>
                 </div>
 
@@ -139,9 +191,7 @@ export default function Schedule({
                       {item.manual.map((pilih) => (
                         <button
                           key={pilih}
-                          className={`btn btn-xs ${
-                            pilihan === pilih ? "btn-primary" : "btn-outline"
-                          }`}
+                          className="btn btn-outline btn-xs"
                           onClick={() => handleManualPilih(item.id, pilih)}
                         >
                           {pilih}
@@ -162,6 +212,15 @@ export default function Schedule({
                       >
                         ↩️
                       </button>
+                      {auto && (
+                        <button
+                          className="btn btn-ghost btn-xs text-info"
+                          onClick={() => handleResetAuto(item.id)}
+                          title="Reset ke auto (hapus override manual)"
+                        >
+                          🔄
+                        </button>
+                      )}
                     </>
                   ) : (
                     <button
