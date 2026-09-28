@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
   const [menusCustom, setMenusCustom] = useState({});
+  const [menusCustomLogHarian, setMenusCustomLogHarian] = useState({});
+  const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
@@ -37,7 +39,6 @@ export default function Dashboard() {
 
   const router = useRouter();
 
-  // ========== BUILD MENUS DARI OLD DATA ==========
   const buildMenusFromOldData = (activitiesLama) => {
     const menusBaru = DEFAULT_MENUS.map((m) => ({ ...m }));
     (activitiesLama || []).forEach((act) => {
@@ -55,7 +56,6 @@ export default function Dashboard() {
     return menusBaru;
   };
 
-  // ========== MIGRASI ==========
   const runMigrasi = (data) => {
     let perluSimpan = false;
     const updates = {};
@@ -126,9 +126,23 @@ export default function Dashboard() {
     }
 
     let menusCustomBaru = data.menusCustom;
-    if (!menusCustomBaru || typeof menusCustomBaru !== "object") {
+    if (!menusCustomBaru || typeof menusCustomBaru !== "object" || Array.isArray(menusCustomBaru)) {
       menusCustomBaru = {};
       updates.menusCustom = menusCustomBaru;
+      perluSimpan = true;
+    }
+
+    let logCustomBaru = data.menusCustomLogHarian;
+    if (!logCustomBaru || typeof logCustomBaru !== "object" || Array.isArray(logCustomBaru)) {
+      logCustomBaru = {};
+      updates.menusCustomLogHarian = logCustomBaru;
+      perluSimpan = true;
+    }
+
+    let targetCustomBaru = data.menusCustomTargetHarian;
+    if (!targetCustomBaru || typeof targetCustomBaru !== "object" || Array.isArray(targetCustomBaru)) {
+      targetCustomBaru = {};
+      updates.menusCustomTargetHarian = targetCustomBaru;
       perluSimpan = true;
     }
 
@@ -140,10 +154,11 @@ export default function Dashboard() {
       progressBaru,
       menusBaru,
       menusCustomBaru,
+      logCustomBaru,
+      targetCustomBaru,
     };
   };
 
-  // ========== LOAD USER DATA ==========
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -164,6 +179,8 @@ export default function Dashboard() {
           progressBaru,
           menusBaru,
           menusCustomBaru,
+          logCustomBaru,
+          targetCustomBaru,
         } = runMigrasi(data);
 
         if (perluSimpan) await setDoc(docRef, updates, { merge: true });
@@ -180,11 +197,9 @@ export default function Dashboard() {
           setMenus(DEFAULT_MENUS);
         }
 
-        if (menusCustomBaru && typeof menusCustomBaru === "object") setMenusCustom(menusCustomBaru);
-        else {
-          await setDoc(docRef, { menusCustom: {} }, { merge: true });
-          setMenusCustom({});
-        }
+        setMenusCustom(menusCustomBaru || {});
+        setMenusCustomLogHarian(logCustomBaru || {});
+        setMenusCustomTargetHarian(targetCustomBaru || {});
 
         if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru);
         else {
@@ -230,6 +245,8 @@ export default function Dashboard() {
           menus: DEFAULT_MENUS,
           menusArsip: [],
           menusCustom: {},
+          menusCustomLogHarian: {},
+          menusCustomTargetHarian: {},
           jadwalUser: DEFAULT_JADWAL,
           dailyProgress: {},
           keuanganDompet: DEFAULT_DOMPET,
@@ -240,6 +257,8 @@ export default function Dashboard() {
         setActivities(DEFAULT_ACTIVITIES);
         setMenus(DEFAULT_MENUS);
         setMenusCustom({});
+        setMenusCustomLogHarian({});
+        setMenusCustomTargetHarian({});
         setJadwalUser(DEFAULT_JADWAL);
         setProgress({});
       }

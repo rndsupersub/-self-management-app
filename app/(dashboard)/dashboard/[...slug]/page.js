@@ -13,7 +13,7 @@ import MurajaahTracker from "@/components/MurajaahTracker";
 import WeeklyTest from "@/components/WeeklyTest";
 import HeatmapCalendar from "@/components/HeatmapCalendar";
 import BisnisCalendar from "@/components/BisnisCalendar";
-import MenuCustomTracker from "@/components/MenuCustomTracker";
+import MenuCustomDetail from "@/components/MenuCustomDetail";
 
 export default function ActivityPage() {
   const [user, setUser] = useState(null);
@@ -23,6 +23,8 @@ export default function ActivityPage() {
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
   const [menusCustom, setMenusCustom] = useState({});
+  const [menusCustomLogHarian, setMenusCustomLogHarian] = useState({});
+  const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
   const params = useParams();
@@ -40,26 +42,21 @@ export default function ActivityPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        if (data.activities && Array.isArray(data.activities)) {
-          setActivities(data.activities);
-        } else {
+        if (data.activities && Array.isArray(data.activities)) setActivities(data.activities);
+        else {
           await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
           setActivities(DEFAULT_ACTIVITIES);
         }
 
-        if (data.menus && Array.isArray(data.menus)) {
-          setMenus(data.menus);
-        } else {
+        if (data.menus && Array.isArray(data.menus)) setMenus(data.menus);
+        else {
           await setDoc(docRef, { menus: DEFAULT_MENUS }, { merge: true });
           setMenus(DEFAULT_MENUS);
         }
 
-        if (data.menusCustom && typeof data.menusCustom === "object") {
-          setMenusCustom(data.menusCustom);
-        } else {
-          await setDoc(docRef, { menusCustom: {} }, { merge: true });
-          setMenusCustom({});
-        }
+        setMenusCustom(data.menusCustom || {});
+        setMenusCustomLogHarian(data.menusCustomLogHarian || {});
+        setMenusCustomTargetHarian(data.menusCustomTargetHarian || {});
 
         if (typeof data.dailyProgress === "object" && !Array.isArray(data.dailyProgress)) {
           setProgress(data.dailyProgress || {});
@@ -72,11 +69,15 @@ export default function ActivityPage() {
           activities: DEFAULT_ACTIVITIES,
           menus: DEFAULT_MENUS,
           menusCustom: {},
+          menusCustomLogHarian: {},
+          menusCustomTargetHarian: {},
           dailyProgress: {},
         });
         setActivities(DEFAULT_ACTIVITIES);
         setMenus(DEFAULT_MENUS);
         setMenusCustom({});
+        setMenusCustomLogHarian({});
+        setMenusCustomTargetHarian({});
         setProgress({});
       }
       setLoading(false);
@@ -125,6 +126,7 @@ export default function ActivityPage() {
   const slugId = slug[0];
   const isCustomMenu = slugId && menusCustom[slugId];
   const customMenu = isCustomMenu ? menusCustom[slugId] : null;
+  const allCustomMenusArr = Object.values(menusCustom || {});
 
   const updateProgress = async (field, value) => {
     if (!user) return;
@@ -136,30 +138,29 @@ export default function ActivityPage() {
     setProgress(newProgress);
   };
 
-  // Update progress khusus menu custom: per tanggal + menuId
-  const updateCustomProgress = async (tanggal, menuId, value) => {
+  // Update custom menu metadata
+  const updateCustomMenu = async (menuId, updatedMenu) => {
     if (!user) return;
-    const docRef = doc(db, "users", user.uid);
-    const dayData = progress[tanggal] || {};
-    const newProgress = {
-      ...progress,
-      [tanggal]: { ...dayData, [menuId]: value },
-    };
-    await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
-    setProgress(newProgress);
-  };
-
-  // Update menu custom metadata (target, subItems, dll)
-  const updateCustomMenu = async (menuId, updates) => {
-    if (!user) return;
-    const current = menusCustom[menuId] || {};
-    const newMenusCustom = {
-      ...menusCustom,
-      [menuId]: { ...current, ...updates },
-    };
+    const newMenusCustom = { ...menusCustom, [menuId]: updatedMenu };
     setMenusCustom(newMenusCustom);
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, { menusCustom: newMenusCustom }, { merge: true });
+  };
+
+  // Update custom log harian
+  const updateCustomLog = async (menuId, newLogHarian, meta = {}) => {
+    if (!user) return;
+    setMenusCustomLogHarian(newLogHarian);
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { menusCustomLogHarian: newLogHarian }, { merge: true });
+  };
+
+  const updateCustomTarget = async (menuId, newTarget) => {
+    if (!user) return;
+    const newTargets = { ...menusCustomTargetHarian, [menuId]: newTarget };
+    setMenusCustomTargetHarian(newTargets);
+    const docRef = doc(db, "users", user.uid);
+    await setDoc(docRef, { menusCustomTargetHarian: newTargets }, { merge: true });
   };
 
   const updateBisnisKegiatan = async (field, value) => {
@@ -215,238 +216,243 @@ export default function ActivityPage() {
       <div className="flex-1 flex overflow-hidden">
         <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
           <Sidebar
-            activities={activities}
+            menus={menus}
             collapsed={sidebarCollapsed}
             setCollapsed={setSidebarCollapsed}
           />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="text-sm breadcrumbs mb-6">
-            <ul>
-              <li>
-                <a onClick={() => router.push("/dashboard")} className="cursor-pointer">
-                  🏠 Dashboard
-                </a>
-              </li>
-              {parentPath.map((id, idx) => {
-                const pathSoFar = parentPath.slice(0, idx + 1);
-                return (
-                  <li key={id}>
-                    <a
-                      onClick={() => router.push(`/dashboard/${pathSoFar.join("/")}`)}
-                      className="cursor-pointer"
-                    >
-                      {id}
-                    </a>
-                  </li>
-                );
-              })}
-              {isCustomMenu && <li>{customMenu.label}</li>}
-              {!isCustomMenu && selectedActivity && <li>{selectedActivity.label}</li>}
-            </ul>
-          </div>
-
-          {/* ==== MENU CUSTOM TRACKER ==== */}
+          {/* ==== MENU CUSTOM DETAIL ==== */}
           {isCustomMenu && (
-            <MenuCustomTracker
-              menu={customMenu}
-              progress={progress}
-              onUpdateProgress={updateCustomProgress}
-              onUpdateMenu={updateCustomMenu}
+            <MenuCustomDetail
+              customMenu={customMenu}
+              allCustomMenus={allCustomMenusArr}
+              onUpdateCustomMenu={updateCustomMenu}
+              logHarian={menusCustomLogHarian}
+              onUpdateLog={updateCustomLog}
+              targetHarian={menusCustomTargetHarian}
+              onUpdateTarget={updateCustomTarget}
+              user={user}
             />
           )}
 
-          {/* ==== HALAMAN BISNIS ==== */}
-          {!isCustomMenu && isBisnisMain && user && (
-            <div>
-              <h1 className="text-2xl font-bold mb-6">💼 Kalender Bisnis</h1>
-              <BisnisCalendar
-                user={user}
-                db={db}
-                onUpdate={updateBisnisKegiatan}
-                onDelete={deleteBisnisKegiatan}
-              />
-            </div>
-          )}
-
-          {/* ==== HALAMAN HAFALAN UTAMA ==== */}
-          {!isCustomMenu && isHafalanMain && (
-            <div className="space-y-4">
-              <h1 className="text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
-                <WeeklyTest progressData={progressData} onUpdate={updateProgress} />
-              </div>
-              <HeatmapCalendar progress={progress} activityId="hafalan" />
-              <div className="mt-6">
-                <h2 className="text-lg font-semibold mb-3">📚 Daftar Juz</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {selectedActivity?.children?.map((juz) => {
-                    const totalSurat = juz.children?.length || 0;
-                    const suratSelesai = juz.children?.filter(
-                      (s) => todayProgress[s.id]?.hafalan?.selesai
-                    ).length || 0;
-                    const pct = totalSurat > 0 ? Math.round((suratSelesai / totalSurat) * 100) : 0;
+          {/* ==== BREADCRUMB DEFAULT (kalau bukan custom) ==== */}
+          {!isCustomMenu && (
+            <>
+              <div className="text-sm breadcrumbs mb-6">
+                <ul>
+                  <li>
+                    <a onClick={() => router.push("/dashboard")} className="cursor-pointer">
+                      🏠 Dashboard
+                    </a>
+                  </li>
+                  {parentPath.map((id, idx) => {
+                    const pathSoFar = parentPath.slice(0, idx + 1);
                     return (
-                      <div
-                        key={juz.id}
-                        className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
-                        onClick={() => router.push(`/dashboard/hafalan/${juz.id}`)}
-                      >
-                        <div className="card-body p-4">
-                          <h3 className="card-title text-base">{juz.label}</h3>
-                          <progress className="progress progress-primary w-full h-2" value={pct} max="100" />
-                          <p className="text-xs text-base-content/50">
-                            {suratSelesai} / {totalSurat} surat ({pct}%)
-                          </p>
-                        </div>
-                      </div>
+                      <li key={id}>
+                        <a
+                          onClick={() => router.push(`/dashboard/${pathSoFar.join("/")}`)}
+                          className="cursor-pointer"
+                        >
+                          {id}
+                        </a>
+                      </li>
                     );
                   })}
-                </div>
+                  {selectedActivity && <li>{selectedActivity.label}</li>}
+                </ul>
               </div>
-            </div>
-          )}
 
-          {/* ==== HALAMAN JUZ ==== */}
-          {!isCustomMenu && isHafalanJuz && selectedActivity && (
-            <div>
-              <div className="flex items-center gap-2 mb-6">
-                <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
-                <span className="badge badge-ghost">
-                  {selectedActivity.children?.length || 0} surat
-                </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {selectedActivity.children?.map((surat) => {
-                  const suratProgress = todayProgress[surat.id] || {};
-                  const selesai = suratProgress?.hafalan?.selesai;
-                  return (
-                    <div
-                      key={surat.id}
-                      className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
-                      onClick={() => router.push(`/dashboard/hafalan/${selectedActivity.id}/${surat.id}`)}
-                    >
-                      <div className="card-body p-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="card-title text-sm">{surat.label}</h3>
-                          <span className={`badge ${selesai ? "badge-success" : "badge-ghost"} badge-sm`}>
-                            {selesai ? "✅" : "⏳"}
-                          </span>
+              {/* HALAMAN BISNIS */}
+              {isBisnisMain && user && (
+                <div>
+                  <h1 className="text-2xl font-bold mb-6">💼 Kalender Bisnis</h1>
+                  <BisnisCalendar
+                    user={user}
+                    db={db}
+                    onUpdate={updateBisnisKegiatan}
+                    onDelete={deleteBisnisKegiatan}
+                  />
+                </div>
+              )}
+
+              {/* HALAMAN HAFALAN UTAMA */}
+              {isHafalanMain && (
+                <div className="space-y-4">
+                  <h1 className="text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
+                    <WeeklyTest progressData={progressData} onUpdate={updateProgress} />
+                  </div>
+                  <HeatmapCalendar progress={progress} activityId="hafalan" />
+                  <div className="mt-6">
+                    <h2 className="text-lg font-semibold mb-3">📚 Daftar Juz</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {selectedActivity?.children?.map((juz) => {
+                        const totalSurat = juz.children?.length || 0;
+                        const suratSelesai = juz.children?.filter(
+                          (s) => todayProgress[s.id]?.hafalan?.selesai
+                        ).length || 0;
+                        const pct = totalSurat > 0 ? Math.round((suratSelesai / totalSurat) * 100) : 0;
+                        return (
+                          <div
+                            key={juz.id}
+                            className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
+                            onClick={() => router.push(`/dashboard/hafalan/${juz.id}`)}
+                          >
+                            <div className="card-body p-4">
+                              <h3 className="card-title text-base">{juz.label}</h3>
+                              <progress className="progress progress-primary w-full h-2" value={pct} max="100" />
+                              <p className="text-xs text-base-content/50">
+                                {suratSelesai} / {totalSurat} surat ({pct}%)
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* HALAMAN JUZ */}
+              {isHafalanJuz && selectedActivity && (
+                <div>
+                  <div className="flex items-center gap-2 mb-6">
+                    <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
+                    <span className="badge badge-ghost">
+                      {selectedActivity.children?.length || 0} surat
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {selectedActivity.children?.map((surat) => {
+                      const suratProgress = todayProgress[surat.id] || {};
+                      const selesai = suratProgress?.hafalan?.selesai;
+                      return (
+                        <div
+                          key={surat.id}
+                          className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
+                          onClick={() => router.push(`/dashboard/hafalan/${selectedActivity.id}/${surat.id}`)}
+                        >
+                          <div className="card-body p-4">
+                            <div className="flex justify-between items-center">
+                              <h3 className="card-title text-sm">{surat.label}</h3>
+                              <span className={`badge ${selesai ? "badge-success" : "badge-ghost"} badge-sm`}>
+                                {selesai ? "✅" : "⏳"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* HALAMAN SURAT */}
+              {isHafalanSurat && selectedActivity && (
+                <div>
+                  <h1 className="text-2xl font-bold mb-6">{selectedActivity.label}</h1>
+                  <SuratDetail
+                    surat={selectedActivity}
+                    progressData={progressData}
+                    onUpdate={updateProgress}
+                  />
+                </div>
+              )}
+
+              {/* AKTIVITAS UMUM */}
+              {!isHafalanMain && !isHafalanJuz && !isHafalanSurat && !isBisnisMain && selectedActivity && (
+                <div>
+                  <div className="flex items-center gap-2 mb-6">
+                    <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
+                    {isLeaf && (
+                      <span className={`badge ${(progressData?.page || 0) >= (selectedActivity.target || 1) ? "badge-success" : "badge-ghost"}`}>
+                        {Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%
+                      </span>
+                    )}
+                  </div>
+
+                  {isLeaf && (
+                    <div className="space-y-4 max-w-2xl">
+                      <div className="card bg-base-100 shadow">
+                        <div className="card-body p-4">
+                          <h3 className="card-title text-sm">📊 Progress</h3>
+                          <progress
+                            className="progress progress-primary w-full h-3"
+                            value={Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}
+                            max="100"
+                          />
+                          <div className="flex justify-between text-sm">
+                            <span>{progressData?.page || 0} / {selectedActivity.target || 1} {selectedActivity.unit}</span>
+                            <span>{Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="card bg-base-100 shadow">
+                        <div className="card-body p-4">
+                          <h3 className="card-title text-sm">✏️ Update Progress</h3>
+                          <div className="flex gap-2 mt-2">
+                            <input
+                              type="number"
+                              className="input input-bordered input-sm w-full"
+                              placeholder={`Target ${selectedActivity.target || 1}...`}
+                              value={progressData?.page || ""}
+                              onChange={(e) => updateProgress(selectedActivity.id, { page: parseInt(e.target.value) || 0 })}
+                            />
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => {
+                                const newVal = Math.min(selectedActivity.target || 1, (progressData?.page || 0) + 1);
+                                updateProgress(selectedActivity.id, { page: newVal });
+                              }}
+                            >
+                              +1
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            className="input input-bordered input-sm w-full mt-2"
+                            placeholder="Catatan tambahan"
+                            value={progressData?.note || ""}
+                            onChange={(e) => updateProgress(selectedActivity.id, { note: e.target.value })}
+                          />
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                  )}
 
-          {/* ==== HALAMAN SURAT ==== */}
-          {!isCustomMenu && isHafalanSurat && selectedActivity && (
-            <div>
-              <h1 className="text-2xl font-bold mb-6">{selectedActivity.label}</h1>
-              <SuratDetail
-                surat={selectedActivity}
-                progressData={progressData}
-                onUpdate={updateProgress}
-              />
-            </div>
-          )}
-
-          {/* ==== HALAMAN AKTIVITAS UMUM ==== */}
-          {!isCustomMenu && !isHafalanMain && !isHafalanJuz && !isHafalanSurat && !isBisnisMain && selectedActivity && (
-            <div>
-              <div className="flex items-center gap-2 mb-6">
-                <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
-                {isLeaf && (
-                  <span className={`badge ${(progressData?.page || 0) >= (selectedActivity.target || 1) ? "badge-success" : "badge-ghost"}`}>
-                    {Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%
-                  </span>
-                )}
-              </div>
-
-              {isLeaf && (
-                <div className="space-y-4 max-w-2xl">
-                  <div className="card bg-base-100 shadow">
-                    <div className="card-body p-4">
-                      <h3 className="card-title text-sm">📊 Progress</h3>
-                      <progress
-                        className="progress progress-primary w-full h-3"
-                        value={Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}
-                        max="100"
-                      />
-                      <div className="flex justify-between text-sm">
-                        <span>{progressData?.page || 0} / {selectedActivity.target || 1} {selectedActivity.unit}</span>
-                        <span>{Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="card bg-base-100 shadow">
-                    <div className="card-body p-4">
-                      <h3 className="card-title text-sm">✏️ Update Progress</h3>
-                      <div className="flex gap-2 mt-2">
-                        <input
-                          type="number"
-                          className="input input-bordered input-sm w-full"
-                          placeholder={`Target ${selectedActivity.target || 1}...`}
-                          value={progressData?.page || ""}
-                          onChange={(e) => updateProgress(selectedActivity.id, { page: parseInt(e.target.value) || 0 })}
-                        />
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => {
-                            const newVal = Math.min(selectedActivity.target || 1, (progressData?.page || 0) + 1);
-                            updateProgress(selectedActivity.id, { page: newVal });
-                          }}
+                  {hasChildren && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {selectedActivity.children.map((child) => (
+                        <div
+                          key={child.id}
+                          className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
+                          onClick={() => router.push(`/dashboard/${[...slug, child.id].join("/")}`)}
                         >
-                          +1
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        className="input input-bordered input-sm w-full mt-2"
-                        placeholder="Catatan tambahan"
-                        value={progressData?.note || ""}
-                        onChange={(e) => updateProgress(selectedActivity.id, { note: e.target.value })}
-                      />
+                          <div className="card-body p-4">
+                            <h2 className="card-title text-base">{child.label}</h2>
+                            {child.children && child.children.length > 0 ? (
+                              <p className="text-sm text-base-content/50">{child.children.length} sub-aktivitas</p>
+                            ) : (
+                              <p className="text-sm text-base-content/50">Klik untuk detail</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {hasChildren && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {selectedActivity.children.map((child) => (
-                    <div
-                      key={child.id}
-                      className="card bg-base-100 shadow cursor-pointer hover:shadow-lg transition"
-                      onClick={() => router.push(`/dashboard/${[...slug, child.id].join("/")}`)}
-                    >
-                      <div className="card-body p-4">
-                        <h2 className="card-title text-base">{child.label}</h2>
-                        {child.children && child.children.length > 0 ? (
-                          <p className="text-sm text-base-content/50">{child.children.length} sub-aktivitas</p>
-                        ) : (
-                          <p className="text-sm text-base-content/50">Klik untuk detail</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+              {!selectedActivity && (
+                <div className="text-center text-base-content/50 mt-20">
+                  <p className="text-2xl mb-2">📋</p>
+                  <p>Aktivitas tidak ditemukan</p>
                 </div>
               )}
-            </div>
-          )}
-
-          {!isCustomMenu && !selectedActivity && (
-            <div className="text-center text-base-content/50 mt-20">
-              <p className="text-2xl mb-2">📋</p>
-              <p>Aktivitas tidak ditemukan</p>
-              <p className="text-xs mt-2 text-gray-400">
-                Kalau ini menu custom, pastikan sudah dibuat di "Kelola Menu" dan klik "Tambah Menu Custom".
-              </p>
-            </div>
+            </>
           )}
         </div>
       </div>

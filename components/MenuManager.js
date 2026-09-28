@@ -17,6 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { WARNA_OPTIONS } from "@/lib/belajarData";
 
 function SortableRow({ menu, onRename, onHide, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: menu.id });
@@ -58,6 +59,8 @@ export default function MenuManager({
   const [toast, setToast] = useState(null);
   const [customName, setCustomName] = useState("");
   const [customIcon, setCustomIcon] = useState("📌");
+  const [customWarna, setCustomWarna] = useState("gray");
+  const [customKaryaMingguan, setCustomKaryaMingguan] = useState(false);
 
   useEffect(() => { setLocalMenus(menus); }, [menus]);
 
@@ -113,11 +116,10 @@ export default function MenuManager({
     const updated = localMenus.map((m) => m.id === menu.id ? { ...m, label: newName.trim() } : m);
     setLocalMenus(updated);
     onUpdate(updated, arsip);
-    // Kalau menu custom, update juga di menusCustom
     if (menu.type === "custom" && menusCustom[menu.id]) {
       saveMenusCustom({
         ...menusCustom,
-        [menu.id]: { ...menusCustom[menu.id], label: newName.trim() },
+        [menu.id]: { ...menusCustom[menu.id], nama: newName.trim() },
       });
     }
     setToast({ msg: `"${menu.label}" → "${newName.trim()}"`, undoFn: () => { setLocalMenus(before); onUpdate(before, arsip); } });
@@ -150,7 +152,6 @@ export default function MenuManager({
     saveArsip(newArsip);
     onUpdate(updated, newArsip);
 
-    // Kalau menu custom, hapus dari menusCustom juga
     if (menu.type === "custom" && menusCustom[menu.id]) {
       const newCustom = { ...menusCustom };
       delete newCustom[menu.id];
@@ -177,16 +178,15 @@ export default function MenuManager({
     saveArsip(newArsip);
     onUpdate(updated, newArsip);
 
-    // Kalau menu custom, restore juga ke menusCustom
     if (menu.type === "custom" && !menusCustom[menu.id]) {
       saveMenusCustom({
         ...menusCustom,
         [menu.id]: {
           id: menu.id,
-          label: menu.label,
-          target: null,
-          unit: "",
-          subItems: [],
+          nama: menu.label,
+          warna: menu.warna || "gray",
+          subKategori: [],
+          fiturKaryaMingguan: menu.fiturKaryaMingguan || false,
           createdAt: new Date().toISOString(),
         },
       });
@@ -201,7 +201,6 @@ export default function MenuManager({
     const fresh = DEFAULT_MENUS.map((m) => ({ ...m }));
     setLocalMenus(fresh);
     onUpdate(fresh, arsip);
-    // Reset menusCustom juga
     saveMenusCustom({});
     setToast({ msg: "Menu di-reset ke default" });
   };
@@ -211,7 +210,7 @@ export default function MenuManager({
     const id = `custom_${Date.now()}`;
     const label = `${customIcon} ${customName.trim()}`;
 
-    // 1. Tambah ke menus (buat sidebar)
+    // 1. Tambah ke menus
     const newMenu = {
       id,
       label,
@@ -219,26 +218,30 @@ export default function MenuManager({
       required: false,
       visible: true,
       order: localMenus.length,
+      warna: customWarna,
+      fiturKaryaMingguan: customKaryaMingguan,
     };
     const updated = [...localMenus, newMenu];
     setLocalMenus(updated);
     onUpdate(updated, arsip);
 
-    // 2. Tambah ke menusCustom (buat tracker metadata)
+    // 2. Tambah ke menusCustom (untuk struktur nested)
     saveMenusCustom({
       ...menusCustom,
       [id]: {
         id,
-        label,
-        target: null,
-        unit: "",
-        subItems: [],
+        nama: label,
+        warna: customWarna,
+        subKategori: [],
+        fiturKaryaMingguan: customKaryaMingguan,
         createdAt: new Date().toISOString(),
       },
     });
 
     setCustomName("");
     setCustomIcon("📌");
+    setCustomWarna("gray");
+    setCustomKaryaMingguan(false);
     setToast({ msg: `Menu "${customName.trim()}" ditambahkan` });
   };
 
@@ -273,80 +276,4 @@ export default function MenuManager({
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                       <SortableContext items={aktifMenus.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                         {aktifMenus.map((m) => (
-                          <SortableRow key={m.id} menu={m} onRename={handleRename} onHide={handleHide} onDelete={handleDelete} />
-                        ))}
-                      </SortableContext>
-                    </DndContext>
-
-                    <div className="border-t border-base-300 pt-3 mt-3">
-                      <p className="text-xs font-semibold mb-2">➕ Tambah Menu Custom</p>
-                      <div className="flex gap-1">
-                        <input type="text" className="input input-bordered input-sm w-14" value={customIcon} onChange={(e) => setCustomIcon(e.target.value)} placeholder="📌" />
-                        <input type="text" className="input input-bordered input-sm flex-1" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Nama menu (misal: Journaling)" />
-                        <button className="btn btn-primary btn-sm" onClick={handleAddCustom} disabled={!customName.trim()}>Tambah</button>
-                      </div>
-                      <p className="text-xs text-base-content/50 mt-2">
-                        💡 Menu custom bakal punya tracker sendiri (target, catatan, sub-item, kalender).
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                {tab === "hidden" && (
-                  hiddenMenus.length === 0 ? (
-                    <p className="text-xs text-base-content/50 italic text-center py-4">Belum ada menu yang disembunyikan.</p>
-                  ) : (
-                    hiddenMenus.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
-                        <span className="flex-1 text-sm truncate">{m.label}</span>
-                        <button className="btn btn-ghost btn-xs" onClick={() => handleShow(m)}>↩️ Tampilkan</button>
-                      </div>
-                    ))
-                  )
-                )}
-
-                {tab === "arsip" && (
-                  arsip.length === 0 ? (
-                    <p className="text-xs text-base-content/50 italic text-center py-4">Arsip kosong.</p>
-                  ) : (
-                    arsip.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
-                        <span className="flex-1 text-sm truncate">{m.label}</span>
-                        {m.type === "custom" && <span className="text-xs badge badge-ghost badge-xs">custom</span>}
-                        <button className="btn btn-ghost btn-xs" onClick={() => handleRestore(m)}>↩️ Restore</button>
-                      </div>
-                    ))
-                  )
-                )}
-
-                {tab === "reset" && (
-                  <div className="text-center py-4">
-                    <p className="text-sm mb-2 font-semibold">Reset semua menu ke default?</p>
-                    <p className="text-xs text-base-content/50 mb-4">
-                      Semua perubahan (rename, hide, hapus, reorder) akan hilang. Menu custom juga hilang.
-                    </p>
-                    <button className="btn btn-error btn-sm" onClick={handleReset}>🔄 Reset ke Default</button>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-xs text-base-content/50 mt-3 pt-3 border-t border-base-300">
-                💡 Menu yang dihapus pindah ke Arsip. Data aktivitas tidak hilang. Undo muncul 5 detik setelah aksi.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-[100] bg-base-100 shadow-lg rounded-lg p-3 flex items-center gap-3 max-w-md border border-base-300">
-          <span className="text-sm flex-1">{toast.msg}</span>
-          {toast.undoFn && (
-            <button className="btn btn-sm btn-primary" onClick={() => { toast.undoFn(); setToast(null); }}>↩️ Undo</button>
-          )}
-          <button className="btn btn-ghost btn-xs" onClick={() => setToast(null)}>✕</button>
-        </div>
-      )}
-    </>
-  );
-}
+                          <SortableRow key={m.id} menu={m} onR
