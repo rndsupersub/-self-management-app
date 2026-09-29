@@ -4,6 +4,32 @@ import { google } from "googleapis";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
+// ========== HELPER: PARSE PRIVATE KEY (TOLERAN FORMAT) ==========
+function parsePrivateKey(raw) {
+  if (!raw) return "";
+  let key = String(raw);
+
+  // Kalau di-wrap tanda kutip, buang
+  key = key.trim();
+  if (key.startsWith('"') && key.endsWith('"')) {
+    key = key.slice(1, -1);
+  }
+  if (key.startsWith("'") && key.endsWith("'")) {
+    key = key.slice(1, -1);
+  }
+
+  // Kalau ada literal backslash-n, convert jadi newline
+  // Tapi hati-hati: cek dulu ada backslash nggak
+  if (key.includes("\\n")) {
+    key = key.replace(/\\n/g, "\n");
+  }
+
+  // Trim sisa spasi
+  key = key.trim();
+
+  return key;
+}
+
 // ========== FIREBASE ADMIN INIT ==========
 let adminApp = null;
 function getAdminApp() {
@@ -12,11 +38,14 @@ function getAdminApp() {
     adminApp = getApps()[0];
     return adminApp;
   }
+
+  const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
+
   adminApp = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      privateKey,
     }),
   });
   return adminApp;
@@ -24,10 +53,11 @@ function getAdminApp() {
 
 // ========== GOOGLE AUTH ==========
 function getAuth() {
+  const privateKey = parsePrivateKey(process.env.GOOGLE_PRIVATE_KEY);
   return new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+      private_key: privateKey,
     },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
@@ -356,7 +386,6 @@ export async function POST(req) {
       return NextResponse.json({ error: "uid wajib diisi" }, { status: 400 });
     }
 
-    // Get user data pakai Firebase Admin SDK
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
     const userRef = firestore.collection("users").doc(uid);
@@ -366,7 +395,6 @@ export async function POST(req) {
     }
     const userData = userSnap.data();
 
-    // Setup Google Sheets
     const auth = getAuth();
     const sheets = google.sheets({ version: "v4", auth });
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
@@ -375,7 +403,6 @@ export async function POST(req) {
       return NextResponse.json({ error: "GOOGLE_SHEETS_ID belum diset" }, { status: 500 });
     }
 
-    // Sync tiap menu
     const results = [];
     for (const [menuKey, config] of Object.entries(MENU_CONFIG)) {
       try {
