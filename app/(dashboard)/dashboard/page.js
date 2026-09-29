@@ -11,6 +11,7 @@ import Sidebar from "@/components/Sidebar";
 import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import MenuManager from "@/components/MenuManager";
+import SyncSheetsButton from "@/components/SyncSheetsButton";
 
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
@@ -174,7 +175,7 @@ export default function Dashboard() {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setUserData(data);  // Simpan raw data
+        setUserData(data);
 
         const {
           perluSimpan,
@@ -286,7 +287,6 @@ export default function Dashboard() {
     const newProgress = { ...progress, [date]: dayData };
     await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
     setProgress(newProgress);
-    // Update userData juga biar Schedule re-render
     setUserData((prev) => ({ ...prev, dailyProgress: newProgress }));
   };
 
@@ -334,6 +334,7 @@ export default function Dashboard() {
               await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true });
             }}
           />
+          <SyncSheetsButton user={user} />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
