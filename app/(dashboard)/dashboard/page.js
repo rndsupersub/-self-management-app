@@ -12,6 +12,7 @@ import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import MenuManager from "@/components/MenuManager";
 import SyncSheetsButton from "@/components/SyncSheetsButton";
+import TelegramSetting from "@/components/TelegramSetting";
 
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
@@ -33,7 +34,6 @@ export default function Dashboard() {
     new Date().toISOString().split("T")[0]
   );
 
-  // DATA MENTAH USER (untuk deteksi otomatis jadwal)
   const [userData, setUserData] = useState(null);
 
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
@@ -335,6 +335,7 @@ export default function Dashboard() {
             }}
           />
           <SyncSheetsButton user={user} />
+          <TelegramSetting user={user} />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
