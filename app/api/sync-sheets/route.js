@@ -1,41 +1,39 @@
 // app/api/sync-sheets/route.js
 import { NextResponse } from "next/server";
 import { google } from "googleapis";
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
-// ========== FIREBASE INIT ==========
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
+// ========== FIREBASE ADMIN INIT ==========
+let adminApp = null;
+function getAdminApp() {
+  if (adminApp) return adminApp;
+  if (getApps().length > 0) {
+    adminApp = getApps()[0];
+    return adminApp;
+  }
+  adminApp = initializeApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    }),
+  });
+  return adminApp;
+}
 
 // ========== GOOGLE AUTH ==========
 function getAuth() {
-  const auth = new google.auth.GoogleAuth({
+  return new google.auth.GoogleAuth({
     credentials: {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
-  return auth;
 }
 
 // ========== MAPPING MENU → FIELD FIRESTORE ==========
-// Tiap menu punya config:
-//   field       : field di Firestore user doc
-//   sheetName   : nama sheet di Spreadsheet
-//   flatten     : function untuk flatten data nested → array of rows
-//   headers     : kolom header
-
 const MENU_CONFIG = {
   belajar: {
     sheetName: "Belajar",
@@ -330,13 +328,11 @@ async function getOrCreateSheet(sheets, spreadsheetId, sheetName) {
 
 // ========== HELPER: WRITE ROWS TO SHEET ==========
 async function writeRowsToSheet(sheets, spreadsheetId, sheetName, headers, rows) {
-  // Clear dulu
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
     range: `${sheetName}!A:Z`,
   });
 
-  // Tulis header + rows
   const values = [headers];
   rows.forEach((r) => {
     values.push(headers.map((h) => r[h] ?? ""));
@@ -360,10 +356,12 @@ export async function POST(req) {
       return NextResponse.json({ error: "uid wajib diisi" }, { status: 400 });
     }
 
-    // Get user data dari Firestore
-    const userRef = doc(db, "users", uid);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) {
+    // Get user data pakai Firebase Admin SDK
+    const admin = getAdminApp();
+    const firestore = getFirestore(admin);
+    const userRef = firestore.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
       return NextResponse.json({ error: "user tidak ditemukan" }, { status: 404 });
     }
     const userData = userSnap.data();
@@ -381,13 +379,8 @@ export async function POST(req) {
     const results = [];
     for (const [menuKey, config] of Object.entries(MENU_CONFIG)) {
       try {
-        // Bikin sheet kalau belum ada
         await getOrCreateSheet(sheets, spreadsheetId, config.sheetName);
-
-        // Flatten data
         const rows = config.flatten(userData);
-
-        // Tulis ke sheet
         await writeRowsToSheet(
           sheets,
           spreadsheetId,
@@ -395,7 +388,6 @@ export async function POST(req) {
           config.headers,
           rows
         );
-
         results.push({ menu: menuKey, sheet: config.sheetName, rows: rows.length, status: "ok" });
       } catch (err) {
         console.error(`[sync-sheets] Error sync ${menuKey}:`, err.message);
