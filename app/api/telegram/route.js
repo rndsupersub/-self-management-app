@@ -9,7 +9,6 @@ import {
   editTelegramMessage,
   parseCommand,
   findMenuByCommand,
-  resolveBelajarPath,
   buildHelpText,
   buildMenuListText,
 } from "@/lib/telegramData";
@@ -36,17 +35,10 @@ function getAdminApp() {
   return adminApp;
 }
 
-// ========== NORMALISASI DATA USER ==========
-function getUserData(userSnap) {
-  if (!userSnap.exists) return null;
-  return userSnap.data();
-}
-
 // ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(chatId, text, userData, messageId) {
   const parsed = parseCommand(text);
 
-  // Bukan command → cuma balas info
   if (!parsed) {
     await sendTelegramMessage(
       chatId,
@@ -70,36 +62,50 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     return;
   }
   if (command === "status") {
-    await sendTelegramMessage(chatId, `📊 Status Sync\n\n🟢 Telegram: Aktif\n🟢 Firestore: Tersambung\n📊 Sheets: Auto-sync tiap 5 menit\n\nSync terakhir: —`);
+    const today = new Date().toISOString().split("T")[0];
+    await sendTelegramMessage(
+      chatId,
+      `<b>📊 Status Sync</b>
+
+🟢 Telegram: Aktif
+🟢 Firestore: Tersambung
+📊 Sheets: Auto-sync tiap 5 menit
+
+📅 Hari ini: ${today}`
+    );
     return;
   }
   if (command === "today") {
     const today = new Date().toISOString().split("T")[0];
     const progress = userData.dailyProgress?.[today] || {};
     const count = Object.keys(progress).length;
-    await sendTelegramMessage(chatId, `📅 Ringkasan Hari Ini\n\n${today}\n\n📝 ${count} aktivitas tercatat.`);
+    await sendTelegramMessage(
+      chatId,
+      `<b>📅 Ringkasan Hari Ini</b>
+
+Tanggal: ${today}
+📝 ${count} aktivitas tercatat.`
+    );
     return;
   }
   if (command === "undo") {
-    // Cari last input < 5 menit
     const history = userData.telegramHistory || {};
     const now = Date.now();
     const entries = Object.entries(history).filter(
       ([_, h]) => now - (h.timestamp || 0) < 5 * 60 * 1000
     );
     if (entries.length === 0) {
-      await sendTelegramMessage(chatId, `⚠️ Nggak ada input dalam 5 menit terakhir.`);
+      await sendTelegramMessage(chatId, "⚠️ Nggak ada input dalam 5 menit terakhir.");
       return;
     }
-    // Ambil yang terakhir
     entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
     const [entryId, entry] = entries[0];
-    // Hapus dari Firestore
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
-    // Hapus session
+    const newHistory = { ...history };
+    delete newHistory[entryId];
     await firestore.collection("users").doc(userData._uid).update({
-      telegramHistory: Object.fromEntries(entries.slice(1)),
+      telegramHistory: newHistory,
     });
     await sendTelegramMessage(chatId, `✅ Dibatalkan: ${entry.summary || "input terakhir"}`);
     return;
@@ -115,12 +121,9 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     return;
   }
 
-  // ========== KALAU MENU TOP-LEVEL ==========
+  // ========== MENU TOP-LEVEL ==========
   if (found.type === "top") {
     const menu = found.menu;
-
-    // Skenario 1: Top-level langsung simpen (contoh: olahraga, keuangan, hafalan)
-    // Bisa simpen ke field khusus atau dailyProgress
     const fullCatatan = catatan || payload;
 
     if (!fullCatatan) {
@@ -128,10 +131,11 @@ async function handleTextMessage(chatId, text, userData, messageId) {
       return;
     }
 
-    // Konfirmasi ke user
     await sendTelegramWithButtons(
       chatId,
-      `🎯 Kirim ke *${menu.label}*?\n\n📝 Catatan: ${fullCatatan}\n\n_${menu.id}_`,
+      `🎯 Kirim ke <b>${menu.label}</b>?
+
+📝 Catatan: ${fullCatatan}`,
       [
         [{ text: "✅ Ya", callback_data: `confirm|${menu.id}||${fullCatatan}` }],
         [{ text: "❌ Batal", callback_data: "cancel" }],
@@ -140,7 +144,7 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     return;
   }
 
-  // ========== KALAU MENU CUSTOM ==========
+  // ========== MENU CUSTOM ==========
   if (found.type === "custom") {
     const fullCatatan = catatan || payload;
     if (!fullCatatan) {
@@ -149,7 +153,9 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     }
     await sendTelegramWithButtons(
       chatId,
-      `🎯 Kirim ke *${found.menu.nama}*?\n\n📝 Catatan: ${fullCatatan}`,
+      `🎯 Kirim ke <b>${found.menu.nama}</b>?
+
+📝 Catatan: ${fullCatatan}`,
       [
         [{ text: "✅ Ya", callback_data: `confirm_custom|${found.key}||${fullCatatan}` }],
         [{ text: "❌ Batal", callback_data: "cancel" }],
@@ -159,7 +165,7 @@ async function handleTextMessage(chatId, text, userData, messageId) {
   }
 }
 
-// ========== HANDLE CALLBACK QUERY (TOMBOL) ==========
+// ========== HANDLE CALLBACK (TOMBOL) ==========
 async function handleCallback(callbackQuery, userData) {
   const { id: callbackId, message, data } = callbackQuery;
   const chatId = message.chat.id;
@@ -178,17 +184,17 @@ async function handleCallback(callbackQuery, userData) {
   if (action === "confirm") {
     const menuId = parts[1];
     const catatan = parts.slice(2).join("|");
-    await saveToFirestore(userData, menuId, catatan, "top", null);
+    await saveToFirestore(userData, menuId, catatan, "top");
     await editTelegramMessage(
       chatId,
       messageId,
-      `✅ *Tersimpan di ${menuId}*\n\n📝 Catatan: ${catatan}\n📊 Sheets: auto-sync tiap 5 menit`,
+      `<b>✅ Tersimpan di ${menuId}</b>
+
+📝 Catatan: ${catatan}
+📊 Sheets: auto-sync tiap 5 menit`,
       [
         [
-          { text: "✏️ Edit", callback_data: `edit|${menuId}||${catatan}` },
           { text: "🗑️ Hapus", callback_data: `delete|${menuId}||${catatan}` },
-        ],
-        [
           { text: "📊 Sync Now", callback_data: `syncnow` },
         ],
       ]
@@ -199,15 +205,16 @@ async function handleCallback(callbackQuery, userData) {
   if (action === "confirm_custom") {
     const customKey = parts[1];
     const catatan = parts.slice(2).join("|");
-    await saveToFirestore(userData, customKey, catatan, "custom", null);
+    await saveToFirestore(userData, customKey, catatan, "custom");
     await editTelegramMessage(
       chatId,
       messageId,
-      `✅ *Tersimpan di ${customKey}*\n\n📝 Catatan: ${catatan}\n📊 Sheets: auto-sync tiap 5 menit`,
+      `<b>✅ Tersimpan di ${customKey}</b>
+
+📝 Catatan: ${catatan}
+📊 Sheets: auto-sync tiap 5 menit`,
       [
-        [
-          { text: "🗑️ Hapus", callback_data: `delete_custom|${customKey}||${catatan}` },
-        ],
+        [{ text: "📊 Sync Now", callback_data: `syncnow` }],
       ]
     );
     return;
@@ -220,9 +227,11 @@ async function handleCallback(callbackQuery, userData) {
 
   if (action === "syncnow") {
     await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan. Cek spreadsheet.");
-    // Trigger sync via API internal
     try {
-      await fetch(`${process.env.VERCEL_URL ? "https://" + process.env.VERCEL_URL : "http://localhost:3000"}/api/sync-sheets`, {
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+      await fetch(`${baseUrl}/api/sync-sheets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uid: userData._uid }),
@@ -235,7 +244,7 @@ async function handleCallback(callbackQuery, userData) {
 }
 
 // ========== SIMPAN KE FIRESTORE ==========
-async function saveToFirestore(userData, menuId, catatan, type, extra) {
+async function saveToFirestore(userData, menuId, catatan, type) {
   const admin = getAdminApp();
   const firestore = getFirestore(admin);
   const uid = userData._uid;
@@ -243,13 +252,15 @@ async function saveToFirestore(userData, menuId, catatan, type, extra) {
   const userRef = firestore.collection("users").doc(uid);
 
   if (type === "top") {
-    // Simpen ke dailyProgress + field khusus
     const dailyProgress = userData.dailyProgress || {};
     const todayData = dailyProgress[today] || {};
-    todayData[menuId] = { ...(todayData[menuId] || {}), catatan, updatedAt: new Date().toISOString() };
+    todayData[menuId] = {
+      ...(todayData[menuId] || {}),
+      catatan,
+      updatedAt: new Date().toISOString(),
+    };
     dailyProgress[today] = todayData;
 
-    // Track history (untuk undo)
     const telegramHistory = userData.telegramHistory || {};
     telegramHistory[`${Date.now()}`] = {
       menuId,
@@ -260,10 +271,13 @@ async function saveToFirestore(userData, menuId, catatan, type, extra) {
 
     await userRef.update({ dailyProgress, telegramHistory });
   } else if (type === "custom") {
-    // Simpen ke menusCustomLogHarian
     const logs = userData.menusCustomLogHarian || {};
     const todayLog = logs[today] || {};
-    todayLog[menuId] = { ...(todayLog[menuId] || {}), catatan, updatedAt: new Date().toISOString() };
+    todayLog[menuId] = {
+      ...(todayLog[menuId] || {}),
+      catatan,
+      updatedAt: new Date().toISOString(),
+    };
     logs[today] = todayLog;
 
     await userRef.update({ menusCustomLogHarian: logs });
@@ -275,20 +289,17 @@ export async function POST(req) {
   try {
     const update = await req.json();
 
-    // Ambil chat ID dari update
     const message = update.message || update.callback_query?.message;
     if (!message) return NextResponse.json({ ok: true });
 
     const chatId = message.chat.id;
 
-    // Cek apakah chat ID sesuai dengan yang di-set di ENV
     const allowedChatId = process.env.TELEGRAM_CHAT_ID;
     if (allowedChatId && String(chatId) !== String(allowedChatId)) {
       await sendTelegramMessage(chatId, "⛔ Bot ini private. Akses ditolak.");
       return NextResponse.json({ ok: true });
     }
 
-    // Cari user berdasarkan chat ID
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
     const usersSnap = await firestore
@@ -297,7 +308,6 @@ export async function POST(req) {
       .limit(1)
       .get();
 
-    // Kalau nggak ketemu, pake user pertama (karena single-user, lo)
     let userData = null;
     let uid = null;
 
@@ -305,7 +315,6 @@ export async function POST(req) {
       userData = usersSnap.docs[0].data();
       uid = usersSnap.docs[0].id;
     } else {
-      // Fallback: ambil semua users, cuma boleh 1
       const allUsers = await firestore.collection("users").limit(1).get();
       if (!allUsers.empty) {
         userData = allUsers.docs[0].data();
@@ -320,25 +329,20 @@ export async function POST(req) {
 
     userData._uid = uid;
 
-    // Handle callback query (tombol)
     if (update.callback_query) {
       await handleCallback(update.callback_query, userData);
       return NextResponse.json({ ok: true });
     }
 
-    // Handle pesan teks
     if (update.message && update.message.text) {
-      await handleTextMessage(
-        chatId,
-        update.message.text,
-        userData,
-        update.message.message_id
-      );
+      await handleTextMessage(chatId, update.message.text, userData, update.message.message_id);
       return NextResponse.json({ ok: true });
     }
 
-    // Handle pesan lain (foto, voice, dll) — sementara balas info
-    await sendTelegramMessage(chatId, "🤖 Format nggak didukung (Fase 1). Fitur foto & voice note bakal datang di Fase 2.");
+    await sendTelegramMessage(
+      chatId,
+      "🤖 Format nggak didukung (Fase 1). Fitur foto & voice note bakal datang di Fase 2."
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
