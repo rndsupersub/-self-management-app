@@ -35,6 +35,37 @@ function getAdminApp() {
   return adminApp;
 }
 
+// ========== AMBIL ATAU SETUP USER ==========
+// 1. Cari user by telegramChatId
+// 2. Kalau nggak ada, ambil user pertama & set telegramChatId
+async function resolveUser(firestore, chatId) {
+  // Step 1: cari by telegramChatId
+  const byChatId = await firestore
+    .collection("users")
+    .where("telegramChatId", "==", chatId)
+    .limit(1)
+    .get();
+
+  if (!byChatId.empty) {
+    const doc = byChatId.docs[0];
+    return { uid: doc.id, data: doc.data(), isNew: false };
+  }
+
+  // Step 2: fallback — ambil user pertama
+  const allUsers = await firestore.collection("users").limit(1).get();
+  if (allUsers.empty) return null;
+
+  const doc = allUsers.docs[0];
+  const userRef = firestore.collection("users").doc(doc.id);
+
+  // Set telegramChatId ke user ini
+  await userRef.update({ telegramChatId: chatId });
+
+  // Re-fetch biar dapet data terbaru
+  const refreshed = await userRef.get();
+  return { uid: doc.id, data: refreshed.data(), isNew: true };
+}
+
 // ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(chatId, text, userData, messageId) {
   const parsed = parseCommand(text);
@@ -54,15 +85,18 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     await sendTelegramMessage(chatId, buildHelpText());
     return;
   }
+
   if (command === "menu_list") {
-    await sendTelegramMessage(
-      chatId,
-      buildMenuListText(userData.menus || [], userData.menusCustom || {})
-    );
+    // GUNAKAN userData.menus yang udah di-fetch
+    const menus = userData.menus || [];
+    const menusCustom = userData.menusCustom || {};
+    await sendTelegramMessage(chatId, buildMenuListText(menus, menusCustom));
     return;
   }
+
   if (command === "status") {
     const today = new Date().toISOString().split("T")[0];
+    const menusCount = (userData.menus || []).filter((m) => m.visible !== false).length;
     await sendTelegramMessage(
       chatId,
       `<b>📊 Status Sync</b>
@@ -70,11 +104,13 @@ async function handleTextMessage(chatId, text, userData, messageId) {
 🟢 Telegram: Aktif
 🟢 Firestore: Tersambung
 📊 Sheets: Auto-sync tiap 5 menit
+📋 Menu aktif: ${menusCount}
 
 📅 Hari ini: ${today}`
     );
     return;
   }
+
   if (command === "today") {
     const today = new Date().toISOString().split("T")[0];
     const progress = userData.dailyProgress?.[today] || {};
@@ -88,6 +124,7 @@ Tanggal: ${today}
     );
     return;
   }
+
   if (command === "undo") {
     const history = userData.telegramHistory || {};
     const now = Date.now();
@@ -302,32 +339,20 @@ export async function POST(req) {
 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
-    const usersSnap = await firestore
-      .collection("users")
-      .where("telegramChatId", "==", chatId)
-      .limit(1)
-      .get();
 
-    let userData = null;
-    let uid = null;
-
-    if (!usersSnap.empty) {
-      userData = usersSnap.docs[0].data();
-      uid = usersSnap.docs[0].id;
-    } else {
-      const allUsers = await firestore.collection("users").limit(1).get();
-      if (!allUsers.empty) {
-        userData = allUsers.docs[0].data();
-        uid = allUsers.docs[0].id;
-      }
-    }
-
-    if (!userData) {
+    // ========== RESOLVE USER (auto-setup telegramChatId) ==========
+    const user = await resolveUser(firestore, chatId);
+    if (!user) {
       await sendTelegramMessage(chatId, "❌ User nggak ditemukan di database.");
       return NextResponse.json({ ok: true });
     }
 
-    userData._uid = uid;
+    const userData = { ...user.data, _uid: user.uid };
+
+    // Notifikasi kalau user baru di-setup
+    if (user.isNew) {
+      console.log(`[telegram] Auto-set telegramChatId untuk user ${user.uid}`);
+    }
 
     if (update.callback_query) {
       await handleCallback(update.callback_query, userData);
