@@ -36,32 +36,57 @@ function getAdminApp() {
 }
 
 // ========== AMBIL ATAU SETUP USER ==========
-// 1. Cari user by telegramChatId
-// 2. Kalau nggak ada, ambil user pertama & set telegramChatId
+// Coba 3 strategi:
+//   1. Query where telegramChatId == Number(chatId)
+//   2. Query where telegramChatId == String(chatId)
+//   3. Fallback: user pertama + set telegramChatId
 async function resolveUser(firestore, chatId) {
-  // Step 1: cari by telegramChatId
-  const byChatId = await firestore
-    .collection("users")
-    .where("telegramChatId", "==", chatId)
-    .limit(1)
-    .get();
+  const chatIdNum = Number(chatId);
+  const chatIdStr = String(chatId);
 
-  if (!byChatId.empty) {
-    const doc = byChatId.docs[0];
-    return { uid: doc.id, data: doc.data(), isNew: false };
+  // Step 1: query number
+  try {
+    const snap1 = await firestore
+      .collection("users")
+      .where("telegramChatId", "==", chatIdNum)
+      .limit(1)
+      .get();
+    if (!snap1.empty) {
+      const doc = snap1.docs[0];
+      console.log(`[resolveUser] Match number: ${doc.id}`);
+      return { uid: doc.id, data: doc.data(), isNew: false };
+    }
+  } catch (e) {
+    console.error("[resolveUser] Number query error:", e.message);
   }
 
-  // Step 2: fallback — ambil user pertama
+  // Step 2: query string
+  try {
+    const snap2 = await firestore
+      .collection("users")
+      .where("telegramChatId", "==", chatIdStr)
+      .limit(1)
+      .get();
+    if (!snap2.empty) {
+      const doc = snap2.docs[0];
+      console.log(`[resolveUser] Match string: ${doc.id}`);
+      return { uid: doc.id, data: doc.data(), isNew: false };
+    }
+  } catch (e) {
+    console.error("[resolveUser] String query error:", e.message);
+  }
+
+  // Step 3: fallback — user pertama
   const allUsers = await firestore.collection("users").limit(1).get();
   if (allUsers.empty) return null;
 
   const doc = allUsers.docs[0];
   const userRef = firestore.collection("users").doc(doc.id);
 
-  // Set telegramChatId ke user ini
-  await userRef.update({ telegramChatId: chatId });
+  // Set telegramChatId sebagai number
+  await userRef.update({ telegramChatId: chatIdNum });
+  console.log(`[resolveUser] Fallback set telegramChatId: ${doc.id} → ${chatIdNum}`);
 
-  // Re-fetch biar dapet data terbaru
   const refreshed = await userRef.get();
   return { uid: doc.id, data: refreshed.data(), isNew: true };
 }
@@ -80,16 +105,21 @@ async function handleTextMessage(chatId, text, userData, messageId) {
 
   const { command, payload, catatan, autoChoice } = parsed;
 
-  // Command spesial
   if (command === "help") {
     await sendTelegramMessage(chatId, buildHelpText());
     return;
   }
 
   if (command === "menu_list") {
-    // GUNAKAN userData.menus yang udah di-fetch
     const menus = userData.menus || [];
     const menusCustom = userData.menusCustom || {};
+
+    // LOG untuk debug
+    console.log(`[menu_list] uid=${userData._uid}`);
+    console.log(`[menu_list] menus count=${menus.length}`);
+    console.log(`[menu_list] menusCustom keys=${Object.keys(menusCustom).length}`);
+    console.log(`[menu_list] menus sample=`, menus.slice(0, 2));
+
     await sendTelegramMessage(chatId, buildMenuListText(menus, menusCustom));
     return;
   }
@@ -148,7 +178,6 @@ Tanggal: ${today}
     return;
   }
 
-  // Command = menu_id
   const found = findMenuByCommand(command, userData.menus, userData.menusCustom);
   if (!found) {
     await sendTelegramMessage(
@@ -158,7 +187,6 @@ Tanggal: ${today}
     return;
   }
 
-  // ========== MENU TOP-LEVEL ==========
   if (found.type === "top") {
     const menu = found.menu;
     const fullCatatan = catatan || payload;
@@ -181,7 +209,6 @@ Tanggal: ${today}
     return;
   }
 
-  // ========== MENU CUSTOM ==========
   if (found.type === "custom") {
     const fullCatatan = catatan || payload;
     if (!fullCatatan) {
@@ -202,7 +229,7 @@ Tanggal: ${today}
   }
 }
 
-// ========== HANDLE CALLBACK (TOMBOL) ==========
+// ========== HANDLE CALLBACK ==========
 async function handleCallback(callbackQuery, userData) {
   const { id: callbackId, message, data } = callbackQuery;
   const chatId = message.chat.id;
@@ -340,7 +367,6 @@ export async function POST(req) {
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
 
-    // ========== RESOLVE USER (auto-setup telegramChatId) ==========
     const user = await resolveUser(firestore, chatId);
     if (!user) {
       await sendTelegramMessage(chatId, "❌ User nggak ditemukan di database.");
@@ -349,10 +375,7 @@ export async function POST(req) {
 
     const userData = { ...user.data, _uid: user.uid };
 
-    // Notifikasi kalau user baru di-setup
-    if (user.isNew) {
-      console.log(`[telegram] Auto-set telegramChatId untuk user ${user.uid}`);
-    }
+    console.log(`[telegram] POST resolved: uid=${user.uid}, isNew=${user.isNew}, menus=${(userData.menus || []).length}`);
 
     if (update.callback_query) {
       await handleCallback(update.callback_query, userData);
