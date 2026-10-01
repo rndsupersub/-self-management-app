@@ -13,7 +13,7 @@ import {
   buildMenuListText,
 } from "@/lib/telegramData";
 
-// ========== FIREBASE ADMIN INIT ==========
+// ========== FIREBASE ADMIN ==========
 let adminApp = null;
 function getAdminApp() {
   if (adminApp) return adminApp;
@@ -35,50 +35,77 @@ function getAdminApp() {
   return adminApp;
 }
 
-// ========== AMBIL USER ==========
+// ========== RESOLVE USER BY CHAT ID ==========
 async function resolveUser(firestore, chatId) {
   const chatIdNum = Number(chatId);
   const chatIdStr = String(chatId);
-
-  const attempts = [];
 
   // Try number
   try {
     const snap = await firestore.collection("users")
       .where("telegramChatId", "==", chatIdNum).limit(1).get();
     if (!snap.empty) {
-      return { uid: snap.docs[0].id, data: snap.docs[0].data(), source: "number-match" };
+      return { uid: snap.docs[0].id, data: snap.docs[0].data() };
     }
-    attempts.push("number: no match");
-  } catch (e) {
-    attempts.push(`number: ${e.message}`);
-  }
+  } catch (e) {}
 
   // Try string
   try {
     const snap = await firestore.collection("users")
       .where("telegramChatId", "==", chatIdStr).limit(1).get();
     if (!snap.empty) {
-      return { uid: snap.docs[0].id, data: snap.docs[0].data(), source: "string-match" };
+      return { uid: snap.docs[0].id, data: snap.docs[0].data() };
     }
-    attempts.push("string: no match");
-  } catch (e) {
-    attempts.push(`string: ${e.message}`);
+  } catch (e) {}
+
+  return null;
+}
+
+// ========== HANDLE /link ==========
+async function handleLink(firestore, chatId, code, fromData) {
+  const codeUpper = code.toUpperCase().trim();
+
+  // Cek kode di Firestore
+  const codeRef = firestore.collection("pairingCodes").doc(codeUpper);
+  const codeSnap = await codeRef.get();
+
+  if (!codeSnap.exists) {
+    await sendTelegramMessage(chatId, `❌ Kode <b>${codeUpper}</b> nggak valid atau udah kepake.\n\nBuka web → Telegram Setting → Generate code baru.`);
+    return;
   }
 
-  // Fallback: user pertama
-  const allUsers = await firestore.collection("users").limit(1).get();
-  if (allUsers.empty) return null;
+  const codeData = codeSnap.data();
+  const uid = codeData.uid;
 
-  const doc = allUsers.docs[0];
-  const userRef = firestore.collection("users").doc(doc.id);
-  await userRef.update({ telegramChatId: chatIdNum });
-  const refreshed = await userRef.get();
-  return { uid: doc.id, data: refreshed.data(), source: "fallback", attempts };
+  // Update user — set telegramChatId
+  await firestore.collection("users").doc(uid).update({
+    telegramChatId: Number(chatId),
+    telegramUsername: fromData?.username || "",
+    telegramFirstName: fromData?.first_name || "",
+    telegramLinkedAt: new Date().toISOString(),
+  });
+
+  // Hapus code
+  await codeRef.delete();
+
+  await sendTelegramMessage(
+    chatId,
+    `<b>✅ Berhasil di-link!</b>
+
+Akun Telegram lo udah nyambung ke Self Management.
+UID: <code>${uid}</code>
+
+<b>Langkah selanjutnya:</b>
+• Kirim /help buat panduan
+• Kirim /menu_list buat lihat menu
+• Kirim /olahraga lari 7km buat simpen catatan
+
+📱 <i>Link ini permanent. Nggak perlu pairing ulang.</i>`
+  );
 }
 
 // ========== HANDLE PESAN ==========
-async function handleTextMessage(chatId, text, userData, messageId) {
+async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
   const parsed = parseCommand(text);
 
   if (!parsed) {
@@ -88,27 +115,43 @@ async function handleTextMessage(chatId, text, userData, messageId) {
 
   const { command, payload, catatan } = parsed;
 
+  // ==== COMMAND SPESIAL (nggak butuh userData) ====
+  if (command === "start") {
+    await sendTelegramMessage(
+      chatId,
+      `👋 Halo <b>${fromData?.first_name || "Sobat"}</b>!
+
+Bot ini buat Self Management. Untuk mulai:
+
+1️⃣ Buka web lo
+2️⃣ Klik <b>🤖 Telegram</b> di navbar
+3️⃣ Klik <b>Generate Pairing Code</b>
+4️⃣ Kirim ke sini: <code>/link KODE_LO</code>
+
+Kalau udah link, kirim /help buat panduan.`
+    );
+    return;
+  }
+
+  if (command === "link") {
+    if (!payload) {
+      await sendTelegramMessage(chatId, `⚠️ Format: <code>/link KODE</code>\n\nContoh: /link ABC123`);
+      return;
+    }
+    await handleLink(firestore, chatId, payload, fromData);
+    return;
+  }
+
   if (command === "help") {
     await sendTelegramMessage(chatId, buildHelpText());
     return;
   }
 
-  if (command === "debug") {
-    const menus = userData.menus || [];
-    const menusCustom = userData.menusCustom || {};
-    const source = userData._source || "unknown";
-    const sample = menus.slice(0, 3).map((m) => m.id || "?").join(", ");
+  // ==== COMMAND YANG BUTUH USER ====
+  if (!userData) {
     await sendTelegramMessage(
       chatId,
-      `<b>🔍 DEBUG INFO</b>
-
-<b>UID:</b> ${userData._uid}
-<b>Source:</b> ${source}
-<b>menus count:</b> ${menus.length}
-<b>menusCustom keys:</b> ${Object.keys(menusCustom).length}
-<b>Sample menus:</b> ${sample || "(kosong)"}
-
-<i>Kalau menus count = 0, berarti bot baca user yang salah.</i>`
+      `⚠️ Akun Telegram lo belum di-link ke Self Management.\n\nBuka web → 🤖 Telegram → Generate Pairing Code → kirim <code>/link KODE</code>.`
     );
     return;
   }
@@ -120,16 +163,21 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     return;
   }
 
+  if (command === "debug") {
+    const menus = userData.menus || [];
+    await sendTelegramMessage(
+      chatId,
+      `<b>🔍 DEBUG</b>\n\nUID: <code>${userData._uid}</code>\nmenus count: ${menus.length}\nSample: ${menus.slice(0, 3).map((m) => m.id).join(", ")}`
+    );
+    return;
+  }
+
   if (command === "status") {
     const today = new Date().toISOString().split("T")[0];
     const menusCount = (userData.menus || []).filter((m) => m.visible !== false).length;
     await sendTelegramMessage(
       chatId,
-      `<b>📊 Status Sync</b>
-
-🟢 Telegram: Aktif
-📋 Menu aktif: ${menusCount}
-📅 Hari ini: ${today}`
+      `<b>📊 Status Sync</b>\n\n🟢 Telegram: Aktif\n📋 Menu aktif: ${menusCount}\n📅 Hari ini: ${today}`
     );
     return;
   }
@@ -139,25 +187,26 @@ async function handleTextMessage(chatId, text, userData, messageId) {
     const progress = userData.dailyProgress?.[today] || {};
     await sendTelegramMessage(
       chatId,
-      `<b>📅 Ringkasan Hari Ini</b>
-
-Tanggal: ${today}
-📝 ${Object.keys(progress).length} aktivitas tercatat.`
+      `<b>📅 Ringkasan Hari Ini</b>\n\n📝 ${Object.keys(progress).length} aktivitas tercatat.`
     );
     return;
   }
 
-  if (command === "undo") {
-    await sendTelegramMessage(chatId, "⚠️ Fitur undo masih dikembangkan.");
+  if (command === "unlink") {
+    await firestore.collection("users").doc(userData._uid).update({
+      telegramChatId: null,
+      telegramUsername: null,
+      telegramFirstName: null,
+      telegramLinkedAt: null,
+    });
+    await sendTelegramMessage(chatId, `✅ Akun Telegram lo udah di-unlink. Buat link lagi, generate code baru di web.`);
     return;
   }
 
+  // ==== MENU COMMAND ====
   const found = findMenuByCommand(command, userData.menus, userData.menusCustom);
   if (!found) {
-    await sendTelegramMessage(
-      chatId,
-      `❌ Menu "${command}" nggak ada.\nKetik /menu_list buat lihat daftar menu.`
-    );
+    await sendTelegramMessage(chatId, `❌ Menu "${command}" nggak ada.\nKetik /menu_list buat lihat daftar.`);
     return;
   }
 
@@ -218,7 +267,7 @@ async function handleCallback(callbackQuery, userData) {
     await saveToFirestore(userData, menuId, catatan, "top");
     await editTelegramMessage(
       chatId, messageId,
-      `<b>✅ Tersimpan di ${menuId}</b>\n\n📝 Catatan: ${catatan}`,
+      `<b>✅ Tersimpan di ${menuId}</b>\n\n📝 ${catatan}`,
       [[{ text: "📊 Sync Now", callback_data: `syncnow` }]]
     );
     return;
@@ -230,19 +279,14 @@ async function handleCallback(callbackQuery, userData) {
     await saveToFirestore(userData, customKey, catatan, "custom");
     await editTelegramMessage(
       chatId, messageId,
-      `<b>✅ Tersimpan di ${customKey}</b>\n\n📝 Catatan: ${catatan}`,
+      `<b>✅ Tersimpan di ${customKey}</b>\n\n📝 ${catatan}`,
       [[{ text: "📊 Sync Now", callback_data: `syncnow` }]]
     );
     return;
   }
 
-  if (action === "delete") {
-    await editTelegramMessage(chatId, messageId, "🗑️ Dihapus.");
-    return;
-  }
-
   if (action === "syncnow") {
-    await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan.");
+    await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan. Cek spreadsheet.");
     try {
       const baseUrl = process.env.VERCEL_URL
         ? `https://${process.env.VERCEL_URL}`
@@ -277,14 +321,7 @@ async function saveToFirestore(userData, menuId, catatan, type) {
     };
     dailyProgress[today] = todayData;
 
-    const telegramHistory = userData.telegramHistory || {};
-    telegramHistory[`${Date.now()}`] = {
-      menuId, catatan,
-      summary: `${menuId}: ${catatan}`,
-      timestamp: Date.now(),
-    };
-
-    await userRef.update({ dailyProgress, telegramHistory });
+    await userRef.update({ dailyProgress });
   } else if (type === "custom") {
     const logs = userData.menusCustomLogHarian || {};
     const todayLog = logs[today] || {};
@@ -306,37 +343,32 @@ export async function POST(req) {
     if (!message) return NextResponse.json({ ok: true });
 
     const chatId = message.chat.id;
-    const allowedChatId = process.env.TELEGRAM_CHAT_ID;
-    if (allowedChatId && String(chatId) !== String(allowedChatId)) {
-      await sendTelegramMessage(chatId, "⛔ Bot ini private.");
-      return NextResponse.json({ ok: true });
-    }
+    const fromData = message.from || message.chat;
 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
+
+    // Cari user by chatId
     const user = await resolveUser(firestore, chatId);
-    if (!user) {
-      await sendTelegramMessage(chatId, "❌ User nggak ditemukan.");
-      return NextResponse.json({ ok: true });
-    }
+    const userData = user ? { ...user.data, _uid: user.uid } : null;
 
-    const userData = {
-      ...user.data,
-      _uid: user.uid,
-      _source: user.source,
-    };
-
+    // Handle callback (butuh userData)
     if (update.callback_query) {
+      if (!userData) {
+        await sendTelegramMessage(chatId, `⚠️ Akun belum di-link. Ketik /start.`);
+        return NextResponse.json({ ok: true });
+      }
       await handleCallback(update.callback_query, userData);
       return NextResponse.json({ ok: true });
     }
 
+    // Handle text
     if (update.message && update.message.text) {
-      await handleTextMessage(chatId, update.message.text, userData, update.message.message_id);
+      await handleTextMessage(firestore, chatId, update.message.text, userData, update.message.message_id, fromData);
       return NextResponse.json({ ok: true });
     }
 
-    await sendTelegramMessage(chatId, "🤖 Format nggak didukung.");
+    await sendTelegramMessage(chatId, "🤖 Format nggak didukung (Fase 1).");
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[telegram] Error:", err);
