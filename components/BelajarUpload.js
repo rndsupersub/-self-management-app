@@ -17,11 +17,9 @@ export default function BelajarUpload({
 }) {
   const isMateriMode = mode === "materi";
 
-  // ========== STATE MATERI ==========
   const [materi, setMateri] = useState(item?.materi || "");
   const [isEditingMateri, setIsEditingMateri] = useState(false);
 
-  // ========== STATE HASIL BELAJAR (FORM KAYAK KALENDER) ==========
   const [formData, setFormData] = useState({
     subKategoriId: "",
     toolId: "",
@@ -35,20 +33,17 @@ export default function BelajarUpload({
   const [errorMsg, setErrorMsg] = useState("");
   const [saved, setSaved] = useState(false);
 
-  // Sync state kalau item berubah
   useEffect(() => {
     setMateri(item?.materi || "");
     setIsEditingMateri(false);
   }, [item?.id]);
 
-  // ========== DATA KATEGORI (buat dropdown) ==========
   const kategoriObj = useMemo(
     () => (kategoriData || []).find((k) => k.id === kategoriId),
     [kategoriData, kategoriId]
   );
   const subKategoriList = kategoriObj?.subKategori || [];
 
-  // Pre-fill dropdown dari URL (path)
   const prefillFromPath = () => {
     setFormData({
       subKategoriId: path[1] || "",
@@ -60,6 +55,27 @@ export default function BelajarUpload({
     });
   };
 
+  // ========== AUTO-LOAD DARI TELEGRAM ==========
+  useEffect(() => {
+    if (isMateriMode) return;
+    if (!today) return;
+    const entries = logHarian?.[today] || [];
+    // Cari entry yang match sama leaf ini (path[1..4])
+    const matched = entries.find((e) =>
+      (e.subKategoriId || "") === (path[1] || "") &&
+      (e.toolId || "") === (path[2] || "") &&
+      (e.fiturId || "") === (path[3] || "") &&
+      (e.partId || "") === (path[4] || "")
+    );
+    if (matched && matched.catatan && !formData.catatan) {
+      setFormData((prev) => ({
+        ...prev,
+        catatan: matched.catatan,
+        gdriveUrl: matched.gdriveUrl || "",
+      }));
+    }
+  }, [logHarian, today, path.join("/"), isMateriMode]);
+
   useEffect(() => {
     prefillFromPath();
     setShowForm(false);
@@ -67,7 +83,6 @@ export default function BelajarUpload({
     setErrorMsg("");
   }, [path.join("/")]);
 
-  // ========== RIWAYAT (log yang match leaf ini) ==========
   const riwayat = useMemo(() => {
     const result = [];
     Object.entries(logHarian || {}).forEach(([tanggal, list]) => {
@@ -83,7 +98,6 @@ export default function BelajarUpload({
     return result.sort((a, b) => b.tanggal.localeCompare(a.tanggal));
   }, [logHarian, kategoriId, path]);
 
-  // ========== DROPDOWN DINAMIS ==========
   const subKategoriTerpilih = subKategoriList.find((s) => s.id === formData.subKategoriId);
   const toolList = subKategoriTerpilih?.tools || [];
   const toolTerpilih = toolList.find((t) => t.id === formData.toolId);
@@ -91,7 +105,6 @@ export default function BelajarUpload({
   const fiturTerpilih = fiturList.find((f) => f.id === formData.fiturId);
   const partList = fiturTerpilih?.parts || [];
 
-  // ========== BUKA FORM TAMBAH ==========
   const handleBukaFormTambah = () => {
     prefillFromPath();
     setEditingLogId(null);
@@ -99,7 +112,6 @@ export default function BelajarUpload({
     setShowForm(true);
   };
 
-  // ========== BUKA FORM EDIT ==========
   const handleEdit = (log) => {
     setFormData({
       subKategoriId: log.subKategoriId || "",
@@ -114,7 +126,6 @@ export default function BelajarUpload({
     setShowForm(true);
   };
 
-  // ========== SIMPAN HASIL BELAJAR ==========
   const handleSimpan = () => {
     setErrorMsg("");
     if (!formData.subKategoriId) { setErrorMsg("Pilih sub-kategori dulu."); return; }
@@ -122,7 +133,7 @@ export default function BelajarUpload({
     if (!formData.catatan.trim() && !formData.gdriveUrl.trim()) {
       setErrorMsg("Isi catatan atau link GDrive."); return;
     }
-    if (!today) { setErrorMsg("Tanggal belum siap. Coba refresh."); return; }
+    if (!today) { setErrorMsg("Tanggal belum siap."); return; }
 
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
     if (!updated[today]) updated[today] = [];
@@ -158,16 +169,14 @@ export default function BelajarUpload({
     setTimeout(() => setSaved(false), 2500);
   };
 
-  // ========== HAPUS ==========
   const handleHapus = (log) => {
-    if (!confirm("Hapus catatan ini? Yang di kalender juga bakal kehapus.")) return;
+    if (!confirm("Hapus catatan ini?")) return;
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
     updated[log.tanggal] = (updated[log.tanggal] || []).filter((l) => l.id !== log.id);
     if (updated[log.tanggal].length === 0) delete updated[log.tanggal];
     if (onUpdateLog) onUpdateLog(updated, { action: "delete", log });
   };
 
-  // ========== SIMPAN MATERI ==========
   const handleSimpanMateri = () => {
     onUpdate({ materi });
     setIsEditingMateri(false);
@@ -175,7 +184,6 @@ export default function BelajarUpload({
     setTimeout(() => setSaved(false), 2000);
   };
 
-  // ========== GET LABEL UNTUK RIWAYAT ==========
   const getLabelByLog = (log) => {
     const parts = [];
     const sub = subKategoriList.find((s) => s.id === log.subKategoriId);
@@ -184,8 +192,8 @@ export default function BelajarUpload({
       const tool = (sub.tools || []).find((t) => t.id === log.toolId);
       if (tool) parts.push(tool.nama);
     }
-    if (sub && log.toolId && log.fiturId) {
-      const tool = (sub.tools || []).find((t) => t.id === log.toolId);
+    if (log.fiturId) {
+      const tool = (sub?.tools || []).find((t) => t.id === log.toolId);
       const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId);
       if (fitur) parts.push(fitur.nama);
     }
@@ -198,7 +206,6 @@ export default function BelajarUpload({
     return parts.join(" → ") || "-";
   };
 
-  // ========== MODE MATERI ==========
   if (isMateriMode) {
     const hasMateri = !!item?.materi;
     return (
@@ -222,7 +229,7 @@ export default function BelajarUpload({
             {!isEditingMateri && !hasMateri && (
               <div className="text-center py-6 text-gray-400">
                 <p className="text-2xl mb-2">📭</p>
-                <p className="text-sm">Belum ada materi. Klik "+ Tambah".</p>
+                <p className="text-sm">Belum ada materi.</p>
               </div>
             )}
             {isEditingMateri && (
@@ -234,17 +241,15 @@ export default function BelajarUpload({
                 </div>
               </div>
             )}
-            {saved && (<div className="alert alert-success mt-3 py-2"><span className="text-sm">✅ Materi disimpan!</span></div>)}
+            {saved && (<div className="alert alert-success mt-3 py-2"><span className="text-sm">✅ Disimpan!</span></div>)}
           </div>
         </div>
       </div>
     );
   }
 
-  // ========== MODE HASIL BELAJAR (FORM KAYAK KALENDER) ==========
   return (
     <div className="space-y-4">
-      {/* FORM CARD */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
@@ -253,7 +258,7 @@ export default function BelajarUpload({
                 📝 Hasil Belajar --- {formatTanggal(today, "panjang")}
               </h3>
               <p className="text-xs text-gray-500 mt-1">
-                Catatan belajar lo. Otomatis muncul di Kalender. Nanti ke Telegram.
+                Catatan belajar lo. Otomatis muncul di Kalender.
               </p>
             </div>
             {!showForm && (
@@ -263,11 +268,10 @@ export default function BelajarUpload({
             )}
           </div>
 
-          {/* FORM */}
           {showForm && (
             <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200">
               <p className="text-xs font-semibold text-blue-700">
-                {editingLogId ? "✏️ Edit Catatan Belajar" : "✏️ Tambah Catatan Belajar"}
+                {editingLogId ? "✏️ Edit Catatan" : "✏️ Tambah Catatan"}
               </p>
 
               <div>
@@ -298,7 +302,7 @@ export default function BelajarUpload({
 
               {formData.toolId && fiturList.length > 0 && (
                 <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Fitur / Materi</label>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">Fitur</label>
                   <select
                     className="select select-bordered select-sm w-full text-gray-800 bg-white"
                     value={formData.fiturId}
@@ -329,7 +333,7 @@ export default function BelajarUpload({
                 <textarea
                   className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
                   rows="3"
-                  placeholder="Catatan belajar hari ini..."
+                  placeholder="Catatan belajar..."
                   value={formData.catatan}
                   onChange={(e) => setFormData({ ...formData, catatan: e.target.value })}
                 />
@@ -344,7 +348,6 @@ export default function BelajarUpload({
                   value={formData.gdriveUrl}
                   onChange={(e) => setFormData({ ...formData, gdriveUrl: e.target.value })}
                 />
-                <p className="text-[10px] text-gray-500 mt-1">📸 Nanti bisa juga via Telegram.</p>
               </div>
 
               {errorMsg && (<div className="alert alert-error py-2 text-xs"><span>⚠️ {errorMsg}</span></div>)}
@@ -363,35 +366,31 @@ export default function BelajarUpload({
           {!showForm && riwayat.length === 0 && (
             <div className="text-center py-6 text-gray-400">
               <p className="text-2xl mb-2">📭</p>
-              <p className="text-sm">Belum ada catatan. Klik "+ Tambah Catatan".</p>
+              <p className="text-sm">Belum ada catatan. Kirim via Telegram atau klik "+ Tambah Catatan".</p>
             </div>
           )}
 
           {saved && !showForm && (
             <div className="alert alert-success mt-3 py-2">
-              <span className="text-sm">✅ Berhasil disimpan! Catatan juga muncul di kalender.</span>
+              <span className="text-sm">✅ Berhasil disimpan!</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* RIWAYAT */}
       {riwayat.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
-            <h3 className="text-base font-bold text-gray-800 mb-3">📅 Riwayat Belajar ({riwayat.length})</h3>
+            <h3 className="text-base font-bold text-gray-800 mb-3">📅 Riwayat ({riwayat.length})</h3>
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {riwayat.map((log, idx) => (
                 <div key={log.id || idx} className="p-3 rounded border border-gray-200 bg-gray-50">
                   <div className="flex justify-between items-start gap-2">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-semibold text-gray-800">{getLabelByLog(log)}</p>
-                      </div>
+                      <p className="text-sm font-semibold text-gray-800">{getLabelByLog(log)}</p>
                       <p className="text-xs text-gray-500">
                         📅 {formatTanggal(log.tanggal, "pendek")}
-                        {log.sumber === "materi" && (<span className="ml-2 badge badge-ghost badge-xs">dari materi</span>)}
-                        {log.sumber === "kalender" && (<span className="ml-2 badge badge-ghost badge-xs">dari kalender</span>)}
+                        {log.sumber === "telegram" && (<span className="ml-2 badge badge-ghost badge-xs">dari Telegram</span>)}
                       </p>
                       {log.catatan && (<p className="text-sm text-gray-700 whitespace-pre-wrap mt-2 bg-white p-2 rounded border border-gray-200">📝 {log.catatan}</p>)}
                       {log.gdriveUrl && (
