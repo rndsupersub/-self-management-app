@@ -18,14 +18,9 @@ import {
 let adminApp = null;
 function getAdminApp() {
   if (adminApp) return adminApp;
-  if (getApps().length > 0) {
-    adminApp = getApps()[0];
-    return adminApp;
-  }
+  if (getApps().length > 0) { adminApp = getApps()[0]; return adminApp; }
   const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "")
-    .trim()
-    .replace(/^"|"$/g, "")
-    .replace(/\\n/g, "\n");
+    .trim().replace(/^"|"$/g, "").replace(/\\n/g, "\n");
   adminApp = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
@@ -51,6 +46,32 @@ async function resolveUser(firestore, chatId) {
   return null;
 }
 
+// ========== HELPER: NAVIGATE PATH ==========
+// Ambil root array berdasarkan menuId
+function getRootArray(data, menuId) {
+  if (menuId === "belajar") return data.belajar?.kategori || [];
+  if (menuId === "pekerjaan") return data.pekerjaan || [];
+  if (menuId === "bisnis") return data.bisnisBrands || [];
+  return [];
+}
+
+// Navigate path → dapat item di level terakhir + children array
+// Contoh path ["ptId", "brandId"] → item = brand, children = brand.kegiatan
+function navigatePath(rootArray, path) {
+  let current = rootArray;
+  let item = null;
+  for (let i = 0; i < path.length; i++) {
+    item = current.find((x) => x.id === path[i]);
+    if (!item) return null;
+    if (i < path.length - 1) {
+      current = item.brands || item.subKategori || item.tools || item.fitur || item.parts || item.kegiatan || [];
+    }
+  }
+  // Children dari item terakhir
+  const children = item.brands || item.subKategori || item.tools || item.fitur || item.parts || item.kegiatan || [];
+  return { item, children };
+}
+
 // ========== HANDLE /link ==========
 async function handleLink(firestore, chatId, code, fromData) {
   const codeUpper = code.toUpperCase().trim();
@@ -68,10 +89,7 @@ async function handleLink(firestore, chatId, code, fromData) {
     telegramLinkedAt: new Date().toISOString(),
   });
   await codeRef.delete();
-  await sendTelegramMessage(
-    chatId,
-    `<b>✅ Berhasil di-link!</b>\n\nUID: <code>${uid}</code>\n\nKirim /help buat panduan.\n📱 <i>Link ini permanent.</i>`
-  );
+  await sendTelegramMessage(chatId, `<b>✅ Berhasil di-link!</b>\n\nUID: <code>${uid}</code>\n\nKirim /help buat panduan.`);
 }
 
 // ========== SIMPAN LOG HARIAN ==========
@@ -98,90 +116,56 @@ async function simpanKeLogHarian(firestore, uid, entry) {
   await userRef.update({ belajarLogHarian: logHarian });
 }
 
-// ========== HANDLE NESTED ==========
-async function handleNestedMenu(firestore, chatId, messageId, userData, command, payload, catatan, mode = "A") {
-  let kategoriArr = [];
-  if (command === "belajar") {
-    kategoriArr = userData.belajar?.kategori || [];
-  } else if (command === "pekerjaan") {
-    kategoriArr = userData.pekerjaan || [];
-  } else if (command === "bisnis") {
-    kategoriArr = userData.bisnisBrands || [];
-  }
+// ========== HANDLE NESTED (Mulai dari root) ==========
+async function handleNestedMenu(firestore, chatId, messageId, userData, command, payload, catatan) {
+  const rootArray = getRootArray(userData, command);
 
-  if (kategoriArr.length === 0) {
-    await editTelegramMessage(
-      chatId, messageId,
-      `⚠️ Menu <b>${command}</b> kosong.\n\nBuka web dulu → tambah data di menu ${command}.`
-    );
+  if (rootArray.length === 0) {
+    await editTelegramMessage(chatId, messageId, `⚠️ Menu <b>${command}</b> kosong.\n\nBuka web dulu.`);
     return;
   }
 
   // Kalau payload ada → cari
-  if (payload) {
-    const result = resolveNestedPath(payload, kategoriArr);
+  if (payload && command === "belajar") {
+    const result = resolveNestedPath(payload, rootArray);
     if (result && result.found) {
-      const labelPath = result.labels.join(" → ");
       const buttons = [
-        [{ text: "✅ Ya", callback_data: `saveNested|${command}|${result.path.join("/")}||${catatan || payload}` }],
+        [{ text: "✅ Ya", callback_data: `saveNested|${command}|${result.path.join("/")}|${catatan || payload}` }],
         [{ text: "❌ Batal", callback_data: "cancel" }],
       ];
       await editTelegramMessage(
         chatId, messageId,
-        `<b>📋 Ringkasan</b>\n\nMenu: <b>${command} → ${labelPath}</b>\n📝 Catatan: ${catatan || payload}\n\nSimpen?`,
-        buttons
-      );
-      return;
-    } else if (result && result.multiple) {
-      const buttons = result.multiple.slice(0, 5).map((m) => [
-        { text: m.labels.join(" → ").slice(0, 40), callback_data: `saveNested|${command}|${m.path.join("/")}||${catatan || payload}` },
-      ]);
-      buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
-      await editTelegramMessage(
-        chatId, messageId,
-        `<b>⚠️ Ada ${result.multiple.length} match.</b>\nPilih:`,
+        `<b>📋 Ringkasan</b>\n\n<b>${result.labels.join(" → ")}</b>\n📝 ${catatan || payload}\n\nSimpen?`,
         buttons
       );
       return;
     }
-    // Fallback ke Mode C
   }
 
-  // Mode C — pilih level 1
-  const buttons = kategoriArr.slice(0, 5).map((k) => [
-    { text: (k.nama || k.label || "").slice(0, 40), callback_data: `pickNested|${command}|0|${k.id}|` },
+  // Mode C — tampilin level 1
+  const buttons = rootArray.slice(0, 8).map((k) => [
+    { text: (k.nama || k.label || "").slice(0, 40), callback_data: `pickNested|${command}|${k.id}` },
   ]);
   buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
-  await editTelegramMessage(
-    chatId, messageId,
-    `<b>📚 ${command} → pilih:</b>`,
-    buttons
-  );
+  await editTelegramMessage(chatId, messageId, `<b>📚 ${command} → pilih:</b>`, buttons);
 }
 
 // ========== HANDLE NESTED PICK (Mode C) ==========
-async function handleNestedPick(firestore, chatId, messageId, userData, menuId, level, itemId, catatanBawa) {
-  const userRef = firestore.collection("users").doc(userData._uid);
-  const snap = await userRef.get();
-  const data = snap.data();
-  let kategoriArr = [];
-  if (menuId === "belajar") kategoriArr = data.belajar?.kategori || [];
-  else if (menuId === "pekerjaan") kategoriArr = data.pekerjaan || [];
-  else if (menuId === "bisnis") kategoriArr = data.bisnisBrands || [];
-
-  const item = kategoriArr.find((x) => x.id === itemId);
+async function handleNestedPick(firestore, chatId, messageId, userData, menuId, itemId) {
+  const rootArray = getRootArray(userData, menuId);
+  const item = rootArray.find((x) => x.id === itemId);
   if (!item) {
     await editTelegramMessage(chatId, messageId, "❌ Item nggak ditemukan.");
     return;
   }
 
-  const children = item.subKategori || item.tools || item.fitur || item.parts || item.brands || item.kegiatan || [];
+  const children = item.brands || item.subKategori || item.tools || item.fitur || item.parts || item.kegiatan || [];
 
   if (children.length === 0) {
     // Leaf — minta catatan
     await editTelegramMessage(
       chatId, messageId,
-      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${item.nama || item.label}\n\nKetik catatan (atau kirim "-" kalau kosong):`
+      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${item.nama || item.label}\n\nKetik catatan (atau "-" kalau kosong):`
     );
     await firestore.collection("telegramState").doc(String(chatId)).set({
       menuId,
@@ -193,11 +177,11 @@ async function handleNestedPick(firestore, chatId, messageId, userData, menuId, 
     return;
   }
 
-  // Ada children
-  const buttons = children.slice(0, 5).map((c) => [
+  // Ada children → tampilin
+  const buttons = children.slice(0, 8).map((c) => [
     {
       text: (c.nama || c.label || "").slice(0, 40),
-      callback_data: `pickNested|${menuId}|${level + 1}|${c.id}|`,
+      callback_data: `pickNestedSub|${menuId}|${item.id}|${c.id}`,
     },
   ]);
   buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
@@ -208,8 +192,62 @@ async function handleNestedPick(firestore, chatId, messageId, userData, menuId, 
   );
 }
 
+// ========== HANDLE NESTED SUB-PICK (Level 2+) ==========
+async function handleNestedSubPick(firestore, chatId, messageId, userData, menuId, parentId, childId) {
+  // parentId = PT id, childId = brand id (atau parent → child di level lain)
+  const rootArray = getRootArray(userData, menuId);
+  const parent = rootArray.find((x) => x.id === parentId);
+  if (!parent) {
+    await editTelegramMessage(chatId, messageId, "❌ Parent nggak ketemu.");
+    return;
+  }
+
+  const childArray = parent.brands || parent.subKategori || parent.tools || parent.fitur || parent.parts || parent.kegiatan || [];
+  const child = childArray.find((c) => c.id === childId);
+  if (!child) {
+    await editTelegramMessage(chatId, messageId, "❌ Child nggak ketemu.");
+    return;
+  }
+
+  const grandChildren = child.subKategori || child.tools || child.fitur || child.parts || child.kegiatan || [];
+
+  if (grandChildren.length === 0) {
+    // Leaf — minta catatan
+    await editTelegramMessage(
+      chatId, messageId,
+      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${parent.nama || parent.label} → ${child.nama || child.label}\n\nKetik catatan (atau "-"):`
+    );
+    await firestore.collection("telegramState").doc(String(chatId)).set({
+      menuId,
+      path: [parent.id, child.id],
+      labels: [parent.nama || parent.label, child.nama || child.label],
+      awaiting: "catatan",
+      updatedAt: new Date().toISOString(),
+    });
+    return;
+  }
+
+  // Ada grandChildren → tampilin
+  const buttons = grandChildren.slice(0, 8).map((g) => [
+    {
+      text: (g.nama || g.label || "").slice(0, 40),
+      callback_data: `pickNestedSub2|${menuId}|${parent.id}|${child.id}|${g.id}`,
+    },
+  ]);
+  buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
+  await editTelegramMessage(
+    chatId, messageId,
+    `<b>${menuId} → ${parent.nama || parent.label} → ${child.nama || child.label} → pilih:</b>`,
+    buttons
+  );
+}
+
 // ========== SIMPAN NESTED LEAF ==========
 async function saveNestedLeaf(firestore, userData, menuId, path, catatan, chatId, messageId) {
+  const userRef = firestore.collection("users").doc(userData._uid);
+  const snap = await userRef.get();
+  const data = snap.data();
+
   if (menuId === "belajar") {
     const today = new Date().toISOString().split("T")[0];
     await simpanKeLogHarian(firestore, userData._uid, {
@@ -221,57 +259,33 @@ async function saveNestedLeaf(firestore, userData, menuId, path, catatan, chatId
       catatan,
       tanggal: today,
     });
-    await editTelegramMessage(
-      chatId, messageId,
-      `<b>✅ Tersimpan!</b>\n\n📚 Belajar → ${path.join(" → ")}\n📝 ${catatan}\n\n📊 Auto-sync ke Sheets.`,
-      [[{ text: "📊 Sync Now", callback_data: `syncnow` }]]
-    );
+    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan!</b>\n\n📚 ${path.join(" → ")}\n📝 ${catatan}`);
     return;
   }
 
   if (menuId === "pekerjaan") {
-    const userRef = firestore.collection("users").doc(userData._uid);
-    const snap = await userRef.get();
-    const data = snap.data();
     const pekerjaan = data.pekerjaan || [];
-    // path = [ptId, brandId, kegiatanId]
-    const ptId = path[0];
-    const brandId = path[1];
-    const kegId = path[2];
-    const pt = pekerjaan.find((p) => p.id === ptId);
+    const pt = pekerjaan.find((p) => p.id === path[0]);
     if (!pt) { await editTelegramMessage(chatId, messageId, "❌ PT nggak ketemu."); return; }
-    const brand = (pt.brands || []).find((b) => b.id === brandId);
+    const brand = (pt.brands || []).find((b) => b.id === path[1]);
     if (!brand) { await editTelegramMessage(chatId, messageId, "❌ Brand nggak ketemu."); return; }
     if (!brand.kegiatan) brand.kegiatan = [];
-    // Kalau kegId ada → update. Kalau nggak → tambah baru.
-    if (kegId) {
-      const keg = brand.kegiatan.find((k) => k.id === kegId);
-      if (keg) {
-        keg.catatan = catatan;
-        keg.updatedAt = new Date().toISOString();
-      }
-    } else {
-      brand.kegiatan.push({
-        id: `keg_${Date.now()}`,
-        judul: catatan.slice(0, 50),
-        tanggal: new Date().toISOString().split("T")[0],
-        status: "belum",
-        catatan,
-        createdAt: new Date().toISOString(),
-      });
-    }
+    brand.kegiatan.push({
+      id: `keg_${Date.now()}`,
+      judul: catatan.slice(0, 50),
+      tanggal: new Date().toISOString().split("T")[0],
+      status: "belum",
+      catatan,
+      createdAt: new Date().toISOString(),
+    });
     await userRef.update({ pekerjaan });
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di Pekerjaan</b>\n\n📝 ${catatan}`);
+    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di Pekerjaan</b>\n\n${pt.nama} → ${brand.nama}\n📝 ${catatan}`);
     return;
   }
 
   if (menuId === "bisnis") {
-    const userRef = firestore.collection("users").doc(userData._uid);
-    const snap = await userRef.get();
-    const data = snap.data();
     const brands = data.bisnisBrands || [];
-    const brandId = path[0];
-    const brand = brands.find((b) => b.id === brandId);
+    const brand = brands.find((b) => b.id === path[0]);
     if (!brand) { await editTelegramMessage(chatId, messageId, "❌ Brand nggak ketemu."); return; }
     if (!brand.kegiatan) brand.kegiatan = [];
     brand.kegiatan.push({
@@ -283,7 +297,7 @@ async function saveNestedLeaf(firestore, userData, menuId, path, catatan, chatId
       createdAt: new Date().toISOString(),
     });
     await userRef.update({ bisnisBrands: brands });
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di Bisnis</b>\n\n📝 ${catatan}`);
+    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di Bisnis</b>\n\n${brand.nama}\n📝 ${catatan}`);
     return;
   }
 }
@@ -297,16 +311,12 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
   const { command, payload, catatan } = parsed;
 
-  // ==== COMMAND SPESIAL ====
   if (command === "start") {
-    await sendTelegramMessage(chatId, `👋 Halo <b>${fromData?.first_name || "Sobat"}</b>!\n\nBuat mulai: kirim /help.`);
+    await sendTelegramMessage(chatId, `👋 Halo <b>${fromData?.first_name || "Sobat"}</b>!\n\nKirim /help buat panduan.`);
     return;
   }
   if (command === "link") {
-    if (!payload) {
-      await sendTelegramMessage(chatId, `⚠️ Format: <code>/link KODE</code>`);
-      return;
-    }
+    if (!payload) { await sendTelegramMessage(chatId, `⚠️ Format: <code>/link KODE</code>`); return; }
     await handleLink(firestore, chatId, payload, fromData);
     return;
   }
@@ -316,7 +326,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
 
   if (!userData) {
-    await sendTelegramMessage(chatId, `⚠️ Belum di-link.\nBuka web → 🤖 Telegram → Generate Pairing Code → kirim <code>/link KODE</code>.`);
+    await sendTelegramMessage(chatId, `⚠️ Belum di-link.\nBuka web → 🤖 Telegram → Generate Pairing Code → <code>/link KODE</code>.`);
     return;
   }
 
@@ -326,15 +336,11 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
   if (command === "debug") {
     const menus = userData.menus || [];
-    await sendTelegramMessage(
-      chatId,
-      `<b>🔍 DEBUG</b>\n\nUID: <code>${userData._uid}</code>\nmenus: ${menus.length}\npekerjaan: ${(userData.pekerjaan || []).length}\nbelajar.kategori: ${(userData.belajar?.kategori || []).length}\nbisnisBrands: ${(userData.bisnisBrands || []).length}`
-    );
+    await sendTelegramMessage(chatId, `<b>🔍 DEBUG</b>\n\nUID: <code>${userData._uid}</code>\nmenus: ${menus.length}\npekerjaan: ${(userData.pekerjaan || []).length}\nbelajar: ${(userData.belajar?.kategori || []).length}\nbisnis: ${(userData.bisnisBrands || []).length}`);
     return;
   }
   if (command === "status") {
-    const today = new Date().toISOString().split("T")[0];
-    await sendTelegramMessage(chatId, `<b>📊 Status</b>\n\n🟢 Telegram: Aktif\n🟢 Firestore: Tersambung\n📅 Hari ini: ${today}`);
+    await sendTelegramMessage(chatId, `<b>📊 Status</b>\n\n🟢 Telegram: Aktif\n🟢 Firestore: Tersambung`);
     return;
   }
   if (command === "today") {
@@ -351,48 +357,32 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
-  // ==== KARYA MINGGUAN ====
+  // ==== KARYA ====
   if (command === "karya") {
-    if (!payload) {
-      await sendTelegramMessage(chatId, `⚠️ Format: <code>/karya [tool] | [link_tiktok] | [catatan]</code>`);
-      return;
-    }
+    if (!payload) { await sendTelegramMessage(chatId, `⚠️ Format: <code>/karya [tool] | [link] | [catatan]</code>`); return; }
     const parts = payload.split("|").map((p) => p.trim());
     const toolName = parts[0];
     const linkTiktok = catatan || "";
     const catatanKarya = parts[1] || "";
-
     const kategoriArr = userData.belajar?.kategori || [];
     const result = resolveNestedPath(toolName, kategoriArr);
-    if (!result || !result.found) {
-      await sendTelegramMessage(chatId, `❌ Tool "${toolName}" nggak ketemu.`);
-      return;
-    }
+    if (!result || !result.found) { await sendTelegramMessage(chatId, `❌ Tool "${toolName}" nggak ketemu.`); return; }
     const userRef = firestore.collection("users").doc(userData._uid);
     const snap = await userRef.get();
     const data = snap.data();
     const kategori = data.belajar?.kategori || [];
-    const path = result.path;
     let arr = kategori;
     let found = null;
-    for (let i = 0; i < path.length; i++) {
-      found = arr.find((x) => x.id === path[i]);
+    for (let i = 0; i < result.path.length; i++) {
+      found = arr.find((x) => x.id === result.path[i]);
       if (!found) break;
-      if (i < path.length - 1) {
+      if (i < result.path.length - 1) {
         arr = found.tools || found.subKategori || found.fitur || found.parts || [];
       }
     }
-    if (!found) {
-      await sendTelegramMessage(chatId, `❌ Tool nggak ketemu.`);
-      return;
-    }
+    if (!found) { await sendTelegramMessage(chatId, `❌ Tool nggak ketemu.`); return; }
     if (!found.karyaMingguan) found.karyaMingguan = [];
-    found.karyaMingguan.push({
-      id: `kw_${Date.now()}`,
-      tanggal: new Date().toISOString().split("T")[0],
-      linkTiktok,
-      catatan: catatanKarya,
-    });
+    found.karyaMingguan.push({ id: `kw_${Date.now()}`, tanggal: new Date().toISOString().split("T")[0], linkTiktok, catatan: catatanKarya });
     await userRef.update({ belajar: { kategori } });
     await sendTelegramMessage(chatId, `✅ Karya mingguan ditambah ke ${result.labels.join(" → ")}.`);
     return;
@@ -408,16 +398,15 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   if (found.type === "top") {
     const menu = found.menu;
 
-    // ✅ FIX: CEK NESTED DULU (sebelum cek catatan kosong)
+    // Nested dulu
     if (menu.id === "belajar" || menu.id === "pekerjaan" || menu.id === "bisnis") {
       const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
       if (msg.ok) {
-        await handleNestedMenu(firestore, chatId, msg.result.message_id, userData, menu.id, payload, catatan, "A");
+        await handleNestedMenu(firestore, chatId, msg.result.message_id, userData, menu.id, payload, catatan);
       }
       return;
     }
 
-    // Top-level biasa (Olahraga, Keuangan, dll) → butuh catatan
     const fullCatatan = catatan || payload;
     if (!fullCatatan) {
       await sendTelegramMessage(chatId, `⚠️ Catatan kosong. Contoh: /${menu.id} isi catatan`);
@@ -426,9 +415,9 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
     await sendTelegramWithButtons(
       chatId,
-      `<b>📋 Ringkasan</b>\n\nMenu: <b>${menu.label}</b>\n📝 Catatan: ${fullCatatan}\n\nSimpen?`,
+      `<b>📋 Ringkasan</b>\n\nMenu: <b>${menu.label}</b>\n📝 ${fullCatatan}\n\nSimpen?`,
       [
-        [{ text: "✅ Ya", callback_data: `confirm|${menu.id}||${fullCatatan}` }],
+        [{ text: "✅ Ya", callback_data: `confirm|${menu.id}|${fullCatatan}` }],
         [{ text: "❌ Batal", callback_data: "cancel" }],
       ]
     );
@@ -437,15 +426,12 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   if (found.type === "custom") {
     const fullCatatan = catatan || payload;
-    if (!fullCatatan) {
-      await sendTelegramMessage(chatId, `⚠️ Catatan kosong.`);
-      return;
-    }
+    if (!fullCatatan) { await sendTelegramMessage(chatId, `⚠️ Catatan kosong.`); return; }
     await sendTelegramWithButtons(
       chatId,
-      `<b>📋 Ringkasan</b>\n\nMenu: <b>${found.menu.nama}</b>\n📝 Catatan: ${fullCatatan}\n\nSimpen?`,
+      `<b>📋 Ringkasan</b>\n\nMenu: <b>${found.menu.nama}</b>\n📝 ${fullCatatan}\n\nSimpen?`,
       [
-        [{ text: "✅ Ya", callback_data: `confirm_custom|${found.key}||${fullCatatan}` }],
+        [{ text: "✅ Ya", callback_data: `confirm_custom|${found.key}|${fullCatatan}` }],
         [{ text: "❌ Batal", callback_data: "cancel" }],
       ]
     );
@@ -465,6 +451,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
   if (action === "cancel") {
     await editTelegramMessage(chatId, messageId, "❌ Dibatalkan.");
+    await firestore.collection("telegramState").doc(String(chatId)).delete();
     return;
   }
 
@@ -472,11 +459,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
     const menuId = parts[1];
     const catatan = parts.slice(2).join("|");
     await saveTopLevel(firestore, userData, menuId, catatan);
-    await editTelegramMessage(
-      chatId, messageId,
-      `<b>✅ Tersimpan di ${menuId}</b>\n\n📝 ${catatan}\n\n📊 Auto-sync ke Sheets.`,
-      [[{ text: "📊 Sync Now", callback_data: `syncnow` }]]
-    );
+    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di ${menuId}</b>\n\n📝 ${catatan}`);
     return;
   }
 
@@ -484,22 +467,58 @@ async function handleCallback(callbackQuery, userData, firestore) {
     const customKey = parts[1];
     const catatan = parts.slice(2).join("|");
     await saveCustom(firestore, userData, customKey, catatan);
+    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di ${customKey}</b>\n\n📝 ${catatan}`);
+    return;
+  }
+
+  // Pick level 1 (PT / Kategori / Brand)
+  if (action === "pickNested") {
+    const menuId = parts[1];
+    const itemId = parts[2];
+    await handleNestedPick(firestore, chatId, messageId, userData, menuId, itemId);
+    return;
+  }
+
+  // Pick level 2 (Brand)
+  if (action === "pickNestedSub") {
+    const menuId = parts[1];
+    const parentId = parts[2];
+    const childId = parts[3];
+    await handleNestedSubPick(firestore, chatId, messageId, userData, menuId, parentId, childId);
+    return;
+  }
+
+  // Pick level 3 (Kegiatan)
+  if (action === "pickNestedSub2") {
+    const menuId = parts[1];
+    const parentId = parts[2];
+    const childId = parts[3];
+    const grandId = parts[4];
+    // Untuk kasus Pekerjaan → PT → Brand → Kegiatan, kita anggap grandId = leaf
+    // Minta catatan
+    const rootArray = getRootArray(userData, menuId);
+    const parent = rootArray.find((x) => x.id === parentId);
+    const child = (parent?.brands || []).find((b) => b.id === childId);
+    const grand = (child?.kegiatan || []).find((k) => k.id === grandId);
+
     await editTelegramMessage(
       chatId, messageId,
-      `<b>✅ Tersimpan di ${customKey}</b>\n\n📝 ${catatan}`,
-      [[{ text: "📊 Sync Now", callback_data: `syncnow` }]]
+      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${parent?.nama} → ${child?.nama} → ${grand?.judul || grand?.nama}\n\nKetik catatan (atau "-"):`
     );
+    await firestore.collection("telegramState").doc(String(chatId)).set({
+      menuId,
+      path: [parentId, childId, grandId],
+      awaiting: "catatan",
+      updatedAt: new Date().toISOString(),
+    });
     return;
   }
 
-  if (action === "pickNested") {
-    const [, menuId, level, itemId] = parts;
-    await handleNestedPick(firestore, chatId, messageId, userData, menuId, parseInt(level), itemId, "");
-    return;
-  }
-
+  // Save nested (dari Mode A/B)
   if (action === "saveNested") {
-    const [, menuId, pathStr, , catatan] = parts;
+    const menuId = parts[1];
+    const pathStr = parts[2];
+    const catatan = parts[3];
     const path = pathStr.split("/");
     await saveNestedLeaf(firestore, userData, menuId, path, catatan, chatId, messageId);
     return;
@@ -507,14 +526,6 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
   if (action === "syncnow") {
     await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan.");
-    try {
-      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
-      await fetch(`${baseUrl}/api/sync-sheets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: userData._uid }),
-      });
-    } catch (e) { console.error(e); }
     return;
   }
 }
@@ -560,13 +571,12 @@ export async function POST(req) {
     const user = await resolveUser(firestore, chatId);
     const userData = user ? { ...user.data, _uid: user.uid } : null;
 
-    // Cek state "awaiting catatan" (Mode C leaf)
+    // Cek state awaiting catatan
     const stateRef = firestore.collection("telegramState").doc(String(chatId));
     const stateSnap = await stateRef.get();
     const state = stateSnap.exists ? stateSnap.data() : null;
 
     if (update.message?.text && state?.awaiting === "catatan" && !update.message.text.startsWith("/")) {
-      // User lagi nunggu masukin catatan (Mode C)
       const catatan = update.message.text.trim();
       if (catatan && catatan !== "-") {
         await saveNestedLeaf(firestore, userData, state.menuId, state.path, catatan, chatId, message.message_id);
@@ -578,10 +588,7 @@ export async function POST(req) {
     }
 
     if (update.callback_query) {
-      if (!userData) {
-        await sendTelegramMessage(chatId, `⚠️ Belum di-link.`);
-        return NextResponse.json({ ok: true });
-      }
+      if (!userData) { await sendTelegramMessage(chatId, `⚠️ Belum di-link.`); return NextResponse.json({ ok: true }); }
       await handleCallback(update.callback_query, userData, firestore);
       return NextResponse.json({ ok: true });
     }
@@ -591,7 +598,7 @@ export async function POST(req) {
       return NextResponse.json({ ok: true });
     }
 
-    await sendTelegramMessage(chatId, "🤖 Format nggak didukung (Fase 1).");
+    await sendTelegramMessage(chatId, "🤖 Format nggak didukung.");
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[telegram] Error:", err);
