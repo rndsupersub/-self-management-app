@@ -98,7 +98,6 @@ async function handleLink(firestore, chatId, code, fromData) {
 async function startWizard(firestore, chatId, menuId, userData) {
   let config = WIZARD_CONFIG[menuId];
   if (!config) {
-    // Cek menu custom
     if (userData.menusCustom && userData.menusCustom[menuId]) {
       config = CUSTOM_MENU_WIZARD;
     } else {
@@ -107,7 +106,6 @@ async function startWizard(firestore, chatId, menuId, userData) {
     }
   }
 
-  // Set default values
   const fields = {};
   config.steps.forEach((s) => {
     if (s.default !== undefined) {
@@ -124,7 +122,6 @@ async function startWizard(firestore, chatId, menuId, userData) {
   };
   await setState(firestore, chatId, state);
 
-  // Kirim pesan step pertama
   const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
   if (msg.ok) {
     state.messageId = msg.result.message_id;
@@ -143,14 +140,34 @@ async function renderStep(firestore, chatId, state, userData) {
 
   // Kalau udah lewat step terakhir → tampil ringkasan
   if (stepIdx >= steps.length) {
-    const ringkasan = buildRingkasan(state.menuId, steps, state.fields, userData);
-    await editTelegramMessage(chatId, state.messageId, ringkasan, [
+    let ringkasan;
+    try {
+      ringkasan = buildRingkasan(state.menuId, steps, state.fields, userData);
+    } catch (e) {
+      console.error("[renderStep] buildRingkasan error:", e.message);
+      ringkasan = `<b>📋 Ringkasan</b>\n\nMenu: <b>${config.label}</b>\n\nSimpen?`;
+    }
+
+    const buttons = [
       [{ text: "✅ Simpan", callback_data: "wiz_save" }],
       [
         { text: "⬅️ Kembali", callback_data: "wiz_back" },
         { text: "❌ Batal", callback_data: "wiz_cancel" },
       ],
-    ]);
+    ];
+
+    try {
+      await editTelegramMessage(chatId, state.messageId, ringkasan, buttons);
+    } catch (e) {
+      console.error("[renderStep] editTelegramMessage (ringkasan) error:", e.message);
+      // Fallback: kirim pesan baru kalau edit gagal
+      await sendTelegramWithButtons(chatId, ringkasan, buttons);
+    }
+
+    // FIX: Set awaiting null biar next text input nggak dianggap wizard
+    state.awaiting = null;
+    state.awaitingType = null;
+    await setState(firestore, chatId, state);
     return;
   }
 
@@ -164,23 +181,27 @@ async function renderStep(firestore, chatId, state, userData) {
   let buttons = [];
 
   if (step.type === "choice") {
-    const opts = step.source(userData, state) || [];
+    let opts = [];
+    try {
+      opts = step.source(userData, state) || [];
+    } catch (e) {
+      console.error("[renderStep] step.source error:", e.message);
+      opts = [];
+    }
     if (opts.length === 0) {
       text += `\n\n⚠️ <i>Nggak ada pilihan. Data kosong di web. Skip aja.</i>`;
       buttons.push([{ text: "⏭️ Skip", callback_data: "wiz_skip" }]);
     } else {
-      // Maksimal 5 tombol per baris, kita bikin 2 per baris
       const rows = [];
       for (let i = 0; i < opts.length; i += 2) {
         const row = [];
-        row.push({ text: opts[i].label.slice(0, 30), callback_data: `wiz_pick|${opts[i].id}` });
+        row.push({ text: (opts[i].label || "").slice(0, 30), callback_data: `wiz_pick|${opts[i].id}` });
         if (opts[i + 1]) {
-          row.push({ text: opts[i + 1].label.slice(0, 30), callback_data: `wiz_pick|${opts[i + 1].id}` });
+          row.push({ text: (opts[i + 1].label || "").slice(0, 30), callback_data: `wiz_pick|${opts[i + 1].id}` });
         }
         rows.push(row);
       }
       buttons = rows;
-      // Tambah tombol skip kalau optional
       if (!step.required) {
         buttons.push([{ text: step.skipLabel || "⏭️ Skip", callback_data: "wiz_skip" }]);
       }
@@ -202,7 +223,6 @@ async function renderStep(firestore, chatId, state, userData) {
   }
 
   if (step.type === "text" || step.type === "number" || step.type === "optional-text") {
-    // User tinggal ketik
     buttons = [];
     if (step.type === "optional-text") {
       buttons.push([{ text: "⏭️ Skip", callback_data: "wiz_skip" }]);
@@ -215,7 +235,12 @@ async function renderStep(firestore, chatId, state, userData) {
   navRow.push({ text: "❌ Batal", callback_data: "wiz_cancel" });
   buttons.push(navRow);
 
-  await editTelegramMessage(chatId, state.messageId, text, buttons);
+  try {
+    await editTelegramMessage(chatId, state.messageId, text, buttons);
+  } catch (e) {
+    console.error("[renderStep] editTelegramMessage error:", e.message);
+    await sendTelegramWithButtons(chatId, text, buttons);
+  }
 
   // Update state awaiting
   state.awaiting = step.type === "choice" || step.type === "date" ? null : step.key;
@@ -228,9 +253,13 @@ async function handleWizardInput(firestore, chatId, text, state, userData) {
   let config = WIZARD_CONFIG[state.menuId];
   if (!config) config = CUSTOM_MENU_WIZARD;
   const step = config.steps[state.currentStep];
-  if (!step) return;
+  if (!step) {
+    // FIX: Kalau step udah nggak ada, hapus state
+    await clearState(firestore, chatId);
+    await sendTelegramMessage(chatId, `⚠️ Wizard udah selesai. Kirim /help.`);
+    return;
+  }
 
-  // Validasi
   if (step.type === "number") {
     const num = parseInt(text.replace(/[^\d-]/g, ""));
     if (isNaN(num)) {
@@ -264,6 +293,7 @@ async function handleWizardCallback(firestore, chatId, data, state, userData, me
 
   if (action === "wiz_back") {
     state.currentStep = Math.max(0, state.currentStep - 1);
+    state.awaiting = null;
     await setState(firestore, chatId, state);
     await renderStep(firestore, chatId, state, userData);
     return;
@@ -497,7 +527,6 @@ async function saveWizard(firestore, userData, state) {
       catatan: f.catatan || "",
       updatedAt: new Date().toISOString(),
     };
-    // Tambah halaman ke halamanSelesai
     if (!buku.halamanSelesai) buku.halamanSelesai = [];
     for (let i = f.halamanMulai; i <= f.halamanSelesai; i++) {
       if (!buku.halamanSelesai.includes(i)) buku.halamanSelesai.push(i);
@@ -549,6 +578,17 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
       await handleWizardInput(firestore, chatId, text, state, userData);
       return;
     }
+  }
+
+  // FIX: Kalau ada state wizard tapi nggak awaiting & user kirim text random → hapus state
+  if (state && !state.awaiting && !text.startsWith("/")) {
+    // User lagi di ringkasan (udah lewat step terakhir) tapi kirim text random
+    // Ingatkan: klik [✅ Simpan] atau [❌ Batal]
+    await sendTelegramMessage(
+      chatId,
+      `⚠️ Wizard lagi di ringkasan.\n\nKlik <b>[✅ Simpan]</b> buat simpen, atau <b>[❌ Batal]</b> buat batalin.`
+    );
+    return;
   }
 
   const parsed = parseCommand(text);
@@ -651,7 +691,6 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
-  // Cek apakah menu ini punya wizard config
   const hasWizard = WIZARD_CONFIG[command] || (userData.menusCustom && userData.menusCustom[command]);
 
   if (hasWizard) {
@@ -697,19 +736,6 @@ async function handleCallback(callbackQuery, userData, firestore) {
     await handleWizardCallback(firestore, chatId, data, state, userData, messageId);
     return;
   }
-}
-
-// ========== SIMPAN TOP-LEVEL (fallback) ==========
-async function saveTopLevel(firestore, userData, menuId, catatan) {
-  const userRef = firestore.collection("users").doc(userData._uid);
-  const todayStr = today();
-  const snap = await userRef.get();
-  const data = snap.data();
-  const dailyProgress = data.dailyProgress || {};
-  const todayData = dailyProgress[todayStr] || {};
-  todayData[menuId] = { ...(todayData[menuId] || {}), catatan, updatedAt: new Date().toISOString() };
-  dailyProgress[todayStr] = todayData;
-  await userRef.update({ dailyProgress });
 }
 
 // ========== MAIN HANDLER ==========
