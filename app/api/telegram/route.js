@@ -9,18 +9,29 @@ import {
   editTelegramMessage,
   parseCommand,
   findMenuByCommand,
-  resolveNestedPath,
   buildHelpText,
   buildMenuListText,
 } from "@/lib/telegramData";
+import {
+  WIZARD_CONFIG,
+  CUSTOM_MENU_WIZARD,
+  buildRingkasan,
+  progressLabel,
+  today,
+} from "@/lib/telegramWizard";
 
 // ========== FIREBASE ADMIN ==========
 let adminApp = null;
 function getAdminApp() {
   if (adminApp) return adminApp;
-  if (getApps().length > 0) { adminApp = getApps()[0]; return adminApp; }
+  if (getApps().length > 0) {
+    adminApp = getApps()[0];
+    return adminApp;
+  }
   const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "")
-    .trim().replace(/^"|"$/g, "").replace(/\\n/g, "\n");
+    .trim()
+    .replace(/^"|"$/g, "")
+    .replace(/\\n/g, "\n");
   adminApp = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
@@ -46,30 +57,21 @@ async function resolveUser(firestore, chatId) {
   return null;
 }
 
-// ========== HELPER: NAVIGATE PATH ==========
-// Ambil root array berdasarkan menuId
-function getRootArray(data, menuId) {
-  if (menuId === "belajar") return data.belajar?.kategori || [];
-  if (menuId === "pekerjaan") return data.pekerjaan || [];
-  if (menuId === "bisnis") return data.bisnisBrands || [];
-  return [];
+// ========== STATE MANAGEMENT ==========
+async function getState(firestore, chatId) {
+  const ref = firestore.collection("telegramState").doc(String(chatId));
+  const snap = await ref.get();
+  return snap.exists ? snap.data() : null;
 }
 
-// Navigate path → dapat item di level terakhir + children array
-// Contoh path ["ptId", "brandId"] → item = brand, children = brand.kegiatan
-function navigatePath(rootArray, path) {
-  let current = rootArray;
-  let item = null;
-  for (let i = 0; i < path.length; i++) {
-    item = current.find((x) => x.id === path[i]);
-    if (!item) return null;
-    if (i < path.length - 1) {
-      current = item.brands || item.subKategori || item.tools || item.fitur || item.parts || item.kegiatan || [];
-    }
-  }
-  // Children dari item terakhir
-  const children = item.brands || item.subKategori || item.tools || item.fitur || item.parts || item.kegiatan || [];
-  return { item, children };
+async function setState(firestore, chatId, state) {
+  const ref = firestore.collection("telegramState").doc(String(chatId));
+  await ref.set({ ...state, updatedAt: new Date().toISOString() });
+}
+
+async function clearState(firestore, chatId) {
+  const ref = firestore.collection("telegramState").doc(String(chatId));
+  await ref.delete();
 }
 
 // ========== HANDLE /link ==========
@@ -92,218 +94,463 @@ async function handleLink(firestore, chatId, code, fromData) {
   await sendTelegramMessage(chatId, `<b>✅ Berhasil di-link!</b>\n\nUID: <code>${uid}</code>\n\nKirim /help buat panduan.`);
 }
 
-// ========== SIMPAN LOG HARIAN ==========
-async function simpanKeLogHarian(firestore, uid, entry) {
-  const userRef = firestore.collection("users").doc(uid);
-  const snap = await userRef.get();
-  const data = snap.data() || {};
-  const today = entry.tanggal || new Date().toISOString().split("T")[0];
-  const logHarian = data.belajarLogHarian || {};
-  if (!logHarian[today]) logHarian[today] = [];
-  logHarian[today].push({
-    id: `log_${Date.now()}`,
-    kategoriId: entry.kategoriId,
-    subKategoriId: entry.subKategoriId || "",
-    toolId: entry.toolId || "",
-    fiturId: entry.fiturId || "",
-    partId: entry.partId || "",
-    catatan: entry.catatan || "",
-    gdriveUrl: entry.gdriveUrl || "",
-    telegramMessageId: "",
-    sumber: "telegram",
-    updatedAt: new Date().toISOString(),
-  });
-  await userRef.update({ belajarLogHarian: logHarian });
-}
-
-// ========== HANDLE NESTED (Mulai dari root) ==========
-async function handleNestedMenu(firestore, chatId, messageId, userData, command, payload, catatan) {
-  const rootArray = getRootArray(userData, command);
-
-  if (rootArray.length === 0) {
-    await editTelegramMessage(chatId, messageId, `⚠️ Menu <b>${command}</b> kosong.\n\nBuka web dulu.`);
-    return;
-  }
-
-  // Kalau payload ada → cari
-  if (payload && command === "belajar") {
-    const result = resolveNestedPath(payload, rootArray);
-    if (result && result.found) {
-      const buttons = [
-        [{ text: "✅ Ya", callback_data: `saveNested|${command}|${result.path.join("/")}|${catatan || payload}` }],
-        [{ text: "❌ Batal", callback_data: "cancel" }],
-      ];
-      await editTelegramMessage(
-        chatId, messageId,
-        `<b>📋 Ringkasan</b>\n\n<b>${result.labels.join(" → ")}</b>\n📝 ${catatan || payload}\n\nSimpen?`,
-        buttons
-      );
+// ========== WIZARD — MULAI ==========
+async function startWizard(firestore, chatId, menuId, userData) {
+  let config = WIZARD_CONFIG[menuId];
+  if (!config) {
+    // Cek menu custom
+    if (userData.menusCustom && userData.menusCustom[menuId]) {
+      config = CUSTOM_MENU_WIZARD;
+    } else {
+      await sendTelegramMessage(chatId, `❌ Menu "${menuId}" nggak punya wizard.`);
       return;
     }
   }
 
-  // Mode C — tampilin level 1
-  const buttons = rootArray.slice(0, 8).map((k) => [
-    { text: (k.nama || k.label || "").slice(0, 40), callback_data: `pickNested|${command}|${k.id}` },
-  ]);
-  buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
-  await editTelegramMessage(chatId, messageId, `<b>📚 ${command} → pilih:</b>`, buttons);
+  // Set default values
+  const fields = {};
+  config.steps.forEach((s) => {
+    if (s.default !== undefined) {
+      if (s.default === "today") fields[s.key] = today();
+      else fields[s.key] = s.default;
+    }
+  });
+
+  const state = {
+    menuId,
+    currentStep: 0,
+    fields,
+    awaiting: null,
+  };
+  await setState(firestore, chatId, state);
+
+  // Kirim pesan step pertama
+  const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
+  if (msg.ok) {
+    state.messageId = msg.result.message_id;
+    await setState(firestore, chatId, state);
+    await renderStep(firestore, chatId, state, userData);
+  }
 }
 
-// ========== HANDLE NESTED PICK (Mode C) ==========
-async function handleNestedPick(firestore, chatId, messageId, userData, menuId, itemId) {
-  const rootArray = getRootArray(userData, menuId);
-  const item = rootArray.find((x) => x.id === itemId);
-  if (!item) {
-    await editTelegramMessage(chatId, messageId, "❌ Item nggak ditemukan.");
+// ========== WIZARD — RENDER STEP ==========
+async function renderStep(firestore, chatId, state, userData) {
+  let config = WIZARD_CONFIG[state.menuId];
+  if (!config) config = CUSTOM_MENU_WIZARD;
+
+  const steps = config.steps;
+  const stepIdx = state.currentStep;
+
+  // Kalau udah lewat step terakhir → tampil ringkasan
+  if (stepIdx >= steps.length) {
+    const ringkasan = buildRingkasan(state.menuId, steps, state.fields, userData);
+    await editTelegramMessage(chatId, state.messageId, ringkasan, [
+      [{ text: "✅ Simpan", callback_data: "wiz_save" }],
+      [
+        { text: "⬅️ Kembali", callback_data: "wiz_back" },
+        { text: "❌ Batal", callback_data: "wiz_cancel" },
+      ],
+    ]);
     return;
   }
 
-  const children = item.brands || item.subKategori || item.tools || item.fitur || item.parts || item.kegiatan || [];
+  const step = steps[stepIdx];
+  const progress = progressLabel(stepIdx, steps.length);
 
-  if (children.length === 0) {
-    // Leaf — minta catatan
-    await editTelegramMessage(
-      chatId, messageId,
-      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${item.nama || item.label}\n\nKetik catatan (atau "-" kalau kosong):`
-    );
-    await firestore.collection("telegramState").doc(String(chatId)).set({
-      menuId,
-      path: [item.id],
-      labels: [item.nama || item.label],
-      awaiting: "catatan",
-      updatedAt: new Date().toISOString(),
-    });
-    return;
+  let text = `<b>${progress} — ${step.label}</b>\n`;
+  if (step.hint) text += `\n<i>${step.hint}</i>`;
+  if (!step.required) text += `\n<i>(Opsional — bisa skip)</i>`;
+
+  let buttons = [];
+
+  if (step.type === "choice") {
+    const opts = step.source(userData, state) || [];
+    if (opts.length === 0) {
+      text += `\n\n⚠️ <i>Nggak ada pilihan. Data kosong di web. Skip aja.</i>`;
+      buttons.push([{ text: "⏭️ Skip", callback_data: "wiz_skip" }]);
+    } else {
+      // Maksimal 5 tombol per baris, kita bikin 2 per baris
+      const rows = [];
+      for (let i = 0; i < opts.length; i += 2) {
+        const row = [];
+        row.push({ text: opts[i].label.slice(0, 30), callback_data: `wiz_pick|${opts[i].id}` });
+        if (opts[i + 1]) {
+          row.push({ text: opts[i + 1].label.slice(0, 30), callback_data: `wiz_pick|${opts[i + 1].id}` });
+        }
+        rows.push(row);
+      }
+      buttons = rows;
+      // Tambah tombol skip kalau optional
+      if (!step.required) {
+        buttons.push([{ text: step.skipLabel || "⏭️ Skip", callback_data: "wiz_skip" }]);
+      }
+    }
   }
 
-  // Ada children → tampilin
-  const buttons = children.slice(0, 8).map((c) => [
-    {
-      text: (c.nama || c.label || "").slice(0, 40),
-      callback_data: `pickNestedSub|${menuId}|${item.id}|${c.id}`,
-    },
-  ]);
-  buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
-  await editTelegramMessage(
-    chatId, messageId,
-    `<b>${menuId} → ${item.nama || item.label} → pilih:</b>`,
-    buttons
-  );
+  if (step.type === "date") {
+    buttons = [
+      [
+        { text: "📅 Hari Ini", callback_data: "wiz_date|today" },
+        { text: "📅 Besok", callback_data: "wiz_date|besok" },
+      ],
+      [{ text: "📅 Kemarin", callback_data: "wiz_date|kemarin" }],
+      [{ text: "✏️ Manual (YYYY-MM-DD)", callback_data: "wiz_date_manual" }],
+    ];
+    if (!step.required) {
+      buttons.push([{ text: "⏭️ Skip", callback_data: "wiz_skip" }]);
+    }
+  }
+
+  if (step.type === "text" || step.type === "number" || step.type === "optional-text") {
+    // User tinggal ketik
+    buttons = [];
+    if (step.type === "optional-text") {
+      buttons.push([{ text: "⏭️ Skip", callback_data: "wiz_skip" }]);
+    }
+  }
+
+  // Tambah tombol navigasi
+  const navRow = [];
+  if (stepIdx > 0) navRow.push({ text: "⬅️ Kembali", callback_data: "wiz_back" });
+  navRow.push({ text: "❌ Batal", callback_data: "wiz_cancel" });
+  buttons.push(navRow);
+
+  await editTelegramMessage(chatId, state.messageId, text, buttons);
+
+  // Update state awaiting
+  state.awaiting = step.type === "choice" || step.type === "date" ? null : step.key;
+  state.awaitingType = step.type;
+  await setState(firestore, chatId, state);
 }
 
-// ========== HANDLE NESTED SUB-PICK (Level 2+) ==========
-async function handleNestedSubPick(firestore, chatId, messageId, userData, menuId, parentId, childId) {
-  // parentId = PT id, childId = brand id (atau parent → child di level lain)
-  const rootArray = getRootArray(userData, menuId);
-  const parent = rootArray.find((x) => x.id === parentId);
-  if (!parent) {
-    await editTelegramMessage(chatId, messageId, "❌ Parent nggak ketemu.");
-    return;
+// ========== WIZARD — HANDLE INPUT ==========
+async function handleWizardInput(firestore, chatId, text, state, userData) {
+  let config = WIZARD_CONFIG[state.menuId];
+  if (!config) config = CUSTOM_MENU_WIZARD;
+  const step = config.steps[state.currentStep];
+  if (!step) return;
+
+  // Validasi
+  if (step.type === "number") {
+    const num = parseInt(text.replace(/[^\d-]/g, ""));
+    if (isNaN(num)) {
+      await sendTelegramMessage(chatId, `⚠️ Harus angka. Coba lagi:`);
+      return;
+    }
+    state.fields[step.key] = num;
+  } else {
+    state.fields[step.key] = text === "-" ? "" : text;
   }
 
-  const childArray = parent.brands || parent.subKategori || parent.tools || parent.fitur || parent.parts || parent.kegiatan || [];
-  const child = childArray.find((c) => c.id === childId);
-  if (!child) {
-    await editTelegramMessage(chatId, messageId, "❌ Child nggak ketemu.");
-    return;
-  }
-
-  const grandChildren = child.subKategori || child.tools || child.fitur || child.parts || child.kegiatan || [];
-
-  if (grandChildren.length === 0) {
-    // Leaf — minta catatan
-    await editTelegramMessage(
-      chatId, messageId,
-      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${parent.nama || parent.label} → ${child.nama || child.label}\n\nKetik catatan (atau "-"):`
-    );
-    await firestore.collection("telegramState").doc(String(chatId)).set({
-      menuId,
-      path: [parent.id, child.id],
-      labels: [parent.nama || parent.label, child.nama || child.label],
-      awaiting: "catatan",
-      updatedAt: new Date().toISOString(),
-    });
-    return;
-  }
-
-  // Ada grandChildren → tampilin
-  const buttons = grandChildren.slice(0, 8).map((g) => [
-    {
-      text: (g.nama || g.label || "").slice(0, 40),
-      callback_data: `pickNestedSub2|${menuId}|${parent.id}|${child.id}|${g.id}`,
-    },
-  ]);
-  buttons.push([{ text: "❌ Batal", callback_data: "cancel" }]);
-  await editTelegramMessage(
-    chatId, messageId,
-    `<b>${menuId} → ${parent.nama || parent.label} → ${child.nama || child.label} → pilih:</b>`,
-    buttons
-  );
+  state.currentStep++;
+  state.awaiting = null;
+  await setState(firestore, chatId, state);
+  await renderStep(firestore, chatId, state, userData);
 }
 
-// ========== SIMPAN NESTED LEAF ==========
-async function saveNestedLeaf(firestore, userData, menuId, path, catatan, chatId, messageId) {
+// ========== WIZARD — HANDLE CALLBACK ==========
+async function handleWizardCallback(firestore, chatId, data, state, userData, messageId) {
+  const parts = data.split("|");
+  const action = parts[0];
+
+  let config = WIZARD_CONFIG[state.menuId];
+  if (!config) config = CUSTOM_MENU_WIZARD;
+
+  if (action === "wiz_cancel") {
+    await clearState(firestore, chatId);
+    await editTelegramMessage(chatId, messageId, "❌ Dibatalkan.");
+    return;
+  }
+
+  if (action === "wiz_back") {
+    state.currentStep = Math.max(0, state.currentStep - 1);
+    await setState(firestore, chatId, state);
+    await renderStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  if (action === "wiz_skip") {
+    state.currentStep++;
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  if (action === "wiz_pick") {
+    const value = parts.slice(1).join("|");
+    const step = config.steps[state.currentStep];
+    if (!step) return;
+    state.fields[step.key] = value;
+    state.currentStep++;
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  if (action === "wiz_date") {
+    const opt = parts[1];
+    const step = config.steps[state.currentStep];
+    if (!step) return;
+    if (opt === "today") state.fields[step.key] = today();
+    else if (opt === "besok") {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      state.fields[step.key] = d.toISOString().split("T")[0];
+    } else if (opt === "kemarin") {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      state.fields[step.key] = d.toISOString().split("T")[0];
+    }
+    state.currentStep++;
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  if (action === "wiz_date_manual") {
+    state.awaiting = "date_manual";
+    state.awaitingKey = config.steps[state.currentStep]?.key;
+    await setState(firestore, chatId, state);
+    await sendTelegramMessage(chatId, `✏️ Ketik tanggal format <code>YYYY-MM-DD</code>:`);
+    return;
+  }
+
+  if (action === "wiz_save") {
+    try {
+      await saveWizard(firestore, userData, state);
+      await clearState(firestore, chatId);
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\n📊 Auto-sync ke Sheets.`,
+        [[{ text: "📊 Sync Now", callback_data: `syncnow|${userData._uid}` }]]
+      );
+    } catch (err) {
+      console.error("[wizard save] Error:", err);
+      await sendTelegramMessage(chatId, `❌ Gagal simpen: ${err.message}`);
+    }
+    return;
+  }
+}
+
+// ========== WIZARD — SIMPAN ==========
+async function saveWizard(firestore, userData, state) {
+  const menuId = state.menuId;
+  const f = state.fields;
   const userRef = firestore.collection("users").doc(userData._uid);
-  const snap = await userRef.get();
-  const data = snap.data();
+  const todayStr = today();
 
-  if (menuId === "belajar") {
-    const today = new Date().toISOString().split("T")[0];
-    await simpanKeLogHarian(firestore, userData._uid, {
-      kategoriId: "belajar",
-      subKategoriId: path[0] || "",
-      toolId: path[1] || "",
-      fiturId: path[2] || "",
-      partId: path[3] || "",
-      catatan,
-      tanggal: today,
-    });
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan!</b>\n\n📚 ${path.join(" → ")}\n📝 ${catatan}`);
-    return;
-  }
-
+  // ========== PEKERJAAN ==========
   if (menuId === "pekerjaan") {
-    const pekerjaan = data.pekerjaan || [];
-    const pt = pekerjaan.find((p) => p.id === path[0]);
-    if (!pt) { await editTelegramMessage(chatId, messageId, "❌ PT nggak ketemu."); return; }
-    const brand = (pt.brands || []).find((b) => b.id === path[1]);
-    if (!brand) { await editTelegramMessage(chatId, messageId, "❌ Brand nggak ketemu."); return; }
-    if (!brand.kegiatan) brand.kegiatan = [];
-    brand.kegiatan.push({
+    const pekerjaan = userData.pekerjaan || [];
+    const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
+    if (ptIdx === -1) throw new Error("PT nggak ketemu");
+    const brandIdx = (pekerjaan[ptIdx].brands || []).findIndex((b) => b.id === f.brandId);
+    if (brandIdx === -1) throw new Error("Brand nggak ketemu");
+    if (!pekerjaan[ptIdx].brands[brandIdx].kegiatan) {
+      pekerjaan[ptIdx].brands[brandIdx].kegiatan = [];
+    }
+    pekerjaan[ptIdx].brands[brandIdx].kegiatan.push({
       id: `keg_${Date.now()}`,
-      judul: catatan.slice(0, 50),
-      tanggal: new Date().toISOString().split("T")[0],
+      judul: f.judul || "Tanpa judul",
+      kategori: f.kategoriId || "analisis",
+      prioritas: f.prioritasId || "utama",
+      sumber: f.sumberId || "bos",
+      catatan: f.catatan || "",
+      gdriveUrl: f.gdriveUrl || "",
+      tanggalMulai: f.tanggalMulai || todayStr,
+      tanggalSelesai: f.tanggalSelesai || f.tanggalMulai || todayStr,
+      tanggal: f.tanggalMulai || todayStr,
       status: "belum",
-      catatan,
+      sections: { analisis: [], desain: [], vendor: [], lainnya: [] },
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
     await userRef.update({ pekerjaan });
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di Pekerjaan</b>\n\n${pt.nama} → ${brand.nama}\n📝 ${catatan}`);
     return;
   }
 
+  // ========== BISNIS ==========
   if (menuId === "bisnis") {
-    const brands = data.bisnisBrands || [];
-    const brand = brands.find((b) => b.id === path[0]);
-    if (!brand) { await editTelegramMessage(chatId, messageId, "❌ Brand nggak ketemu."); return; }
-    if (!brand.kegiatan) brand.kegiatan = [];
-    brand.kegiatan.push({
+    const brands = userData.bisnisBrands || [];
+    const bIdx = brands.findIndex((b) => b.id === f.brandId);
+    if (bIdx === -1) throw new Error("Brand nggak ketemu");
+    if (!brands[bIdx].kegiatan) brands[bIdx].kegiatan = [];
+    brands[bIdx].kegiatan.push({
       id: `keg_${Date.now()}`,
-      judul: catatan.slice(0, 50),
-      tanggal: new Date().toISOString().split("T")[0],
+      judul: f.judul || "Tanpa judul",
+      kategori: f.kategoriId || "analisis",
+      prioritas: f.prioritasId || "utama",
+      sumber: f.sumberId || "gua",
+      catatan: f.catatan || "",
+      gdriveUrl: f.gdriveUrl || "",
+      tanggal: f.tanggal || todayStr,
+      tanggalMulai: f.tanggal || todayStr,
+      tanggalSelesai: f.tanggal || todayStr,
       status: "belum",
-      catatan,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
     await userRef.update({ bisnisBrands: brands });
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di Bisnis</b>\n\n${brand.nama}\n📝 ${catatan}`);
     return;
   }
+
+  // ========== BELAJAR ==========
+  if (menuId === "belajar") {
+    const logHarian = userData.belajarLogHarian || {};
+    if (!logHarian[todayStr]) logHarian[todayStr] = [];
+    logHarian[todayStr].push({
+      id: `log_${Date.now()}`,
+      kategoriId: f.kategoriId,
+      subKategoriId: f.subKategoriId || "",
+      toolId: f.toolId || "",
+      fiturId: f.fiturId || "",
+      partId: f.partId || "",
+      catatan: f.catatan || "",
+      gdriveUrl: f.gdriveUrl || "",
+      telegramMessageId: "",
+      sumber: "telegram",
+      updatedAt: new Date().toISOString(),
+    });
+    await userRef.update({ belajarLogHarian: logHarian });
+    return;
+  }
+
+  // ========== OLAHRAGA ==========
+  if (menuId === "olahraga") {
+    const olahraga = userData.olahraga || { minggu: [], harian: {}, fieldEvaluasi: [] };
+    if (!olahraga.harian) olahraga.harian = {};
+    const current = olahraga.harian[todayStr] || {};
+    current[f.jenis] = f.jumlah || "";
+    if (f.catatan) current.catatan = f.catatan;
+    current.updatedAt = new Date().toISOString();
+    olahraga.harian[todayStr] = current;
+    await userRef.update({ olahraga });
+    return;
+  }
+
+  // ========== KEUANGAN ==========
+  if (menuId === "keuangan") {
+    const transaksi = userData.keuanganTransaksi || {};
+    if (!transaksi[todayStr]) transaksi[todayStr] = [];
+    transaksi[todayStr].push({
+      id: `trx_${Date.now()}`,
+      jenis: f.jenis,
+      nominal: f.nominal,
+      kategoriId: f.kategoriId || "",
+      walletId: f.walletId || "",
+      catatan: f.catatan || "",
+      updatedAt: new Date().toISOString(),
+    });
+    await userRef.update({ keuanganTransaksi: transaksi });
+    return;
+  }
+
+  // ========== HAFALAN ==========
+  if (menuId === "hafalan") {
+    const membaca = userData.hafalanMembaca || {};
+    membaca[todayStr] = {
+      juzId: f.juzId,
+      suratId: f.suratId,
+      halamanMulai: f.halamanMulai || 0,
+      halamanSelesai: f.halamanSelesai || 0,
+      sudah: true,
+      catatan: f.catatan || "",
+      updatedAt: new Date().toISOString(),
+    };
+    await userRef.update({ hafalanMembaca: membaca });
+    return;
+  }
+
+  // ========== YOUTUBE ==========
+  if (menuId === "youtube") {
+    const logs = userData.youtube_logs || [];
+    logs.push({
+      id: `yt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      channel: f.channel,
+      judul: f.judul || "",
+      tipe: f.tipe || "short",
+      status: f.status || "idea",
+      tanggal: todayStr,
+      linkYoutube: f.linkYoutube || "",
+      gdriveUrl: f.gdriveUrl || "",
+      catatan: f.catatan || "",
+      updatedAt: new Date().toISOString(),
+    });
+    await userRef.update({ youtube_logs: logs });
+    return;
+  }
+
+  // ========== BEDAH BUKU ==========
+  if (menuId === "bedah-buku") {
+    const bedahBuku = userData.bedahBuku || { kategori: [], buku: [] };
+    const bukuIdx = (bedahBuku.buku || []).findIndex((b) => b.id === f.bukuId);
+    if (bukuIdx === -1) throw new Error("Buku nggak ketemu");
+    const buku = bedahBuku.buku[bukuIdx];
+    if (!buku.progressHarian) buku.progressHarian = {};
+    buku.progressHarian[todayStr] = {
+      halamanMulai: f.halamanMulai,
+      halamanSelesai: f.halamanSelesai,
+      catatan: f.catatan || "",
+      updatedAt: new Date().toISOString(),
+    };
+    // Tambah halaman ke halamanSelesai
+    if (!buku.halamanSelesai) buku.halamanSelesai = [];
+    for (let i = f.halamanMulai; i <= f.halamanSelesai; i++) {
+      if (!buku.halamanSelesai.includes(i)) buku.halamanSelesai.push(i);
+    }
+    await userRef.update({ bedahBuku });
+    return;
+  }
+
+  // ========== MENU CUSTOM ==========
+  if (userData.menusCustom && userData.menusCustom[menuId]) {
+    const logs = userData.menusCustomLogHarian || {};
+    if (!logs[todayStr]) logs[todayStr] = {};
+    logs[todayStr][menuId] = {
+      catatan: f.catatan || "",
+      gdriveUrl: f.gdriveUrl || "",
+      updatedAt: new Date().toISOString(),
+    };
+    await userRef.update({ menusCustomLogHarian: logs });
+    return;
+  }
+
+  throw new Error(`Menu "${menuId}" belum didukung.`);
 }
 
-// ========== HANDLE PESAN ==========
+// ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
+  // Cek state wizard
+  const state = await getState(firestore, chatId);
+
+  // Kalau ada state wizard & user lagi nunggu input text
+  if (state && state.awaiting && !text.startsWith("/")) {
+    // Date manual
+    if (state.awaiting === "date_manual") {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(text.trim())) {
+        await sendTelegramMessage(chatId, `⚠️ Format salah. Ketik <code>YYYY-MM-DD</code> (contoh: 2026-10-05):`);
+        return;
+      }
+      state.fields[state.awaitingKey] = text.trim();
+      state.currentStep++;
+      state.awaiting = null;
+      state.awaitingKey = null;
+      await setState(firestore, chatId, state);
+      await renderStep(firestore, chatId, state, userData);
+      return;
+    }
+    // Text/number input untuk step
+    if (state.awaitingType === "text" || state.awaitingType === "number" || state.awaitingType === "optional-text") {
+      await handleWizardInput(firestore, chatId, text, state, userData);
+      return;
+    }
+  }
+
   const parsed = parseCommand(text);
   if (!parsed) {
     await sendTelegramMessage(chatId, `🤖 Halo! Kirim /help atau /menu_list.`);
@@ -311,6 +558,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
   const { command, payload, catatan } = parsed;
 
+  // ==== COMMAND SPESIAL ====
   if (command === "start") {
     await sendTelegramMessage(chatId, `👋 Halo <b>${fromData?.first_name || "Sobat"}</b>!\n\nKirim /help buat panduan.`);
     return;
@@ -344,8 +592,8 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
   if (command === "today") {
-    const today = new Date().toISOString().split("T")[0];
-    const progress = userData.dailyProgress?.[today] || {};
+    const todayStr = today();
+    const progress = userData.dailyProgress?.[todayStr] || {};
     await sendTelegramMessage(chatId, `<b>📅 Ringkasan Hari Ini</b>\n\n📝 ${Object.keys(progress).length} aktivitas.`);
     return;
   }
@@ -364,9 +612,12 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     const toolName = parts[0];
     const linkTiktok = catatan || "";
     const catatanKarya = parts[1] || "";
+
     const kategoriArr = userData.belajar?.kategori || [];
+    const { resolveNestedPath } = await import("@/lib/telegramData");
     const result = resolveNestedPath(toolName, kategoriArr);
     if (!result || !result.found) { await sendTelegramMessage(chatId, `❌ Tool "${toolName}" nggak ketemu.`); return; }
+
     const userRef = firestore.collection("users").doc(userData._uid);
     const snap = await userRef.get();
     const data = snap.data();
@@ -382,60 +633,31 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     }
     if (!found) { await sendTelegramMessage(chatId, `❌ Tool nggak ketemu.`); return; }
     if (!found.karyaMingguan) found.karyaMingguan = [];
-    found.karyaMingguan.push({ id: `kw_${Date.now()}`, tanggal: new Date().toISOString().split("T")[0], linkTiktok, catatan: catatanKarya });
+    found.karyaMingguan.push({
+      id: `kw_${Date.now()}`,
+      tanggal: today(),
+      linkTiktok,
+      catatan: catatanKarya,
+    });
     await userRef.update({ belajar: { kategori } });
     await sendTelegramMessage(chatId, `✅ Karya mingguan ditambah ke ${result.labels.join(" → ")}.`);
     return;
   }
 
-  // ==== MENU COMMAND ====
+  // ==== MENU COMMAND → MULAI WIZARD ====
   const found = findMenuByCommand(command, userData.menus, userData.menusCustom);
   if (!found) {
     await sendTelegramMessage(chatId, `❌ Menu "${command}" nggak ada.\nKetik /menu_list.`);
     return;
   }
 
-  if (found.type === "top") {
-    const menu = found.menu;
+  // Cek apakah menu ini punya wizard config
+  const hasWizard = WIZARD_CONFIG[command] || (userData.menusCustom && userData.menusCustom[command]);
 
-    // Nested dulu
-    if (menu.id === "belajar" || menu.id === "pekerjaan" || menu.id === "bisnis") {
-      const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
-      if (msg.ok) {
-        await handleNestedMenu(firestore, chatId, msg.result.message_id, userData, menu.id, payload, catatan);
-      }
-      return;
-    }
-
-    const fullCatatan = catatan || payload;
-    if (!fullCatatan) {
-      await sendTelegramMessage(chatId, `⚠️ Catatan kosong. Contoh: /${menu.id} isi catatan`);
-      return;
-    }
-
-    await sendTelegramWithButtons(
-      chatId,
-      `<b>📋 Ringkasan</b>\n\nMenu: <b>${menu.label}</b>\n📝 ${fullCatatan}\n\nSimpen?`,
-      [
-        [{ text: "✅ Ya", callback_data: `confirm|${menu.id}|${fullCatatan}` }],
-        [{ text: "❌ Batal", callback_data: "cancel" }],
-      ]
-    );
-    return;
-  }
-
-  if (found.type === "custom") {
-    const fullCatatan = catatan || payload;
-    if (!fullCatatan) { await sendTelegramMessage(chatId, `⚠️ Catatan kosong.`); return; }
-    await sendTelegramWithButtons(
-      chatId,
-      `<b>📋 Ringkasan</b>\n\nMenu: <b>${found.menu.nama}</b>\n📝 ${fullCatatan}\n\nSimpen?`,
-      [
-        [{ text: "✅ Ya", callback_data: `confirm_custom|${found.key}|${fullCatatan}` }],
-        [{ text: "❌ Batal", callback_data: "cancel" }],
-      ]
-    );
-    return;
+  if (hasWizard) {
+    await startWizard(firestore, chatId, command, userData);
+  } else {
+    await sendTelegramMessage(chatId, `⚠️ Menu "${command}" belum punya wizard.`);
   }
 }
 
@@ -449,110 +671,45 @@ async function handleCallback(callbackQuery, userData, firestore) {
   const parts = data.split("|");
   const action = parts[0];
 
-  if (action === "cancel") {
-    await editTelegramMessage(chatId, messageId, "❌ Dibatalkan.");
-    await firestore.collection("telegramState").doc(String(chatId)).delete();
-    return;
-  }
-
-  if (action === "confirm") {
-    const menuId = parts[1];
-    const catatan = parts.slice(2).join("|");
-    await saveTopLevel(firestore, userData, menuId, catatan);
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di ${menuId}</b>\n\n📝 ${catatan}`);
-    return;
-  }
-
-  if (action === "confirm_custom") {
-    const customKey = parts[1];
-    const catatan = parts.slice(2).join("|");
-    await saveCustom(firestore, userData, customKey, catatan);
-    await editTelegramMessage(chatId, messageId, `<b>✅ Tersimpan di ${customKey}</b>\n\n📝 ${catatan}`);
-    return;
-  }
-
-  // Pick level 1 (PT / Kategori / Brand)
-  if (action === "pickNested") {
-    const menuId = parts[1];
-    const itemId = parts[2];
-    await handleNestedPick(firestore, chatId, messageId, userData, menuId, itemId);
-    return;
-  }
-
-  // Pick level 2 (Brand)
-  if (action === "pickNestedSub") {
-    const menuId = parts[1];
-    const parentId = parts[2];
-    const childId = parts[3];
-    await handleNestedSubPick(firestore, chatId, messageId, userData, menuId, parentId, childId);
-    return;
-  }
-
-  // Pick level 3 (Kegiatan)
-  if (action === "pickNestedSub2") {
-    const menuId = parts[1];
-    const parentId = parts[2];
-    const childId = parts[3];
-    const grandId = parts[4];
-    // Untuk kasus Pekerjaan → PT → Brand → Kegiatan, kita anggap grandId = leaf
-    // Minta catatan
-    const rootArray = getRootArray(userData, menuId);
-    const parent = rootArray.find((x) => x.id === parentId);
-    const child = (parent?.brands || []).find((b) => b.id === childId);
-    const grand = (child?.kegiatan || []).find((k) => k.id === grandId);
-
-    await editTelegramMessage(
-      chatId, messageId,
-      `<b>✏️ Ketik catatan lo:</b>\n\nPath: ${menuId} → ${parent?.nama} → ${child?.nama} → ${grand?.judul || grand?.nama}\n\nKetik catatan (atau "-"):`
-    );
-    await firestore.collection("telegramState").doc(String(chatId)).set({
-      menuId,
-      path: [parentId, childId, grandId],
-      awaiting: "catatan",
-      updatedAt: new Date().toISOString(),
-    });
-    return;
-  }
-
-  // Save nested (dari Mode A/B)
-  if (action === "saveNested") {
-    const menuId = parts[1];
-    const pathStr = parts[2];
-    const catatan = parts[3];
-    const path = pathStr.split("/");
-    await saveNestedLeaf(firestore, userData, menuId, path, catatan, chatId, messageId);
-    return;
-  }
-
+  // Sync now
   if (action === "syncnow") {
     await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan.");
+    try {
+      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+      await fetch(`${baseUrl}/api/sync-sheets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid: userData._uid }),
+      });
+    } catch (e) { console.error(e); }
+    return;
+  }
+
+  // Wizard callback
+  if (action.startsWith("wiz_")) {
+    const state = await getState(firestore, chatId);
+    if (!state) {
+      await editTelegramMessage(chatId, messageId, "⚠️ Wizard udah selesai / expired.");
+      return;
+    }
+    state.messageId = messageId;
+    await setState(firestore, chatId, state);
+    await handleWizardCallback(firestore, chatId, data, state, userData, messageId);
     return;
   }
 }
 
-// ========== SIMPAN TOP-LEVEL ==========
+// ========== SIMPAN TOP-LEVEL (fallback) ==========
 async function saveTopLevel(firestore, userData, menuId, catatan) {
   const userRef = firestore.collection("users").doc(userData._uid);
-  const today = new Date().toISOString().split("T")[0];
+  const todayStr = today();
   const snap = await userRef.get();
   const data = snap.data();
   const dailyProgress = data.dailyProgress || {};
-  const todayData = dailyProgress[today] || {};
+  const todayData = dailyProgress[todayStr] || {};
   todayData[menuId] = { ...(todayData[menuId] || {}), catatan, updatedAt: new Date().toISOString() };
-  dailyProgress[today] = todayData;
+  dailyProgress[todayStr] = todayData;
   await userRef.update({ dailyProgress });
-}
-
-async function saveCustom(firestore, userData, menuId, catatan) {
-  const userRef = firestore.collection("users").doc(userData._uid);
-  const today = new Date().toISOString().split("T")[0];
-  const snap = await userRef.get();
-  const data = snap.data();
-  const logs = data.menusCustomLogHarian || {};
-  const todayLog = logs[today] || {};
-  todayLog[menuId] = { ...(todayLog[menuId] || {}), catatan, updatedAt: new Date().toISOString() };
-  logs[today] = todayLog;
-  await userRef.update({ menusCustomLogHarian: logs });
 }
 
 // ========== MAIN HANDLER ==========
@@ -570,22 +727,6 @@ export async function POST(req) {
 
     const user = await resolveUser(firestore, chatId);
     const userData = user ? { ...user.data, _uid: user.uid } : null;
-
-    // Cek state awaiting catatan
-    const stateRef = firestore.collection("telegramState").doc(String(chatId));
-    const stateSnap = await stateRef.get();
-    const state = stateSnap.exists ? stateSnap.data() : null;
-
-    if (update.message?.text && state?.awaiting === "catatan" && !update.message.text.startsWith("/")) {
-      const catatan = update.message.text.trim();
-      if (catatan && catatan !== "-") {
-        await saveNestedLeaf(firestore, userData, state.menuId, state.path, catatan, chatId, message.message_id);
-      } else {
-        await sendTelegramMessage(chatId, "⚠️ Catatan kosong, dibatalin.");
-      }
-      await stateRef.delete();
-      return NextResponse.json({ ok: true });
-    }
 
     if (update.callback_query) {
       if (!userData) { await sendTelegramMessage(chatId, `⚠️ Belum di-link.`); return NextResponse.json({ ok: true }); }
