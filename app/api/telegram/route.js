@@ -17,7 +17,10 @@ import {
   CUSTOM_MENU_WIZARD,
   SUB_MENU_CONFIG,
   buildRingkasan,
+  buildRingkasanVendor,
   progressLabel,
+  getVendorFieldsSteps,
+  generateWizardId,
   today,
 } from "@/lib/telegramWizard";
 
@@ -93,7 +96,7 @@ async function handleLink(firestore, chatId, code, fromData) {
   await sendTelegramMessage(chatId, `<b>✅ Berhasil di-link!</b>\n\nUID: <code>${uid}</code>\n\nKirim /help buat panduan.`);
 }
 
-// ========== WIZARD — MULAI ==========
+// ========== WIZARD BIASA — MULAI ==========
 async function startWizard(firestore, chatId, wizardKey, userData, extraFields = {}) {
   let config = WIZARD_CONFIG[wizardKey];
   if (!config) {
@@ -113,13 +116,10 @@ async function startWizard(firestore, chatId, wizardKey, userData, extraFields =
     }
   });
 
-  // Kalau ada extraFields (ptId, brandId), skip step yang udah diisi
   let startStep = 0;
   if (extraFields.ptId || extraFields.brandId) {
-    // Cari step pertama yang belum diisi
     for (let i = 0; i < config.steps.length; i++) {
-      const stepKey = config.steps[i].key;
-      if (fields[stepKey] === undefined) {
+      if (fields[config.steps[i].key] === undefined) {
         startStep = i;
         break;
       }
@@ -142,7 +142,7 @@ async function startWizard(firestore, chatId, wizardKey, userData, extraFields =
   }
 }
 
-// ========== WIZARD — RENDER STEP ==========
+// ========== WIZARD BIASA — RENDER STEP ==========
 async function renderStep(firestore, chatId, state, userData) {
   let config = WIZARD_CONFIG[state.menuId];
   if (!config) config = CUSTOM_MENU_WIZARD;
@@ -150,7 +150,6 @@ async function renderStep(firestore, chatId, state, userData) {
   const steps = config.steps;
   const stepIdx = state.currentStep;
 
-  // Kalau udah lewat step terakhir → tampil ringkasan
   if (stepIdx >= steps.length) {
     let ringkasan;
     try {
@@ -239,7 +238,6 @@ async function renderStep(firestore, chatId, state, userData) {
     }
   }
 
-  // Tombol navigasi
   const navRow = [];
   if (stepIdx > 0) navRow.push({ text: "⬅️ Kembali", callback_data: "wiz_back" });
   navRow.push({ text: "❌ Batal", callback_data: "wiz_cancel" });
@@ -257,7 +255,7 @@ async function renderStep(firestore, chatId, state, userData) {
   await setState(firestore, chatId, state);
 }
 
-// ========== WIZARD — HANDLE INPUT ==========
+// ========== WIZARD BIASA — HANDLE INPUT ==========
 async function handleWizardInput(firestore, chatId, text, state, userData) {
   let config = WIZARD_CONFIG[state.menuId];
   if (!config) config = CUSTOM_MENU_WIZARD;
@@ -289,7 +287,7 @@ async function handleWizardInput(firestore, chatId, text, state, userData) {
   await renderStep(firestore, chatId, state, userData);
 }
 
-// ========== WIZARD — HANDLE CALLBACK ==========
+// ========== WIZARD BIASA — HANDLE CALLBACK ==========
 async function handleWizardCallback(firestore, chatId, data, state, userData, messageId) {
   const parts = data.split("|");
   const action = parts[0];
@@ -378,14 +376,14 @@ async function handleWizardCallback(firestore, chatId, data, state, userData, me
   }
 }
 
-// ========== WIZARD — SIMPAN ==========
+// ========== WIZARD BIASA — SIMPAN ==========
 async function saveWizard(firestore, userData, state) {
   const menuId = state.menuId;
   const f = state.fields;
   const userRef = firestore.collection("users").doc(userData._uid);
   const todayStr = today();
 
-  // ========== PEKERJAAN → KALENDER ==========
+  // PEKERJAAN → KALENDER
   if (menuId === "pekerjaan") {
     const pekerjaan = userData.pekerjaan || [];
     const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
@@ -415,49 +413,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== PEKERJAAN → VENDOR ==========
-  if (menuId === "pekerjaan_vendor") {
-    const pekerjaan = userData.pekerjaan || [];
-    const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
-    if (ptIdx === -1) throw new Error("PT nggak ketemu");
-    const brandIdx = (pekerjaan[ptIdx].brands || []).findIndex((b) => b.id === f.brandId);
-    if (brandIdx === -1) throw new Error("Brand nggak ketemu");
-    if (!pekerjaan[ptIdx].brands[brandIdx].vendorList) {
-      pekerjaan[ptIdx].brands[brandIdx].vendorList = [];
-    }
-    const vendorBaru = {
-      id: `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      nama: f.nama,
-      kategoriId: f.kategoriId,
-      kontak: {
-        nama: f.kontakNama || "",
-        telp: f.kontakTelp || "",
-        email: f.kontakEmail || "",
-      },
-      alamat: f.alamat || "",
-      moq: {
-        nilai: parseInt(f.moqNilai) || 0,
-        satuan: f.moqSatuan || "pcs",
-      },
-      hpp: parseInt(f.hpp) || 0,
-      status: f.status || "silver",
-      catatan: f.catatan || "",
-      pertanyaanAwal: (userData.vendorPertanyaanList || []).map((q) => ({
-        id: q.id,
-        pertanyaan: q.pertanyaan,
-        tipe: q.tipe,
-        jawaban: q.tipe === "checkbox" ? false : "",
-      })),
-      logKunjungan: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    pekerjaan[ptIdx].brands[brandIdx].vendorList.push(vendorBaru);
-    await userRef.update({ pekerjaan });
-    return;
-  }
-
-  // ========== PEKERJAAN → LAPORAN ==========
+  // PEKERJAAN → LAPORAN
   if (menuId === "pekerjaan_laporan") {
     const pekerjaan = userData.pekerjaan || [];
     const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
@@ -478,8 +434,7 @@ async function saveWizard(firestore, userData, state) {
       };
     } else if (f.periode === "mingguan") {
       if (!brand.laporanData.mingguan) brand.laporanData.mingguan = {};
-      const key = f.tanggal;
-      brand.laporanData.mingguan[key] = {
+      brand.laporanData.mingguan[f.tanggal] = {
         id: `lap_${Date.now()}`,
         tanggalMulai: f.tanggal,
         tanggalSelesai: f.tanggal,
@@ -505,7 +460,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== PEKERJAAN → EVALUASI ==========
+  // PEKERJAAN → EVALUASI
   if (menuId === "pekerjaan_evaluasi") {
     const pekerjaan = userData.pekerjaan || [];
     const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
@@ -537,7 +492,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== BISNIS → KALENDER ==========
+  // BISNIS → KALENDER
   if (menuId === "bisnis") {
     const brands = userData.bisnisBrands || [];
     const bIdx = brands.findIndex((b) => b.id === f.brandId);
@@ -562,44 +517,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== BISNIS → VENDOR ==========
-  if (menuId === "bisnis_vendor") {
-    const brands = userData.bisnisBrands || [];
-    const bIdx = brands.findIndex((b) => b.id === f.brandId);
-    if (bIdx === -1) throw new Error("Brand nggak ketemu");
-    if (!brands[bIdx].vendorList) brands[bIdx].vendorList = [];
-    brands[bIdx].vendorList.push({
-      id: `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      nama: f.nama,
-      kategoriId: f.kategoriId,
-      kontak: {
-        nama: f.kontakNama || "",
-        telp: f.kontakTelp || "",
-        email: f.kontakEmail || "",
-      },
-      alamat: f.alamat || "",
-      moq: {
-        nilai: parseInt(f.moqNilai) || 0,
-        satuan: f.moqSatuan || "pcs",
-      },
-      hpp: parseInt(f.hpp) || 0,
-      status: f.status || "silver",
-      catatan: f.catatan || "",
-      pertanyaanAwal: (userData.vendorPertanyaanList || []).map((q) => ({
-        id: q.id,
-        pertanyaan: q.pertanyaan,
-        tipe: q.tipe,
-        jawaban: q.tipe === "checkbox" ? false : "",
-      })),
-      logKunjungan: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    await userRef.update({ bisnisBrands: brands });
-    return;
-  }
-
-  // ========== BISNIS → LAPORAN ==========
+  // BISNIS → LAPORAN
   if (menuId === "bisnis_laporan") {
     const brands = userData.bisnisBrands || [];
     const bIdx = brands.findIndex((b) => b.id === f.brandId);
@@ -644,7 +562,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== BISNIS → EVALUASI ==========
+  // BISNIS → EVALUASI
   if (menuId === "bisnis_evaluasi") {
     const brands = userData.bisnisBrands || [];
     const bIdx = brands.findIndex((b) => b.id === f.brandId);
@@ -674,7 +592,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== BELAJAR ==========
+  // BELAJAR
   if (menuId === "belajar") {
     const logHarian = userData.belajarLogHarian || {};
     if (!logHarian[todayStr]) logHarian[todayStr] = [];
@@ -695,7 +613,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== OLAHRAGA ==========
+  // OLAHRAGA
   if (menuId === "olahraga") {
     const olahraga = userData.olahraga || { minggu: [], harian: {}, fieldEvaluasi: [] };
     if (!olahraga.harian) olahraga.harian = {};
@@ -708,7 +626,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== KEUANGAN ==========
+  // KEUANGAN
   if (menuId === "keuangan") {
     const transaksi = userData.keuanganTransaksi || {};
     if (!transaksi[todayStr]) transaksi[todayStr] = [];
@@ -725,7 +643,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== HAFALAN ==========
+  // HAFALAN
   if (menuId === "hafalan") {
     const membaca = userData.hafalanMembaca || {};
     membaca[todayStr] = {
@@ -741,7 +659,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== YOUTUBE ==========
+  // YOUTUBE
   if (menuId === "youtube") {
     const logs = userData.youtube_logs || [];
     logs.push({
@@ -760,7 +678,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== BEDAH BUKU ==========
+  // BEDAH BUKU
   if (menuId === "bedah-buku") {
     const bedahBuku = userData.bedahBuku || { kategori: [], buku: [] };
     const bukuIdx = (bedahBuku.buku || []).findIndex((b) => b.id === f.bukuId);
@@ -781,7 +699,7 @@ async function saveWizard(firestore, userData, state) {
     return;
   }
 
-  // ========== MENU CUSTOM ==========
+  // MENU CUSTOM
   if (userData.menusCustom && userData.menusCustom[menuId]) {
     const logs = userData.menusCustomLogHarian || {};
     if (!logs[todayStr]) logs[todayStr] = {};
@@ -797,8 +715,755 @@ async function saveWizard(firestore, userData, state) {
   throw new Error(`Menu "${menuId}" belum didukung.`);
 }
 
+// ==========================================================
+// ========== WIZARD VENDOR (DINAMIS + CRUD PERTANYAAN) ==========
+// ==========================================================
+// Struktur state phase-based:
+//   phase "fields"           → render field vendor (getVendorFieldsSteps)
+//   phase "questions"        → loop pertanyaan awal
+//   phase "manage_questions" → tombol [➕ Tambah][✏️ Edit][🗑️ Hapus][✅ Lanjut]
+//   phase "add_question_text"   → input pertanyaan baru
+//   phase "add_question_type"   → pilih tipe pertanyaan baru
+//   phase "edit_question_pick"  → pilih nomor pertanyaan yang diedit
+//   phase "edit_question_text"  → input pertanyaan baru (edit)
+//   phase "edit_question_type"  → pilih tipe baru (edit)
+//   phase "delete_question_pick" → pilih nomor pertanyaan yang dihapus
+//   phase "summary"          → ringkasan + simpan
+
+const VENDOR_MENUS = ["pekerjaan_vendor", "bisnis_vendor"];
+
+// ========== MULAI WIZARD VENDOR ==========
+async function startVendorWizard(firestore, chatId, menuId, userData, extraFields = {}) {
+  // Ambil snapshot pertanyaan dari userData (kalau kosong, pakai default kosong)
+  let questions = userData.vendorPertanyaanList || [];
+
+  const fields = { ...extraFields };
+  const config = { steps: getVendorFieldsSteps(menuId) };
+  config.steps.forEach((s) => {
+    if (s.default !== undefined && fields[s.key] === undefined) {
+      if (s.default === "today") fields[s.key] = today();
+      else fields[s.key] = s.default;
+    }
+  });
+
+  // Skip step yang udah diisi dari extraFields
+  let startStep = 0;
+  if (extraFields.ptId || extraFields.brandId) {
+    for (let i = 0; i < config.steps.length; i++) {
+      if (fields[config.steps[i].key] === undefined) {
+        startStep = i;
+        break;
+      }
+    }
+  }
+
+  const state = {
+    menuId,
+    phase: "fields",
+    currentStep: startStep,
+    fields,
+    questions,
+    answers: {},
+    currentQuestionIdx: 0,
+    newQuestionTemp: {},
+    awaiting: null,
+    awaitingType: null,
+  };
+
+  await setState(firestore, chatId, state);
+  const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
+  if (msg.ok) {
+    state.messageId = msg.result.message_id;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+  }
+}
+
+// ========== RENDER VENDOR STEP ==========
+async function renderVendorStep(firestore, chatId, state, userData) {
+  const config = { label: state.menuId === "pekerjaan_vendor" ? "💼 Pekerjaan → 🏪 Vendor" : "💼 Bisnis → 🏪 Vendor", steps: getVendorFieldsSteps(state.menuId) };
+  const steps = config.steps;
+
+  // ==== PHASE: FIELDS ====
+  if (state.phase === "fields") {
+    const stepIdx = state.currentStep;
+    if (stepIdx >= steps.length) {
+      // Pindah ke phase "questions"
+      state.phase = "questions";
+      state.currentQuestionIdx = 0;
+      state.awaiting = null;
+      state.awaitingType = null;
+      await setState(firestore, chatId, state);
+      return renderVendorStep(firestore, chatId, state, userData);
+    }
+
+    const step = steps[stepIdx];
+    const progress = `Step ${stepIdx + 1}/${steps.length}`;
+    let text = `<b>${progress} — ${step.label}</b>\n`;
+    if (step.hint) text += `\n<i>${step.hint}</i>`;
+    if (!step.required) text += `\n<i>(Opsional — bisa skip)</i>`;
+
+    let buttons = [];
+
+    if (step.type === "choice") {
+      let opts = [];
+      try {
+        opts = step.source(userData, state) || [];
+      } catch (e) { opts = []; }
+      if (opts.length === 0) {
+        text += `\n\n⚠️ <i>Nggak ada pilihan. Skip aja.</i>`;
+        buttons.push([{ text: "⏭️ Skip", callback_data: "vend_skip" }]);
+      } else {
+        const rows = [];
+        for (let i = 0; i < opts.length; i += 2) {
+          const row = [];
+          row.push({ text: (opts[i].label || "").slice(0, 30), callback_data: `vend_pick|${step.key}|${opts[i].id}` });
+          if (opts[i + 1]) {
+            row.push({ text: (opts[i + 1].label || "").slice(0, 30), callback_data: `vend_pick|${step.key}|${opts[i + 1].id}` });
+          }
+          rows.push(row);
+        }
+        buttons = rows;
+        if (!step.required) {
+          buttons.push([{ text: step.skipLabel || "⏭️ Skip", callback_data: "vend_skip" }]);
+        }
+      }
+    }
+
+    if (step.type === "text" || step.type === "number" || step.type === "optional-text" || step.type === "optional-number") {
+      if (step.type === "optional-text" || step.type === "optional-number") {
+        buttons.push([{ text: "⏭️ Skip", callback_data: "vend_skip" }]);
+      }
+    }
+
+    const navRow = [];
+    if (stepIdx > 0) navRow.push({ text: "⬅️ Kembali", callback_data: "vend_back" });
+    navRow.push({ text: "❌ Batal", callback_data: "vend_cancel" });
+    buttons.push(navRow);
+
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+
+    state.awaiting = step.type === "choice" ? null : step.key;
+    state.awaitingType = step.type;
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: QUESTIONS ====
+  if (state.phase === "questions") {
+    const qIdx = state.currentQuestionIdx;
+    const questions = state.questions || [];
+
+    if (qIdx >= questions.length) {
+      // Semua pertanyaan udah dijawab → masuk manage_questions
+      state.phase = "manage_questions";
+      state.awaiting = null;
+      state.awaitingType = null;
+      await setState(firestore, chatId, state);
+      return renderVendorStep(firestore, chatId, state, userData);
+    }
+
+    const q = questions[qIdx];
+    const progress = `Pertanyaan ${qIdx + 1}/${questions.length}`;
+    let text = `<b>📋 ${progress}</b>\n\n❓ ${q.pertanyaan}\n`;
+    if (q.tipe === "checkbox") text += `\n<i>Pilih Ya / Tidak / Skip</i>`;
+    else if (q.tipe === "short") text += `\n<i>Ketik jawaban pendek (atau "-" buat kosong)</i>`;
+    else text += `\n<i>Ketik jawaban panjang (atau "-" buat kosong)</i>`;
+
+    let buttons = [];
+    if (q.tipe === "checkbox") {
+      buttons = [
+        [
+          { text: "✅ Ya", callback_data: `vend_ans|${q.id}|true` },
+          { text: "❌ Tidak", callback_data: `vend_ans|${q.id}|false` },
+        ],
+        [{ text: "⏭️ Skip", callback_data: `vend_ans|${q.id}|skip` }],
+      ];
+    } else {
+      buttons = [[{ text: "⏭️ Skip", callback_data: `vend_ans|${q.id}|skip` }]];
+    }
+
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+
+    // Kalau checkbox, awaiting = null (user klik tombol).
+    // Kalau short/long, awaiting = q.id
+    if (q.tipe === "checkbox") {
+      state.awaiting = null;
+      state.awaitingType = "choice";
+    } else {
+      state.awaiting = q.id;
+      state.awaitingType = q.tipe === "short" ? "optional-text" : "optional-text";
+    }
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: MANAGE_QUESTIONS ====
+  if (state.phase === "manage_questions") {
+    const questions = state.questions || [];
+    let text = `<b>✏️ Mau ubah pertanyaan awal?</b>\n\n<b>📋 Pertanyaan Awal (${questions.length}):</b>\n`;
+    questions.forEach((q, idx) => {
+      text += `${idx + 1}. ${q.pertanyaan} <i>(${q.tipe})</i>\n`;
+    });
+    text += `\nPilih aksi:`;
+
+    const buttons = [
+      [
+        { text: "➕ Tambah", callback_data: "vend_q_add" },
+        { text: "✏️ Edit", callback_data: "vend_q_edit" },
+      ],
+      [
+        { text: "🗑️ Hapus", callback_data: "vend_q_del" },
+        { text: "✅ Lanjut", callback_data: "vend_q_done" },
+      ],
+      [{ text: "❌ Batal", callback_data: "vend_cancel" }],
+    ];
+
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+
+    state.awaiting = null;
+    state.awaitingType = "choice";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: ADD_QUESTION_TEXT ====
+  if (state.phase === "add_question_text") {
+    const text = `<b>➕ Tambah Pertanyaan</b>\n\n✏️ Ketik pertanyaan baru:`;
+    const buttons = [[{ text: "❌ Batal", callback_data: "vend_cancel" }]];
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+    state.awaiting = "new_question_text";
+    state.awaitingType = "text";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: ADD_QUESTION_TYPE ====
+  if (state.phase === "add_question_type") {
+    const text = `<b>➕ Tambah Pertanyaan</b>\n\nPertanyaan: <i>${state.newQuestionTemp.pertanyaan}</i>\n\n📝 Pilih tipe:`;
+    const buttons = [
+      [
+        { text: "✅ Checkbox", callback_data: "vend_qtype|checkbox" },
+        { text: "✏️ Pendek", callback_data: "vend_qtype|short" },
+      ],
+      [
+        { text: "📝 Panjang", callback_data: "vend_qtype|long" },
+        { text: "❌ Batal", callback_data: "vend_cancel" },
+      ],
+    ];
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+    state.awaiting = null;
+    state.awaitingType = "choice";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: EDIT_QUESTION_PICK ====
+  if (state.phase === "edit_question_pick") {
+    const questions = state.questions || [];
+    if (questions.length === 0) {
+      state.phase = "manage_questions";
+      await setState(firestore, chatId, state);
+      return renderVendorStep(firestore, chatId, state, userData);
+    }
+
+    const rows = [];
+    for (let i = 0; i < questions.length; i += 3) {
+      const row = [];
+      for (let j = i; j < Math.min(i + 3, questions.length); j++) {
+        row.push({ text: `${j + 1}`, callback_data: `vend_edit_pick|${j}` });
+      }
+      rows.push(row);
+    }
+    rows.push([{ text: "❌ Batal", callback_data: "vend_cancel" }]);
+
+    const text = `<b>✏️ Edit Pertanyaan</b>\n\n📝 Pilih nomor pertanyaan yang mau diedit:`;
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, rows);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, rows);
+    }
+    state.awaiting = null;
+    state.awaitingType = "choice";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: EDIT_QUESTION_TEXT ====
+  if (state.phase === "edit_question_text") {
+    const text = `<b>✏️ Edit Pertanyaan</b>\n\nPertanyaan lama: <i>${state.newQuestionTemp.oldPertanyaan}</i>\n\n✏️ Ketik pertanyaan baru:`;
+    const buttons = [[{ text: "❌ Batal", callback_data: "vend_cancel" }]];
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+    state.awaiting = "edit_question_text";
+    state.awaitingType = "text";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: EDIT_QUESTION_TYPE ====
+  if (state.phase === "edit_question_type") {
+    const text = `<b>✏️ Edit Pertanyaan</b>\n\nPertanyaan baru: <i>${state.newQuestionTemp.pertanyaan}</i>\n\n📝 Pilih tipe baru:`;
+    const buttons = [
+      [
+        { text: "✅ Checkbox", callback_data: "vend_qtype|checkbox" },
+        { text: "✏️ Pendek", callback_data: "vend_qtype|short" },
+      ],
+      [
+        { text: "📝 Panjang", callback_data: "vend_qtype|long" },
+        { text: "❌ Batal", callback_data: "vend_cancel" },
+      ],
+    ];
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, buttons);
+    }
+    state.awaiting = null;
+    state.awaitingType = "choice";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: DELETE_QUESTION_PICK ====
+  if (state.phase === "delete_question_pick") {
+    const questions = state.questions || [];
+    if (questions.length === 0) {
+      state.phase = "manage_questions";
+      await setState(firestore, chatId, state);
+      return renderVendorStep(firestore, chatId, state, userData);
+    }
+
+    const rows = [];
+    for (let i = 0; i < questions.length; i += 3) {
+      const row = [];
+      for (let j = i; j < Math.min(i + 3, questions.length); j++) {
+        row.push({ text: `${j + 1}. ${questions[j].pertanyaan.slice(0, 15)}`, callback_data: `vend_del_pick|${j}` });
+      }
+      rows.push(row);
+    }
+    rows.push([{ text: "❌ Batal", callback_data: "vend_cancel" }]);
+
+    const text = `<b>🗑️ Hapus Pertanyaan</b>\n\nPilih nomor pertanyaan yang mau dihapus:`;
+    try {
+      await editTelegramMessage(chatId, state.messageId, text, rows);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, text, rows);
+    }
+    state.awaiting = null;
+    state.awaitingType = "choice";
+    await setState(firestore, chatId, state);
+    return;
+  }
+
+  // ==== PHASE: SUMMARY ====
+  if (state.phase === "summary") {
+    let ringkasan;
+    try {
+      ringkasan = buildRingkasanVendor(state.menuId, state.fields, state.questions, state.answers, userData);
+    } catch (e) {
+      console.error("[renderVendorStep] buildRingkasanVendor error:", e.message);
+      ringkasan = `<b>📋 Ringkasan Vendor</b>\n\nNama: <b>${state.fields.nama || "-"}</b>\n\nSimpen?`;
+    }
+
+    const buttons = [
+      [{ text: "✅ Simpan", callback_data: "vend_save" }],
+      [
+        { text: "⬅️ Kembali", callback_data: "vend_back_summary" },
+        { text: "❌ Batal", callback_data: "vend_cancel" },
+      ],
+    ];
+
+    try {
+      await editTelegramMessage(chatId, state.messageId, ringkasan, buttons);
+    } catch (e) {
+      await sendTelegramWithButtons(chatId, ringkasan, buttons);
+    }
+    state.awaiting = null;
+    state.awaitingType = null;
+    await setState(firestore, chatId, state);
+    return;
+  }
+}
+
+// ========== HANDLE VENDOR TEXT INPUT ==========
+async function handleVendorTextInput(firestore, chatId, text, state, userData) {
+  const awaiting = state.awaiting;
+
+  // ==== Field Vendor (phase: fields) ====
+  if (state.phase === "fields") {
+    const steps = getVendorFieldsSteps(state.menuId);
+    const step = steps[state.currentStep];
+    if (!step) {
+      await clearState(firestore, chatId);
+      return;
+    }
+    const val = text === "-" ? "" : text;
+    if (step.type === "number" || step.type === "optional-number") {
+      const num = parseInt(text.replace(/[^\d-]/g, ""));
+      if (isNaN(num)) {
+        await sendTelegramMessage(chatId, `⚠️ Harus angka. Coba lagi:`);
+        return;
+      }
+      state.fields[step.key] = num;
+    } else {
+      state.fields[step.key] = val;
+    }
+    state.currentStep++;
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== Jawaban pertanyaan tipe short/long (phase: questions) ====
+  if (state.phase === "questions" && awaiting) {
+    const qId = awaiting;
+    state.answers[qId] = text === "-" ? "" : text;
+    state.currentQuestionIdx++;
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== Input pertanyaan baru (add_question_text) ====
+  if (state.phase === "add_question_text" && awaiting === "new_question_text") {
+    state.newQuestionTemp = { pertanyaan: text.trim() };
+    state.phase = "add_question_type";
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== Input edit pertanyaan (edit_question_text) ====
+  if (state.phase === "edit_question_text" && awaiting === "edit_question_text") {
+    state.newQuestionTemp.pertanyaan = text.trim();
+    state.phase = "edit_question_type";
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // Fallback
+  await sendTelegramMessage(chatId, `⚠️ Input nggak dikenali. Klik tombol yang tersedia.`);
+}
+
+// ========== HANDLE VENDOR CALLBACK ==========
+async function handleVendorCallback(firestore, chatId, data, state, userData, messageId) {
+  const parts = data.split("|");
+  const action = parts[0];
+
+  // ==== CANCEL ====
+  if (action === "vend_cancel") {
+    await clearState(firestore, chatId);
+    await editTelegramMessage(chatId, messageId, "❌ Dibatalkan.");
+    return;
+  }
+
+  // ==== BACK (di phase fields) ====
+  if (action === "vend_back") {
+    if (state.phase === "fields") {
+      state.currentStep = Math.max(0, state.currentStep - 1);
+      state.awaiting = null;
+      await setState(firestore, chatId, state);
+      await renderVendorStep(firestore, chatId, state, userData);
+    }
+    return;
+  }
+
+  // ==== BACK (dari summary ke manage_questions) ====
+  if (action === "vend_back_summary") {
+    state.phase = "manage_questions";
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== SKIP (di phase fields) ====
+  if (action === "vend_skip") {
+    if (state.phase === "fields") {
+      state.currentStep++;
+      state.awaiting = null;
+      await setState(firestore, chatId, state);
+      await renderVendorStep(firestore, chatId, state, userData);
+    }
+    return;
+  }
+
+  // ==== PICK (pilih choice di phase fields) ====
+  if (action === "vend_pick") {
+    const stepKey = parts[1];
+    const value = parts.slice(2).join("|");
+    if (state.phase === "fields") {
+      state.fields[stepKey] = value;
+      state.currentStep++;
+      state.awaiting = null;
+      await setState(firestore, chatId, state);
+      await renderVendorStep(firestore, chatId, state, userData);
+    }
+    return;
+  }
+
+  // ==== JAWAB pertanyaan checkbox (phase questions) ====
+  if (action === "vend_ans") {
+    const qId = parts[1];
+    const valStr = parts[2];
+    if (valStr === "skip") {
+      state.answers[qId] = "";
+    } else if (valStr === "true") {
+      state.answers[qId] = true;
+    } else if (valStr === "false") {
+      state.answers[qId] = false;
+    }
+    state.currentQuestionIdx++;
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== MANAGE QUESTIONS: TAMBAH ====
+  if (action === "vend_q_add") {
+    state.phase = "add_question_text";
+    state.newQuestionTemp = {};
+    state.awaiting = "new_question_text";
+    state.awaitingType = "text";
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== MANAGE QUESTIONS: EDIT ====
+  if (action === "vend_q_edit") {
+    state.phase = "edit_question_pick";
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== MANAGE QUESTIONS: HAPUS ====
+  if (action === "vend_q_del") {
+    state.phase = "delete_question_pick";
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== MANAGE QUESTIONS: LANJUT ====
+  if (action === "vend_q_done") {
+    state.phase = "summary";
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== PILIH TIPE PERTANYAAN BARU/EDIT ====
+  if (action === "vend_qtype") {
+    const tipe = parts[1];
+    // Edit atau tambah?
+    if (state.phase === "add_question_type") {
+      const newQ = {
+        id: generateWizardId("q"),
+        pertanyaan: state.newQuestionTemp.pertanyaan,
+        tipe,
+      };
+      state.questions = [...(state.questions || []), newQ];
+      state.newQuestionTemp = {};
+      state.phase = "manage_questions";
+    } else if (state.phase === "edit_question_type") {
+      const editIdx = state.newQuestionTemp.editIdx;
+      if (editIdx !== undefined && state.questions[editIdx]) {
+        state.questions[editIdx] = {
+          ...state.questions[editIdx],
+          pertanyaan: state.newQuestionTemp.pertanyaan,
+          tipe,
+        };
+      }
+      state.newQuestionTemp = {};
+      state.phase = "manage_questions";
+    }
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== EDIT: PILIH NOMOR ====
+  if (action === "vend_edit_pick") {
+    const idx = parseInt(parts[1]);
+    const q = state.questions[idx];
+    if (!q) return;
+    state.newQuestionTemp = { oldPertanyaan: q.pertanyaan, editIdx: idx };
+    state.phase = "edit_question_text";
+    state.awaiting = "edit_question_text";
+    state.awaitingType = "text";
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== DELETE: PILIH NOMOR ====
+  if (action === "vend_del_pick") {
+    const idx = parseInt(parts[1]);
+    const newQuestions = (state.questions || []).filter((_, i) => i !== idx);
+    state.questions = newQuestions;
+    state.phase = "manage_questions";
+    state.awaiting = null;
+    await setState(firestore, chatId, state);
+    await renderVendorStep(firestore, chatId, state, userData);
+    return;
+  }
+
+  // ==== SAVE VENDOR ====
+  if (action === "vend_save") {
+    try {
+      await saveVendorWizard(firestore, userData, state);
+      await clearState(firestore, chatId);
+      const config = { label: state.menuId === "pekerjaan_vendor" ? "💼 Pekerjaan → 🏪 Vendor" : "💼 Bisnis → 🏪 Vendor" };
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\n📊 Auto-sync ke Sheets.`,
+        [[{ text: "📊 Sync Now", callback_data: `syncnow|${userData._uid}` }]]
+      );
+    } catch (err) {
+      console.error("[vendor save] Error:", err);
+      await sendTelegramMessage(chatId, `❌ Gagal simpen: ${err.message}`);
+    }
+    return;
+  }
+}
+
+// ========== SAVE VENDOR WIZARD ==========
+async function saveVendorWizard(firestore, userData, state) {
+  const menuId = state.menuId;
+  const f = state.fields;
+  const questions = state.questions || [];
+  const answers = state.answers || {};
+  const userRef = firestore.collection("users").doc(userData._uid);
+
+  // Bangun list jawaban
+  const pertanyaanAwal = questions.map((q) => {
+    const jawab = answers[q.id];
+    let finalJawab = "";
+    if (q.tipe === "checkbox") {
+      if (jawab === true) finalJawab = true;
+      else if (jawab === false) finalJawab = false;
+      else finalJawab = "";
+    } else {
+      finalJawab = jawab || "";
+    }
+    return {
+      id: q.id,
+      pertanyaan: q.pertanyaan,
+      tipe: q.tipe,
+      jawaban: finalJawab,
+    };
+  });
+
+  const vendorBaru = {
+    id: `vendor_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    nama: f.nama,
+    kategoriId: f.kategoriId,
+    kontak: {
+      nama: f.kontakNama || "",
+      telp: f.kontakTelp || "",
+      email: f.kontakEmail || "",
+    },
+    alamat: f.alamat || "",
+    moq: {
+      nilai: parseInt(f.moqNilai) || 0,
+      satuan: f.moqSatuan || "pcs",
+    },
+    hpp: parseInt(f.hpp) || 0,
+    status: f.status || "silver",
+    catatan: f.catatan || "",
+    pertanyaanAwal,
+    logKunjungan: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Simpan ke pekerjaan atau bisnis
+  if (menuId === "pekerjaan_vendor") {
+    const pekerjaan = userData.pekerjaan || [];
+    const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
+    if (ptIdx === -1) throw new Error("PT nggak ketemu");
+    const brandIdx = (pekerjaan[ptIdx].brands || []).findIndex((b) => b.id === f.brandId);
+    if (brandIdx === -1) throw new Error("Brand nggak ketemu");
+    if (!pekerjaan[ptIdx].brands[brandIdx].vendorList) {
+      pekerjaan[ptIdx].brands[brandIdx].vendorList = [];
+    }
+    pekerjaan[ptIdx].brands[brandIdx].vendorList.push(vendorBaru);
+    await userRef.update({ pekerjaan });
+  } else if (menuId === "bisnis_vendor") {
+    const brands = userData.bisnisBrands || [];
+    const bIdx = brands.findIndex((b) => b.id === f.brandId);
+    if (bIdx === -1) throw new Error("Brand nggak ketemu");
+    if (!brands[bIdx].vendorList) brands[bIdx].vendorList = [];
+    brands[bIdx].vendorList.push(vendorBaru);
+    await userRef.update({ bisnisBrands: brands });
+  } else {
+    throw new Error(`Menu "${menuId}" bukan vendor.`);
+  }
+
+  // Update vendorPertanyaanList (kalau ada perubahan struktur)
+  // Hanya update kalau pertanyaan beda dari userData
+  const oldQs = userData.vendorPertanyaanList || [];
+  const oldIds = oldQs.map((q) => q.id).sort().join(",");
+  const newIds = questions.map((q) => q.id).sort().join(",");
+  const oldText = oldQs.map((q) => `${q.id}:${q.pertanyaan}:${q.tipe}`).join("|");
+  const newText = questions.map((q) => `${q.id}:${q.pertanyaan}:${q.tipe}`).join("|");
+
+  if (oldIds !== newIds || oldText !== newText) {
+    await userRef.update({ vendorPertanyaanList: questions });
+  }
+}
+
 // ========== HANDLE SUB-MENU PICK ==========
 async function handleSubMenuPick(firestore, chatId, messageId, userData, command, subMenuId, baseFields) {
+  // Kalau vendor → pakai vendor wizard dinamis
+  if (subMenuId === "vendor") {
+    const wizardKey = `${command}_vendor`;
+    await clearState(firestore, chatId);
+    await editTelegramMessage(
+      chatId,
+      messageId,
+      `<b>✅ Sub-menu dipilih: 🏪 Vendor</b>\n\n⏳ Loading wizard...`
+    );
+    await startVendorWizard(firestore, chatId, wizardKey, userData, baseFields);
+    return;
+  }
+
+  // Kalau sub-menu lain → pakai wizard biasa
   const wizardKey = `${command}_${subMenuId}`;
   const config = WIZARD_CONFIG[wizardKey];
   if (!config) {
@@ -806,7 +1471,6 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
     return;
   }
 
-  // Hapus pesan lama, mulai wizard baru
   await clearState(firestore, chatId);
   await editTelegramMessage(
     chatId,
@@ -814,11 +1478,9 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
     `<b>✅ Sub-menu dipilih: ${config.label}</b>\n\n⏳ Loading wizard...`
   );
 
-  // Kirim pesan baru untuk wizard
   const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
   if (!msg.ok) return;
 
-  // Set state dengan extraFields
   const fields = { ...baseFields };
   config.steps.forEach((s) => {
     if (s.default !== undefined && fields[s.key] === undefined) {
@@ -827,7 +1489,6 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
     }
   });
 
-  // Skip step yang udah diisi dari baseFields
   let startStep = 0;
   for (let i = 0; i < config.steps.length; i++) {
     if (fields[config.steps[i].key] === undefined) {
@@ -851,7 +1512,20 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
 async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
   const state = await getState(firestore, chatId);
 
-  if (state && state.awaiting && !text.startsWith("/")) {
+  // ==== STATE AKTIF: CEK VENDOR vs WIZARD BIASA ====
+  if (state && state.phase && VENDOR_MENUS.includes(state.menuId)) {
+    // Vendor wizard
+    if (state.awaiting && !text.startsWith("/")) {
+      await handleVendorTextInput(firestore, chatId, text, state, userData);
+      return;
+    }
+    if (!state.awaiting && !text.startsWith("/")) {
+      await sendTelegramMessage(chatId, `⚠️ Klik tombol yang tersedia.`);
+      return;
+    }
+  }
+
+  if (state && !state.phase && state.awaiting && !text.startsWith("/")) {
     if (state.awaiting === "date_manual") {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(text.trim())) {
@@ -872,7 +1546,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     }
   }
 
-  if (state && !state.awaiting && !text.startsWith("/")) {
+  if (state && !state.phase && !state.awaiting && !text.startsWith("/")) {
     await sendTelegramMessage(
       chatId,
       `⚠️ Wizard lagi di ringkasan.\n\nKlik <b>[✅ Simpan]</b> buat simpen, atau <b>[❌ Batal]</b> buat batalin.`
@@ -880,6 +1554,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
+  // ==== COMMAND ====
   const parsed = parseCommand(text);
   if (!parsed) {
     await sendTelegramMessage(chatId, `🤖 Halo! Kirim /help atau /menu_list.`);
@@ -887,7 +1562,6 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
   const { command, payload, catatan } = parsed;
 
-  // ==== COMMAND SPESIAL ====
   if (command === "start") {
     await sendTelegramMessage(chatId, `👋 Halo <b>${fromData?.first_name || "Sobat"}</b>!\n\nKirim /help buat panduan.`);
     return;
@@ -978,15 +1652,12 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
-  // Cek apakah menu ini punya sub-menu (pekerjaan/bisnis)
   const hasSubMenu = SUB_MENU_CONFIG[command];
   if (hasSubMenu) {
-    // Kalau ada sub-menu, mulai dengan step ptId (pekerjaan) atau brandId (bisnis)
     await startWizardWithSubMenu(firestore, chatId, command, userData);
     return;
   }
 
-  // Wizard biasa (belajar, olahraga, keuangan, dll)
   const hasWizard = WIZARD_CONFIG[command] || (userData.menusCustom && userData.menusCustom[command]);
   if (hasWizard) {
     await startWizard(firestore, chatId, command, userData);
@@ -995,21 +1666,17 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
 }
 
-// ========== WIZARD DENGAN SUB-MENU (Pekerjaan/Bisnis) ==========
+// ========== WIZARD DENGAN SUB-MENU ==========
 async function startWizardWithSubMenu(firestore, chatId, command, userData) {
-  const config = WIZARD_CONFIG[command]; // Wizard "kalender" default
+  const config = WIZARD_CONFIG[command];
   if (!config) {
     await sendTelegramMessage(chatId, `⚠️ Menu "${command}" belum punya wizard utama.`);
     return;
   }
 
-  // Step 1 & 2: ptId (khusus pekerjaan) dan brandId
   const fields = {};
-  let startStep = 0;
 
-  // Kalau pekerjaan, tanya PT dulu
   if (command === "pekerjaan") {
-    // Set state dengan currentStep = 0 (ptId), mode = "submenu"
     const state = {
       menuId: command,
       currentStep: 0,
@@ -1019,7 +1686,6 @@ async function startWizardWithSubMenu(firestore, chatId, command, userData) {
       subMenuCommand: command,
     };
     await setState(firestore, chatId, state);
-
     const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
     if (msg.ok) {
       state.messageId = msg.result.message_id;
@@ -1039,7 +1705,6 @@ async function startWizardWithSubMenu(firestore, chatId, command, userData) {
     subMenuCommand: command,
   };
   await setState(firestore, chatId, state);
-
   const msg = await sendTelegramWithButtons(chatId, `⏳ Loading...`, []);
   if (msg.ok) {
     state.messageId = msg.result.message_id;
@@ -1053,7 +1718,6 @@ async function renderStepSubMenu(firestore, chatId, state, userData) {
   const command = state.subMenuCommand;
   const fields = state.fields;
 
-  // Step 0: PT (khusus pekerjaan)
   if (command === "pekerjaan" && !fields.ptId) {
     const opts = (userData.pekerjaan || []).map((p) => ({ id: p.id, label: p.nama }));
     if (opts.length === 0) {
@@ -1067,7 +1731,6 @@ async function renderStepSubMenu(firestore, chatId, state, userData) {
     return;
   }
 
-  // Step 1: Brand
   if (!fields.brandId) {
     let opts = [];
     if (command === "pekerjaan") {
@@ -1087,7 +1750,6 @@ async function renderStepSubMenu(firestore, chatId, state, userData) {
     return;
   }
 
-  // Step 2: Pilih Sub-Menu (Kalender/Vendor/Laporan/Evaluasi)
   const subMenuList = SUB_MENU_CONFIG[command] || [];
   const buttons = [
     [
@@ -1161,7 +1823,20 @@ async function handleCallback(callbackQuery, userData, firestore) {
     return;
   }
 
-  // ==== WIZARD CALLBACK ====
+  // ==== VENDOR CALLBACK ====
+  if (action.startsWith("vend_")) {
+    const state = await getState(firestore, chatId);
+    if (!state) {
+      await editTelegramMessage(chatId, messageId, "⚠️ Wizard udah selesai / expired.");
+      return;
+    }
+    state.messageId = messageId;
+    await setState(firestore, chatId, state);
+    await handleVendorCallback(firestore, chatId, data, state, userData, messageId);
+    return;
+  }
+
+  // ==== WIZARD CALLBACK BIASA ====
   if (action.startsWith("wiz_")) {
     const state = await getState(firestore, chatId);
     if (!state) {
