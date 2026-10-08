@@ -6,17 +6,16 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-
 import Sidebar from "@/components/Sidebar";
 import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import MenuManager from "@/components/MenuManager";
 import SyncSheetsButton from "@/components/SyncSheetsButton";
 import TelegramSetting from "@/components/TelegramSetting";
-
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
+import { migrasiStatusVendorPekerjaan, migrasiStatusVendorBisnis } from "@/lib/vendorData";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -30,12 +29,8 @@ export default function Dashboard() {
   const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [userData, setUserData] = useState(null);
-
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
   const [goalsList, setGoalsList] = useState(DEFAULT_GOALS);
   const [keuanganTransaksi, setKeuanganTransaksi] = useState({});
@@ -64,14 +59,13 @@ export default function Dashboard() {
     let perluSimpan = false;
     const updates = {};
 
+    // ========== MIGRASI NPD + MANDARIN ==========
     let activitiesBaru = data.activities;
     if (Array.isArray(activitiesBaru)) {
       const adaNpd = activitiesBaru.some((a) => a.id === "npd");
       const adaMandarin = activitiesBaru.some((a) => a.id === "mandarin");
       if (adaNpd || adaMandarin) {
-        activitiesBaru = activitiesBaru.filter(
-          (a) => a.id !== "npd" && a.id !== "mandarin"
-        );
+        activitiesBaru = activitiesBaru.filter((a) => a.id !== "npd" && a.id !== "mandarin");
         updates.activities = activitiesBaru;
         perluSimpan = true;
       }
@@ -115,6 +109,7 @@ export default function Dashboard() {
       }
     }
 
+    // ========== MIGRASI MENUS ==========
     let menusBaru = data.menus;
     if (!Array.isArray(menusBaru) || menusBaru.length === 0) {
       menusBaru = buildMenusFromOldData(activitiesBaru);
@@ -150,6 +145,27 @@ export default function Dashboard() {
       perluSimpan = true;
     }
 
+    // ========== MIGRASI STATUS VENDOR (BARU) ==========
+    let pekerjaanBaru = data.pekerjaan;
+    if (Array.isArray(pekerjaanBaru)) {
+      const migrated = migrasiStatusVendorPekerjaan(pekerjaanBaru);
+      if (migrated !== pekerjaanBaru) {
+        pekerjaanBaru = migrated;
+        updates.pekerjaan = pekerjaanBaru;
+        perluSimpan = true;
+      }
+    }
+
+    let bisnisBrandsBaru = data.bisnisBrands;
+    if (Array.isArray(bisnisBrandsBaru)) {
+      const migrated = migrasiStatusVendorBisnis(bisnisBrandsBaru);
+      if (migrated !== bisnisBrandsBaru) {
+        bisnisBrandsBaru = migrated;
+        updates.bisnisBrands = bisnisBrandsBaru;
+        perluSimpan = true;
+      }
+    }
+
     return {
       perluSimpan,
       updates,
@@ -160,6 +176,8 @@ export default function Dashboard() {
       menusCustomBaru,
       logCustomBaru,
       targetCustomBaru,
+      pekerjaanBaru,
+      bisnisBrandsBaru,
     };
   };
 
@@ -176,7 +194,6 @@ export default function Dashboard() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUserData(data);
-
         const {
           perluSimpan,
           updates,
@@ -220,13 +237,15 @@ export default function Dashboard() {
           setProgress({});
         }
 
-        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet);
+        if (data.keuanganDompet && Array.isArray(data.keuanganDompet))
+          setDompetList(data.keuanganDompet);
         else {
           await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true });
           setDompetList(DEFAULT_DOMPET);
         }
 
-        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) setGoalsList(data.keuanganGoals);
+        if (data.keuanganGoals && Array.isArray(data.keuanganGoals))
+          setGoalsList(data.keuanganGoals);
         else {
           await setDoc(docRef, { keuanganGoals: DEFAULT_GOALS }, { merge: true });
           setGoalsList(DEFAULT_GOALS);
@@ -342,16 +361,10 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
-
       <div className="flex-1 flex overflow-hidden">
         <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
-          <Sidebar
-            menus={menus}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
-          />
+          <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
-
         <div className="flex-1 overflow-y-auto p-6">
           <Schedule
             jadwalUser={jadwalUser}
@@ -362,12 +375,10 @@ export default function Dashboard() {
             setSelectedDate={setSelectedDate}
             userData={userData}
           />
-
           <div className="text-center text-base-content/50 mt-10 mb-6">
             <p className="text-2xl mb-2">📋</p>
             <p>Pilih menu dari sidebar</p>
           </div>
-
           <RingkasanKeuangan
             dompetList={dompetList}
             goalsList={goalsList}
