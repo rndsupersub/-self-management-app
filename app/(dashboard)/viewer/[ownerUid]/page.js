@@ -12,9 +12,6 @@ import {
   DEFAULT_SUMBER,
   DEFAULT_SECTIONS,
   DEFAULT_KATEGORI_KEGIATAN,
-  findPT,
-  findBrand,
-  findKegiatan,
   formatTanggal,
 } from "@/lib/pekerjaanData";
 
@@ -29,12 +26,10 @@ export default function ViewerOwnerPage() {
   const [ownerData, setOwnerData] = useState(null);
   const [error, setError] = useState("");
 
-  // State navigasi
   const [selectedPT, setSelectedPT] = useState(null);
   const [selectedBrand, setSelectedBrand] = useState(null);
   const [selectedKegiatan, setSelectedKegiatan] = useState(null);
 
-  // Data dari owner
   const [pekerjaan, setPekerjaan] = useState([]);
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_SUMBER);
@@ -50,7 +45,6 @@ export default function ViewerOwnerPage() {
       setUser(user);
 
       try {
-        // Cek viewer
         const viewerRef = doc(db, "viewers", user.uid);
         const viewerSnap = await getDoc(viewerRef);
 
@@ -65,7 +59,6 @@ export default function ViewerOwnerPage() {
           return;
         }
 
-        // Cek apakah viewer punya akses ke owner ini
         const ownerUids = vData.ownerUids || [];
         if (!ownerUids.includes(ownerUid)) {
           setError("Lo nggak punya akses ke owner ini.");
@@ -75,7 +68,6 @@ export default function ViewerOwnerPage() {
 
         setViewerData({ ...vData, _uid: user.uid });
 
-        // Fetch data owner
         const ownerRef = doc(db, "users", ownerUid);
         const ownerSnap = await getDoc(ownerRef);
 
@@ -88,7 +80,6 @@ export default function ViewerOwnerPage() {
         const oData = ownerSnap.data();
         setOwnerData(oData);
 
-        // Set data
         setPekerjaan(oData.pekerjaan || []);
         if (Array.isArray(oData.prioritasList) && oData.prioritasList.length > 0) {
           setPrioritasList(oData.prioritasList);
@@ -128,7 +119,6 @@ export default function ViewerOwnerPage() {
     }
   };
 
-  // ========== HELPER: FORMAT BADGE ==========
   const getBadgeClass = (warna) => {
     const map = {
       red: "bg-red-100 text-red-700 border-red-300",
@@ -144,7 +134,6 @@ export default function ViewerOwnerPage() {
     return map[warna] || map.gray;
   };
 
-  // ========== RENDER: LOADING ==========
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-base-200">
@@ -153,7 +142,6 @@ export default function ViewerOwnerPage() {
     );
   }
 
-  // ========== RENDER: ERROR ==========
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-base-200 p-4">
@@ -172,7 +160,6 @@ export default function ViewerOwnerPage() {
 
   return (
     <div className="min-h-screen bg-base-200">
-      {/* NAVBAR */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1 flex items-center gap-2">
           <button className="btn btn-ghost btn-sm" onClick={handleBack}>
@@ -190,10 +177,9 @@ export default function ViewerOwnerPage() {
         </div>
       </div>
 
-      {/* CONTENT */}
       <div className="p-6 max-w-4xl mx-auto space-y-4">
 
-        {/* ========== LEVEL 1: LIST PT ========== */}
+        {/* LEVEL 1: LIST PT */}
         {!selectedPT && (
           <div className="card bg-base-100 shadow">
             <div className="card-body">
@@ -226,7 +212,7 @@ export default function ViewerOwnerPage() {
           </div>
         )}
 
-        {/* ========== LEVEL 2: LIST BRAND ========== */}
+        {/* LEVEL 2: LIST BRAND */}
         {selectedPT && !selectedBrand && (
           <div className="card bg-base-100 shadow">
             <div className="card-body">
@@ -259,7 +245,7 @@ export default function ViewerOwnerPage() {
           </div>
         )}
 
-        {/* ========== LEVEL 3: LIST KEGIATAN ========== */}
+        {/* LEVEL 3: LIST KEGIATAN */}
         {selectedPT && selectedBrand && !selectedKegiatan && (
           <div className="card bg-base-100 shadow">
             <div className="card-body">
@@ -324,10 +310,9 @@ export default function ViewerOwnerPage() {
           </div>
         )}
 
-        {/* ========== LEVEL 4: DETAIL KEGIATAN ========== */}
+        {/* LEVEL 4: DETAIL KEGIATAN */}
         {selectedKegiatan && (
           <div className="space-y-4">
-            {/* Header */}
             <div className="card bg-base-100 shadow">
               <div className="card-body p-4">
                 <h1 className="text-2xl font-bold mb-2">{selectedKegiatan.judul}</h1>
@@ -361,7 +346,6 @@ export default function ViewerOwnerPage() {
               </div>
             </div>
 
-            {/* Sections */}
             {sections.map((section) => {
               const catatanList = selectedKegiatan.sections?.[section.id] || [];
               return (
@@ -403,7 +387,6 @@ export default function ViewerOwnerPage() {
               );
             })}
 
-            {/* GDrive Link */}
             {selectedKegiatan.gdriveUrl && (
               <div className="card bg-base-100 shadow">
                 <div className="card-body p-4">

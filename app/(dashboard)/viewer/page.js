@@ -24,12 +24,10 @@ export default function ViewerDashboard() {
       setUser(user);
 
       try {
-        // Cek viewer di collection viewers
         const viewerRef = doc(db, "viewers", user.uid);
         const viewerSnap = await getDoc(viewerRef);
 
         if (!viewerSnap.exists()) {
-          // Bukan viewer — redirect ke dashboard
           router.push("/dashboard");
           return;
         }
@@ -42,7 +40,6 @@ export default function ViewerDashboard() {
 
         setViewerData({ ...data, _uid: user.uid });
 
-        // Fetch owner list berdasarkan ownerUids
         const ownerUids = data.ownerUids || [];
         if (ownerUids.length === 0) {
           setOwnerList([]);
@@ -50,7 +47,6 @@ export default function ViewerDashboard() {
           return;
         }
 
-        // Firestore `in` query max 10 items — chunk kalau lebih
         const chunks = [];
         for (let i = 0; i < ownerUids.length; i += 10) {
           chunks.push(ownerUids.slice(i, i + 10));
@@ -95,7 +91,6 @@ export default function ViewerDashboard() {
 
   return (
     <div className="min-h-screen bg-base-200">
-      {/* NAVBAR */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1">
           <h1 className="text-xl font-bold">👁️ Viewer Mode</h1>
@@ -110,7 +105,6 @@ export default function ViewerDashboard() {
         </div>
       </div>
 
-      {/* CONTENT */}
       <div className="p-6 max-w-4xl mx-auto">
         <div className="card bg-base-100 shadow">
           <div className="card-body">
@@ -130,7 +124,7 @@ export default function ViewerDashboard() {
                 {ownerList.map((owner) => (
                   <Link
                     key={owner.uid}
-                    href={`/dashboard/viewer/${owner.uid}`}
+                    href={`/viewer/${owner.uid}`}
                     className="card bg-base-200 hover:bg-base-300 transition cursor-pointer"
                   >
                     <div className="card-body p-4 flex-row items-center gap-3">
