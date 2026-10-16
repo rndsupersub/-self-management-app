@@ -29,7 +29,7 @@ import {
   buildStatusReminderButtons,
   parseReminderCallback,
   todayStr,
-} from "@/lib/telegramreminder.";
+} from "@/lib/telegramreminder";
 
 // ========== FIREBASE ADMIN ==========
 let adminApp = null;
