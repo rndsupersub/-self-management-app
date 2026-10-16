@@ -6,7 +6,6 @@ import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import Link from "next/link";
 import {
   DEFAULT_PRIORITAS,
   DEFAULT_SUMBER,
@@ -56,13 +55,6 @@ export default function ViewerOwnerPage() {
         const vData = viewerSnap.data();
         if (!vData.passwordHash) {
           router.push("/login");
-          return;
-        }
-
-        const ownerUids = vData.ownerUids || [];
-        if (!ownerUids.includes(ownerUid)) {
-          setError("Lo nggak punya akses ke owner ini.");
-          setLoading(false);
           return;
         }
 
@@ -179,7 +171,6 @@ export default function ViewerOwnerPage() {
 
       <div className="p-6 max-w-4xl mx-auto space-y-4">
 
-        {/* LEVEL 1: LIST PT */}
         {!selectedPT && (
           <div className="card bg-base-100 shadow">
             <div className="card-body">
@@ -212,7 +203,6 @@ export default function ViewerOwnerPage() {
           </div>
         )}
 
-        {/* LEVEL 2: LIST BRAND */}
         {selectedPT && !selectedBrand && (
           <div className="card bg-base-100 shadow">
             <div className="card-body">
@@ -245,7 +235,6 @@ export default function ViewerOwnerPage() {
           </div>
         )}
 
-        {/* LEVEL 3: LIST KEGIATAN */}
         {selectedPT && selectedBrand && !selectedKegiatan && (
           <div className="card bg-base-100 shadow">
             <div className="card-body">
@@ -310,7 +299,6 @@ export default function ViewerOwnerPage() {
           </div>
         )}
 
-        {/* LEVEL 4: DETAIL KEGIATAN */}
         {selectedKegiatan && (
           <div className="space-y-4">
             <div className="card bg-base-100 shadow">

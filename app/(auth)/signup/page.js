@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { hashPassword, validatePassword, validateEmail, nowISO } from "@/lib/authdata";
 
@@ -18,10 +18,6 @@ export default function Signup() {
   const [nama, setNama] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-
-  const [ownerList, setOwnerList] = useState([]);
-  const [selectedOwners, setSelectedOwners] = useState([]);
-  const [loadingOwners, setLoadingOwners] = useState(false);
 
   const router = useRouter();
 
@@ -50,24 +46,6 @@ export default function Signup() {
           setLoading(false);
           return;
         }
-
-        setLoadingOwners(true);
-        try {
-          const usersSnap = await getDocs(collection(db, "users"));
-          const owners = usersSnap.docs
-            .map((d) => ({ uid: d.id, ...d.data() }))
-            .filter((u) => !u.role || u.role === "owner")
-            .map((u) => ({
-              uid: u.uid,
-              nama: u.nama || u.displayName || u.email || "User tanpa nama",
-              email: u.email || "",
-            }));
-          setOwnerList(owners);
-        } catch (err) {
-          console.error("[signup] Gagal fetch owners:", err);
-          setError("Gagal ambil daftar owner: " + err.message);
-        }
-        setLoadingOwners(false);
       }
 
       setGoogleUser({
@@ -86,12 +64,6 @@ export default function Signup() {
     }
   };
 
-  const toggleOwner = (uid) => {
-    setSelectedOwners((prev) =>
-      prev.includes(uid) ? prev.filter((u) => u !== uid) : [...prev, uid]
-    );
-  };
-
   const handleSubmit = async () => {
     setError("");
 
@@ -107,10 +79,6 @@ export default function Signup() {
     }
     if (password !== passwordConfirm) {
       setError("Password dan konfirmasi password nggak sama.");
-      return;
-    }
-    if (tipe === "viewer" && selectedOwners.length === 0) {
-      setError("Pilih minimal 1 owner yang mau lo liat.");
       return;
     }
 
@@ -149,7 +117,6 @@ export default function Signup() {
           nama: nama || googleUser.displayName,
           photoURL: googleUser.photoURL,
           passwordHash,
-          ownerUids: selectedOwners,
           role: "viewer",
           createdAt: nowISO(),
           updatedAt: nowISO(),
@@ -272,42 +239,10 @@ export default function Signup() {
               </div>
 
               {tipe === "viewer" && (
-                <div className="form-control mt-3">
-                  <label className="label">
-                    <span className="label-text text-xs">
-                      Pilih owner yang mau lo liat (min 1)
-                    </span>
-                  </label>
-
-                  {loadingOwners ? (
-                    <p className="text-xs text-center opacity-50">
-                      <span className="loading loading-spinner loading-xs"></span> Loading owner...
-                    </p>
-                  ) : ownerList.length === 0 ? (
-                    <p className="text-xs text-center opacity-50 italic">
-                      Belum ada owner terdaftar.
-                    </p>
-                  ) : (
-                    <div className="space-y-1 max-h-40 overflow-y-auto">
-                      {ownerList.map((owner) => (
-                        <label
-                          key={owner.uid}
-                          className="flex items-center gap-2 p-2 rounded bg-base-200 cursor-pointer hover:bg-base-300"
-                        >
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-sm"
-                            checked={selectedOwners.includes(owner.uid)}
-                            onChange={() => toggleOwner(owner.uid)}
-                          />
-                          <div className="text-left text-xs">
-                            <p className="font-bold">{owner.nama}</p>
-                            <p className="opacity-60">{owner.email}</p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+                <div className="alert alert-info mt-3 py-2 text-xs">
+                  <span>
+                    Viewer bisa liat semua user yang terdaftar di website. Nggak perlu pilih owner.
+                  </span>
                 </div>
               )}
 
@@ -326,7 +261,6 @@ export default function Signup() {
                   setGoogleUser(null);
                   setPassword("");
                   setPasswordConfirm("");
-                  setSelectedOwners([]);
                 }}
                 disabled={loading}
               >

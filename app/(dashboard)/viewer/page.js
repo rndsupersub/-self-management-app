@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
 
 export default function ViewerDashboard() {
@@ -40,32 +40,17 @@ export default function ViewerDashboard() {
 
         setViewerData({ ...data, _uid: user.uid });
 
-        const ownerUids = data.ownerUids || [];
-        if (ownerUids.length === 0) {
-          setOwnerList([]);
-          setLoading(false);
-          return;
-        }
-
-        const chunks = [];
-        for (let i = 0; i < ownerUids.length; i += 10) {
-          chunks.push(ownerUids.slice(i, i + 10));
-        }
-
-        const owners = [];
-        for (const chunk of chunks) {
-          const q = query(collection(db, "users"), where("__name__", "in", chunk));
-          const snap = await getDocs(q);
-          snap.docs.forEach((d) => {
-            const dData = d.data();
-            owners.push({
-              uid: d.id,
-              nama: dData.nama || dData.displayName || dData.email || "User tanpa nama",
-              email: dData.email || "",
-              photoURL: dData.photoURL || "",
-            });
-          });
-        }
+        // Fetch SEMUA users (owner) — realtime
+        const usersSnap = await getDocs(collection(db, "users"));
+        const owners = usersSnap.docs
+          .map((d) => ({ uid: d.id, ...d.data() }))
+          .filter((u) => !u.role || u.role === "owner")
+          .map((u) => ({
+            uid: u.uid,
+            nama: u.nama || u.displayName || u.email || "User tanpa nama",
+            email: u.email || "",
+            photoURL: u.photoURL || "",
+          }));
 
         setOwnerList(owners);
       } catch (err) {
@@ -115,9 +100,7 @@ export default function ViewerDashboard() {
 
             {ownerList.length === 0 ? (
               <div className="alert alert-info">
-                <span>
-                  Lo belum punya akses ke owner mana pun. Hubungi owner buat dikasih akses.
-                </span>
+                <span>Belum ada user yang terdaftar di website.</span>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
