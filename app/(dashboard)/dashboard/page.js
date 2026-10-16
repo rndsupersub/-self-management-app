@@ -145,7 +145,7 @@ export default function Dashboard() {
       perluSimpan = true;
     }
 
-    // ========== MIGRASI STATUS VENDOR (BARU) ==========
+    // ========== MIGRASI STATUS VENDOR ==========
     let pekerjaanBaru = data.pekerjaan;
     if (Array.isArray(pekerjaanBaru)) {
       const migrated = migrasiStatusVendorPekerjaan(pekerjaanBaru);
@@ -193,7 +193,7 @@ export default function Dashboard() {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setUserData(data);
+        setUserData({ ...data, _uid: user.uid });
         const {
           perluSimpan,
           updates,
@@ -280,7 +280,7 @@ export default function Dashboard() {
           keuanganSetting: DEFAULT_SETTING,
         };
         await setDoc(docRef, initialData);
-        setUserData(initialData);
+        setUserData({ ...initialData, _uid: user.uid });
         setActivities(DEFAULT_ACTIVITIES);
         setMenus(DEFAULT_MENUS);
         setMenusCustom({});

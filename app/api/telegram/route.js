@@ -23,6 +23,13 @@ import {
   generateWizardId,
   today,
 } from "@/lib/telegramWizard";
+import {
+  REMINDER_CONFIG,
+  buildStatusReminderText,
+  buildStatusReminderButtons,
+  parseReminderCallback,
+  todayStr,
+} from "@/lib/telegramReminder.Js";
 
 // ========== FIREBASE ADMIN ==========
 let adminApp = null;
@@ -715,26 +722,10 @@ async function saveWizard(firestore, userData, state) {
   throw new Error(`Menu "${menuId}" belum didukung.`);
 }
 
-// ==========================================================
 // ========== WIZARD VENDOR (DINAMIS + CRUD PERTANYAAN) ==========
-// ==========================================================
-// Struktur state phase-based:
-//   phase "fields"           → render field vendor (getVendorFieldsSteps)
-//   phase "questions"        → loop pertanyaan awal
-//   phase "manage_questions" → tombol [➕ Tambah][✏️ Edit][🗑️ Hapus][✅ Lanjut]
-//   phase "add_question_text"   → input pertanyaan baru
-//   phase "add_question_type"   → pilih tipe pertanyaan baru
-//   phase "edit_question_pick"  → pilih nomor pertanyaan yang diedit
-//   phase "edit_question_text"  → input pertanyaan baru (edit)
-//   phase "edit_question_type"  → pilih tipe baru (edit)
-//   phase "delete_question_pick" → pilih nomor pertanyaan yang dihapus
-//   phase "summary"          → ringkasan + simpan
-
 const VENDOR_MENUS = ["pekerjaan_vendor", "bisnis_vendor"];
 
-// ========== MULAI WIZARD VENDOR ==========
 async function startVendorWizard(firestore, chatId, menuId, userData, extraFields = {}) {
-  // Ambil snapshot pertanyaan dari userData (kalau kosong, pakai default kosong)
   let questions = userData.vendorPertanyaanList || [];
 
   const fields = { ...extraFields };
@@ -746,7 +737,6 @@ async function startVendorWizard(firestore, chatId, menuId, userData, extraField
     }
   });
 
-  // Skip step yang udah diisi dari extraFields
   let startStep = 0;
   if (extraFields.ptId || extraFields.brandId) {
     for (let i = 0; i < config.steps.length; i++) {
@@ -779,16 +769,13 @@ async function startVendorWizard(firestore, chatId, menuId, userData, extraField
   }
 }
 
-// ========== RENDER VENDOR STEP ==========
 async function renderVendorStep(firestore, chatId, state, userData) {
   const config = { label: state.menuId === "pekerjaan_vendor" ? "💼 Pekerjaan → 🏪 Vendor" : "💼 Bisnis → 🏪 Vendor", steps: getVendorFieldsSteps(state.menuId) };
   const steps = config.steps;
 
-  // ==== PHASE: FIELDS ====
   if (state.phase === "fields") {
     const stepIdx = state.currentStep;
     if (stepIdx >= steps.length) {
-      // Pindah ke phase "questions"
       state.phase = "questions";
       state.currentQuestionIdx = 0;
       state.awaiting = null;
@@ -853,13 +840,11 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: QUESTIONS ====
   if (state.phase === "questions") {
     const qIdx = state.currentQuestionIdx;
     const questions = state.questions || [];
 
     if (qIdx >= questions.length) {
-      // Semua pertanyaan udah dijawab → masuk manage_questions
       state.phase = "manage_questions";
       state.awaiting = null;
       state.awaitingType = null;
@@ -893,8 +878,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
       await sendTelegramWithButtons(chatId, text, buttons);
     }
 
-    // Kalau checkbox, awaiting = null (user klik tombol).
-    // Kalau short/long, awaiting = q.id
     if (q.tipe === "checkbox") {
       state.awaiting = null;
       state.awaitingType = "choice";
@@ -906,7 +889,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: MANAGE_QUESTIONS ====
   if (state.phase === "manage_questions") {
     const questions = state.questions || [];
     let text = `<b>✏️ Mau ubah pertanyaan awal?</b>\n\n<b>📋 Pertanyaan Awal (${questions.length}):</b>\n`;
@@ -939,7 +921,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: ADD_QUESTION_TEXT ====
   if (state.phase === "add_question_text") {
     const text = `<b>➕ Tambah Pertanyaan</b>\n\n✏️ Ketik pertanyaan baru:`;
     const buttons = [[{ text: "❌ Batal", callback_data: "vend_cancel" }]];
@@ -954,7 +935,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: ADD_QUESTION_TYPE ====
   if (state.phase === "add_question_type") {
     const text = `<b>➕ Tambah Pertanyaan</b>\n\nPertanyaan: <i>${state.newQuestionTemp.pertanyaan}</i>\n\n📝 Pilih tipe:`;
     const buttons = [
@@ -978,7 +958,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: EDIT_QUESTION_PICK ====
   if (state.phase === "edit_question_pick") {
     const questions = state.questions || [];
     if (questions.length === 0) {
@@ -1009,7 +988,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: EDIT_QUESTION_TEXT ====
   if (state.phase === "edit_question_text") {
     const text = `<b>✏️ Edit Pertanyaan</b>\n\nPertanyaan lama: <i>${state.newQuestionTemp.oldPertanyaan}</i>\n\n✏️ Ketik pertanyaan baru:`;
     const buttons = [[{ text: "❌ Batal", callback_data: "vend_cancel" }]];
@@ -1024,7 +1002,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: EDIT_QUESTION_TYPE ====
   if (state.phase === "edit_question_type") {
     const text = `<b>✏️ Edit Pertanyaan</b>\n\nPertanyaan baru: <i>${state.newQuestionTemp.pertanyaan}</i>\n\n📝 Pilih tipe baru:`;
     const buttons = [
@@ -1048,7 +1025,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: DELETE_QUESTION_PICK ====
   if (state.phase === "delete_question_pick") {
     const questions = state.questions || [];
     if (questions.length === 0) {
@@ -1079,7 +1055,6 @@ async function renderVendorStep(firestore, chatId, state, userData) {
     return;
   }
 
-  // ==== PHASE: SUMMARY ====
   if (state.phase === "summary") {
     let ringkasan;
     try {
@@ -1109,11 +1084,9 @@ async function renderVendorStep(firestore, chatId, state, userData) {
   }
 }
 
-// ========== HANDLE VENDOR TEXT INPUT ==========
 async function handleVendorTextInput(firestore, chatId, text, state, userData) {
   const awaiting = state.awaiting;
 
-  // ==== Field Vendor (phase: fields) ====
   if (state.phase === "fields") {
     const steps = getVendorFieldsSteps(state.menuId);
     const step = steps[state.currentStep];
@@ -1139,7 +1112,6 @@ async function handleVendorTextInput(firestore, chatId, text, state, userData) {
     return;
   }
 
-  // ==== Jawaban pertanyaan tipe short/long (phase: questions) ====
   if (state.phase === "questions" && awaiting) {
     const qId = awaiting;
     state.answers[qId] = text === "-" ? "" : text;
@@ -1150,7 +1122,6 @@ async function handleVendorTextInput(firestore, chatId, text, state, userData) {
     return;
   }
 
-  // ==== Input pertanyaan baru (add_question_text) ====
   if (state.phase === "add_question_text" && awaiting === "new_question_text") {
     state.newQuestionTemp = { pertanyaan: text.trim() };
     state.phase = "add_question_type";
@@ -1160,7 +1131,6 @@ async function handleVendorTextInput(firestore, chatId, text, state, userData) {
     return;
   }
 
-  // ==== Input edit pertanyaan (edit_question_text) ====
   if (state.phase === "edit_question_text" && awaiting === "edit_question_text") {
     state.newQuestionTemp.pertanyaan = text.trim();
     state.phase = "edit_question_type";
@@ -1170,23 +1140,19 @@ async function handleVendorTextInput(firestore, chatId, text, state, userData) {
     return;
   }
 
-  // Fallback
   await sendTelegramMessage(chatId, `⚠️ Input nggak dikenali. Klik tombol yang tersedia.`);
 }
 
-// ========== HANDLE VENDOR CALLBACK ==========
 async function handleVendorCallback(firestore, chatId, data, state, userData, messageId) {
   const parts = data.split("|");
   const action = parts[0];
 
-  // ==== CANCEL ====
   if (action === "vend_cancel") {
     await clearState(firestore, chatId);
     await editTelegramMessage(chatId, messageId, "❌ Dibatalkan.");
     return;
   }
 
-  // ==== BACK (di phase fields) ====
   if (action === "vend_back") {
     if (state.phase === "fields") {
       state.currentStep = Math.max(0, state.currentStep - 1);
@@ -1197,7 +1163,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== BACK (dari summary ke manage_questions) ====
   if (action === "vend_back_summary") {
     state.phase = "manage_questions";
     state.awaiting = null;
@@ -1206,7 +1171,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== SKIP (di phase fields) ====
   if (action === "vend_skip") {
     if (state.phase === "fields") {
       state.currentStep++;
@@ -1217,7 +1181,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== PICK (pilih choice di phase fields) ====
   if (action === "vend_pick") {
     const stepKey = parts[1];
     const value = parts.slice(2).join("|");
@@ -1231,7 +1194,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== JAWAB pertanyaan checkbox (phase questions) ====
   if (action === "vend_ans") {
     const qId = parts[1];
     const valStr = parts[2];
@@ -1249,7 +1211,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== MANAGE QUESTIONS: TAMBAH ====
   if (action === "vend_q_add") {
     state.phase = "add_question_text";
     state.newQuestionTemp = {};
@@ -1260,7 +1221,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== MANAGE QUESTIONS: EDIT ====
   if (action === "vend_q_edit") {
     state.phase = "edit_question_pick";
     await setState(firestore, chatId, state);
@@ -1268,7 +1228,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== MANAGE QUESTIONS: HAPUS ====
   if (action === "vend_q_del") {
     state.phase = "delete_question_pick";
     await setState(firestore, chatId, state);
@@ -1276,7 +1235,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== MANAGE QUESTIONS: LANJUT ====
   if (action === "vend_q_done") {
     state.phase = "summary";
     state.awaiting = null;
@@ -1285,10 +1243,8 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== PILIH TIPE PERTANYAAN BARU/EDIT ====
   if (action === "vend_qtype") {
     const tipe = parts[1];
-    // Edit atau tambah?
     if (state.phase === "add_question_type") {
       const newQ = {
         id: generateWizardId("q"),
@@ -1316,7 +1272,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== EDIT: PILIH NOMOR ====
   if (action === "vend_edit_pick") {
     const idx = parseInt(parts[1]);
     const q = state.questions[idx];
@@ -1330,7 +1285,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== DELETE: PILIH NOMOR ====
   if (action === "vend_del_pick") {
     const idx = parseInt(parts[1]);
     const newQuestions = (state.questions || []).filter((_, i) => i !== idx);
@@ -1342,7 +1296,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
     return;
   }
 
-  // ==== SAVE VENDOR ====
   if (action === "vend_save") {
     try {
       await saveVendorWizard(firestore, userData, state);
@@ -1362,7 +1315,6 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
   }
 }
 
-// ========== SAVE VENDOR WIZARD ==========
 async function saveVendorWizard(firestore, userData, state) {
   const menuId = state.menuId;
   const f = state.fields;
@@ -1370,7 +1322,6 @@ async function saveVendorWizard(firestore, userData, state) {
   const answers = state.answers || {};
   const userRef = firestore.collection("users").doc(userData._uid);
 
-  // Bangun list jawaban
   const pertanyaanAwal = questions.map((q) => {
     const jawab = answers[q.id];
     let finalJawab = "";
@@ -1412,7 +1363,6 @@ async function saveVendorWizard(firestore, userData, state) {
     updatedAt: new Date().toISOString(),
   };
 
-  // Simpan ke pekerjaan atau bisnis
   if (menuId === "pekerjaan_vendor") {
     const pekerjaan = userData.pekerjaan || [];
     const ptIdx = pekerjaan.findIndex((p) => p.id === f.ptId);
@@ -1435,8 +1385,6 @@ async function saveVendorWizard(firestore, userData, state) {
     throw new Error(`Menu "${menuId}" bukan vendor.`);
   }
 
-  // Update vendorPertanyaanList (kalau ada perubahan struktur)
-  // Hanya update kalau pertanyaan beda dari userData
   const oldQs = userData.vendorPertanyaanList || [];
   const oldIds = oldQs.map((q) => q.id).sort().join(",");
   const newIds = questions.map((q) => q.id).sort().join(",");
@@ -1450,7 +1398,6 @@ async function saveVendorWizard(firestore, userData, state) {
 
 // ========== HANDLE SUB-MENU PICK ==========
 async function handleSubMenuPick(firestore, chatId, messageId, userData, command, subMenuId, baseFields) {
-  // Kalau vendor → pakai vendor wizard dinamis
   if (subMenuId === "vendor") {
     const wizardKey = `${command}_vendor`;
     await clearState(firestore, chatId);
@@ -1463,7 +1410,6 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
     return;
   }
 
-  // Kalau sub-menu lain → pakai wizard biasa
   const wizardKey = `${command}_${subMenuId}`;
   const config = WIZARD_CONFIG[wizardKey];
   if (!config) {
@@ -1514,7 +1460,6 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   // ==== STATE AKTIF: CEK VENDOR vs WIZARD BIASA ====
   if (state && state.phase && VENDOR_MENUS.includes(state.menuId)) {
-    // Vendor wizard
     if (state.awaiting && !text.startsWith("/")) {
       await handleVendorTextInput(firestore, chatId, text, state, userData);
       return;
@@ -1593,8 +1538,8 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
   if (command === "today") {
-    const todayStr = today();
-    const progress = userData.dailyProgress?.[todayStr] || {};
+    const todayStrLocal = today();
+    const progress = userData.dailyProgress?.[todayStrLocal] || {};
     await sendTelegramMessage(chatId, `<b>📅 Ringkasan Hari Ini</b>\n\n📝 ${Object.keys(progress).length} aktivitas.`);
     return;
   }
@@ -1603,6 +1548,43 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
       telegramChatId: null, telegramUsername: null, telegramFirstName: null, telegramLinkedAt: null,
     });
     await sendTelegramMessage(chatId, `✅ Unlink berhasil.`);
+    return;
+  }
+
+  // ==== REMINDER ====
+  if (command === "reminder") {
+    const settings = userData.reminderSettings || {};
+    const text = buildStatusReminderText(settings);
+    const buttons = buildStatusReminderButtons(settings);
+    await sendTelegramWithButtons(chatId, text, buttons);
+    return;
+  }
+
+  if (command === "pause") {
+    const settings = userData.reminderSettings || {};
+    const newSettings = { ...settings };
+    Object.keys(REMINDER_CONFIG).forEach((menuId) => {
+      newSettings[menuId] = { ...(newSettings[menuId] || {}), enabled: false };
+    });
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderSettings: newSettings },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `⏸️ <b>Semua reminder dimatiin.</b>\n\nKetik /reminder buat cek status.`);
+    return;
+  }
+
+  if (command === "resume") {
+    const settings = userData.reminderSettings || {};
+    const newSettings = { ...settings };
+    Object.keys(REMINDER_CONFIG).forEach((menuId) => {
+      newSettings[menuId] = { ...(newSettings[menuId] || {}), enabled: true };
+    });
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderSettings: newSettings },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `▶️ <b>Semua reminder dinyalain.</b>\n\nKetik /reminder buat cek status.`);
     return;
   }
 
@@ -1695,7 +1677,6 @@ async function startWizardWithSubMenu(firestore, chatId, command, userData) {
     return;
   }
 
-  // Bisnis: langsung brandId
   const state = {
     menuId: command,
     currentStep: 0,
@@ -1820,6 +1801,149 @@ async function handleCallback(callbackQuery, userData, firestore) {
         body: JSON.stringify({ uid: userData._uid }),
       });
     } catch (e) { console.error(e); }
+    return;
+  }
+
+  // ==== REMINDER CALLBACK ====
+  if (action.startsWith("rem_")) {
+    const { action: remAction, menuId } = parseReminderCallback(data);
+
+    if (remAction === "rem_toggle" && menuId) {
+      const settings = userData.reminderSettings || {};
+      const current = settings[menuId]?.enabled ?? REMINDER_CONFIG[menuId]?.enabled ?? true;
+      const newSettings = {
+        ...settings,
+        [menuId]: { ...(settings[menuId] || {}), enabled: !current },
+      };
+      await firestore.collection("users").doc(userData._uid).set(
+        { reminderSettings: newSettings },
+        { merge: true }
+      );
+      const text = buildStatusReminderText(newSettings);
+      const buttons = buildStatusReminderButtons(newSettings);
+      await editTelegramMessage(chatId, messageId, text, buttons);
+      return;
+    }
+
+    if (remAction === "rem_pause_all") {
+      const settings = userData.reminderSettings || {};
+      const newSettings = { ...settings };
+      Object.keys(REMINDER_CONFIG).forEach((mid) => {
+        newSettings[mid] = { ...(newSettings[mid] || {}), enabled: false };
+      });
+      await firestore.collection("users").doc(userData._uid).set(
+        { reminderSettings: newSettings },
+        { merge: true }
+      );
+      const text = buildStatusReminderText(newSettings);
+      const buttons = buildStatusReminderButtons(newSettings);
+      await editTelegramMessage(chatId, messageId, text, buttons);
+      return;
+    }
+
+    if (remAction === "rem_resume_all") {
+      const settings = userData.reminderSettings || {};
+      const newSettings = { ...settings };
+      Object.keys(REMINDER_CONFIG).forEach((mid) => {
+        newSettings[mid] = { ...(newSettings[mid] || {}), enabled: true };
+      });
+      await firestore.collection("users").doc(userData._uid).set(
+        { reminderSettings: newSettings },
+        { merge: true }
+      );
+      const text = buildStatusReminderText(newSettings);
+      const buttons = buildStatusReminderButtons(newSettings);
+      await editTelegramMessage(chatId, messageId, text, buttons);
+      return;
+    }
+
+    if (remAction === "rem_mulai" && menuId) {
+      const todayLocal = todayStr();
+      await firestore.collection("users").doc(userData._uid).set(
+        {
+          dailyProgress: {
+            ...(userData.dailyProgress || {}),
+            [todayLocal]: {
+              ...((userData.dailyProgress || {})[todayLocal] || {}),
+              [menuId]: {
+                ...(((userData.dailyProgress || {})[todayLocal] || {})[menuId] || {}),
+                mulai: true,
+                mulaiAt: new Date().toISOString(),
+                override: true,
+              },
+            },
+          },
+          reminderLog: {
+            ...(userData.reminderLog || {}),
+            [todayLocal]: {
+              ...((userData.reminderLog || {})[todayLocal] || {}),
+              [menuId]: { 1: true, 2: true, 3: true, 4: true },
+            },
+          },
+        },
+        { merge: true }
+      );
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `✅ <b>Mantap!</b>\n\nLo udah mulai <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b>.\n\n📝 Jangan lupa isi log-nya di web ya.\n\n<i>Reminder buat aktivitas ini dimatiin.</i>`
+      );
+      return;
+    }
+
+    if (remAction === "rem_belum" && menuId) {
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `🚫 <b>Oke, dicatat.</b>\n\nReminder buat <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b> bakal dikirim lagi nanti.\n\n<i>Semangat, bos!</i>`
+      );
+      return;
+    }
+
+    if (remAction === "rem_isi" && menuId) {
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `✅ <b>Oke!</b>\n\nLo mau isi <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b> sekarang.\n\n📝 Silakan buka web: <b>self-management-app</b>\n\n<i>Reminder dimatiin.</i>`
+      );
+      const todayLocal = todayStr();
+      await firestore.collection("users").doc(userData._uid).set(
+        {
+          reminderLog: {
+            ...(userData.reminderLog || {}),
+            [todayLocal]: {
+              ...((userData.reminderLog || {})[todayLocal] || {}),
+              [menuId]: { 1: true, 2: true, 3: true, 4: true },
+            },
+          },
+        },
+        { merge: true }
+      );
+      return;
+    }
+
+    if (remAction === "rem_skip" && menuId) {
+      const todayLocal = todayStr();
+      await firestore.collection("users").doc(userData._uid).set(
+        {
+          reminderLog: {
+            ...(userData.reminderLog || {}),
+            [todayLocal]: {
+              ...((userData.reminderLog || {})[todayLocal] || {}),
+              [menuId]: { 1: true, 2: true, 3: true, 4: true },
+            },
+          },
+        },
+        { merge: true }
+      );
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `🚫 <b>Oke, skip hari ini.</b>\n\nReminder buat <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b> dimatiin sampai besok.\n\n<i>Jangan lupa besok ya, bos!</i>`
+      );
+      return;
+    }
+
     return;
   }
 

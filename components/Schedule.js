@@ -19,9 +19,10 @@ export default function Schedule({
   onUpdateProgress,
   selectedDate,
   setSelectedDate,
-  userData,  // NEW: seluruh data user dari Firestore (buat deteksi otomatis)
+  userData, // seluruh data user dari Firestore (buat deteksi otomatis + sync Telegram)
 }) {
   const [showKelola, setShowKelola] = useState(false);
+  const [syncing, setSyncing] = useState(null); // menuId yang lagi sync
 
   // Ambil jadwal untuk tanggal yang dipilih
   const { jadwal, hari, dayIndex } = useMemo(
@@ -40,14 +41,19 @@ export default function Schedule({
       return {
         auto: false,
         selesai: true,
+        mulai: manual.mulai || false,
         pilihan: manual.pilihan || null,
         label: manual.label || null,
         warna: manual.warna || null,
       };
     }
-    if (manual?.selesai === false && manual?.override) {
+    if (manual?.selesai === false && manual?.override && !manual?.mulai) {
       // User sengaja set belum
-      return { auto: false, selesai: false };
+      return { auto: false, selesai: false, mulai: false };
+    }
+    if (manual?.mulai === true) {
+      // User udah klik "Mulai" tapi belum selesai
+      return { auto: false, selesai: false, mulai: true };
     }
 
     // 2. Cek otomatis dari userData
@@ -56,6 +62,7 @@ export default function Schedule({
       return {
         auto: true,
         selesai: true,
+        mulai: false,
         pilihan: auto.label,
         label: auto.label,
         warna: auto.warna,
@@ -63,29 +70,90 @@ export default function Schedule({
     }
 
     // 3. Default: belum
-    return { auto: false, selesai: false };
+    return { auto: false, selesai: false, mulai: false };
   };
 
-  // ========== TANDAI SELESAI (MANUAL OVERRIDE) ==========
-  const handleDone = (id, pilihan = null) => {
-    const updates = { selesai: true, override: true };
+  // ========== TANDAI SELESAI (MANUAL OVERRIDE) + SYNC TELEGRAM ==========
+  const handleDone = async (id, label, pilihan = null) => {
+    const updates = { selesai: true, override: true, mulai: false };
     if (pilihan) updates.pilihan = pilihan;
     onUpdateProgress(selectedDate, id, updates);
+
+    // Sync ke Telegram
+    await syncKeTelegram(id, label, "selesai");
+  };
+
+  // ========== MULAI AKTIVITAS + SYNC TELEGRAM ==========
+  const handleMulai = async (id, label) => {
+    setSyncing(id);
+    try {
+      // 1. Update progress di Firestore (status: proses)
+      onUpdateProgress(selectedDate, id, {
+        selesai: false,
+        mulai: true,
+        mulaiAt: new Date().toISOString(),
+        override: true,
+      });
+
+      // 2. Kirim sinyal ke Telegram
+      await syncKeTelegram(id, label, "mulai");
+    } catch (e) {
+      console.error("[handleMulai] Error:", e);
+    } finally {
+      setSyncing(null);
+    }
+  };
+
+  // ========== SYNC KE TELEGRAM ==========
+  const syncKeTelegram = async (aktivitasId, aktivitasLabel, status) => {
+    if (!userData) return;
+    const uid = userData._uid || userData.uid;
+    if (!uid) return;
+    // Kalau user belum link Telegram, tetep lanjut (API bakal skip)
+    try {
+      await fetch("/api/telegram/sync-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid,
+          aktivitasId,
+          aktivitasLabel,
+          status, // "mulai" | "selesai"
+          waktu: new Date().toISOString(),
+        }),
+      });
+    } catch (e) {
+      console.error("[syncKeTelegram] Gagal sync:", e);
+    }
   };
 
   // ========== BATALKAN ==========
   const handleUndo = (id) => {
-    onUpdateProgress(selectedDate, id, { selesai: false, override: true });
+    onUpdateProgress(selectedDate, id, {
+      selesai: false,
+      mulai: false,
+      override: true,
+    });
   };
 
-  // ========== RESET AUTO (biar balik ke deteksi otomatis) ==========
+  // ========== RESET AUTO ==========
   const handleResetAuto = (id) => {
-    onUpdateProgress(selectedDate, id, { selesai: false, override: false, pilihan: null });
+    onUpdateProgress(selectedDate, id, {
+      selesai: false,
+      mulai: false,
+      override: false,
+      pilihan: null,
+    });
   };
 
   // ========== PILIH MANUAL (OVERRIDE) ==========
   const handleManualPilih = (id, pilihan) => {
-    onUpdateProgress(selectedDate, id, { selesai: true, pilihan, override: true });
+    onUpdateProgress(selectedDate, id, {
+      selesai: true,
+      mulai: false,
+      pilihan,
+      override: true,
+    });
   };
 
   // ========== NAVIGASI ==========
@@ -151,8 +219,10 @@ export default function Schedule({
           {jadwal.map((item) => {
             const status = getStatus(item);
             const done = status.selesai;
+            const mulai = status.mulai;
             const auto = status.auto;
             const pilihanTampil = status.pilihan;
+            const isSyncing = syncing === item.id;
 
             return (
               <div
@@ -166,7 +236,7 @@ export default function Schedule({
                   <span
                     className={`text-sm truncate ${
                       done ? "line-through text-success" : ""
-                    }`}
+                    } ${mulai && !done ? "text-info font-semibold" : ""}`}
                   >
                     {item.label}
                     <span className="text-xs text-base-content/50 ml-1">
@@ -175,6 +245,11 @@ export default function Schedule({
                     {auto && done && (
                       <span className="text-xs text-info ml-2 italic">
                         ⚡ auto
+                      </span>
+                    )}
+                    {mulai && !done && (
+                      <span className="text-xs text-info ml-2 italic">
+                        ▶️ proses
                       </span>
                     )}
                     {pilihanTampil && (
@@ -186,7 +261,7 @@ export default function Schedule({
                 </div>
 
                 <div className="flex gap-1 items-center flex-shrink-0">
-                  {item.manual && !done && (
+                  {item.manual && !done && !mulai && (
                     <div className="flex gap-1">
                       {item.manual.map((pilih) => (
                         <button
@@ -222,13 +297,44 @@ export default function Schedule({
                         </button>
                       )}
                     </>
+                  ) : mulai ? (
+                    <>
+                      <span className="badge badge-info badge-sm">
+                        ▶️ Proses
+                      </span>
+                      <button
+                        className="btn btn-success btn-xs"
+                        onClick={() => handleDone(item.id, item.label)}
+                        title="Tandai selesai"
+                      >
+                        ✅ Selesai
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-xs text-warning"
+                        onClick={() => handleUndo(item.id)}
+                        title="Batal"
+                      >
+                        ↩️
+                      </button>
+                    </>
                   ) : (
-                    <button
-                      className="btn btn-outline btn-xs"
-                      onClick={() => handleDone(item.id)}
-                    >
-                      ⏳ Belum
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        className="btn btn-outline btn-xs"
+                        onClick={() => handleMulai(item.id, item.label)}
+                        disabled={isSyncing}
+                        title="Mulai aktivitas + sync ke Telegram"
+                      >
+                        {isSyncing ? "⏳" : "▶️ Mulai"}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => handleDone(item.id, item.label)}
+                        title="Tandai selesai (langsung)"
+                      >
+                        ✅
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
