@@ -12,6 +12,7 @@ import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import MenuManager from "@/components/MenuManager";
 import SyncSheetsButton from "@/components/SyncSheetsButton";
 import TelegramSetting from "@/components/TelegramSetting";
+import ViewerManager from "@/components/ViewerManager";
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
@@ -187,7 +188,20 @@ export default function Dashboard() {
         router.push("/login");
         return;
       }
-      setUser(user);
+            setUser(user);
+
+      // Cek apakah user ini viewer
+      try {
+        const viewerRef = doc(db, "viewers", user.uid);
+        const viewerSnap = await getDoc(viewerRef);
+        if (viewerSnap.exists() && viewerSnap.data().passwordHash) {
+          router.push("/viewer");
+          return;
+        }
+      } catch (err) {
+        console.error("[dashboard] Cek viewer error:", err);
+      }
+
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
 
@@ -354,7 +368,8 @@ export default function Dashboard() {
             }}
           />
           <SyncSheetsButton user={user} />
-          <TelegramSetting user={user} />
+<ViewerManager user={user} />
+<TelegramSetting user={user} />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
