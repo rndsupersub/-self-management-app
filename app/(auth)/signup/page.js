@@ -9,25 +9,22 @@ import { useRouter } from "next/navigation";
 import { hashPassword, validatePassword, validateEmail, nowISO } from "@/lib/authdata";
 
 export default function Signup() {
-  const [step, setStep] = useState("choose"); // "choose" | "form" | "success"
-  const [tipe, setTipe] = useState(null); // "user" | "viewer"
+  const [step, setStep] = useState("choose");
+  const [tipe, setTipe] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Form state
-  const [googleUser, setGoogleUser] = useState(null); // data dari Google
+  const [googleUser, setGoogleUser] = useState(null);
   const [nama, setNama] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
 
-  // Owner list (khusus viewer)
   const [ownerList, setOwnerList] = useState([]);
   const [selectedOwners, setSelectedOwners] = useState([]);
   const [loadingOwners, setLoadingOwners] = useState(false);
 
   const router = useRouter();
 
-  // ========== SIGN UP GOOGLE ==========
   const handleGoogleSignup = async (type) => {
     setLoading(true);
     setError("");
@@ -37,7 +34,6 @@ export default function Signup() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Cek apakah udah terdaftar
       if (type === "user") {
         const userRef = doc(db, "users", user.uid);
         const userSnap = await getDoc(userRef);
@@ -47,7 +43,6 @@ export default function Signup() {
           return;
         }
       } else if (type === "viewer") {
-        // Cek di collection viewers
         const viewerRef = doc(db, "viewers", user.uid);
         const viewerSnap = await getDoc(viewerRef);
         if (viewerSnap.exists() && viewerSnap.data().passwordHash) {
@@ -56,13 +51,12 @@ export default function Signup() {
           return;
         }
 
-        // Fetch owner list
         setLoadingOwners(true);
         try {
           const usersSnap = await getDocs(collection(db, "users"));
           const owners = usersSnap.docs
             .map((d) => ({ uid: d.id, ...d.data() }))
-            .filter((u) => !u.role || u.role === "owner") // cuma owner
+            .filter((u) => !u.role || u.role === "owner")
             .map((u) => ({
               uid: u.uid,
               nama: u.nama || u.displayName || u.email || "User tanpa nama",
@@ -92,18 +86,15 @@ export default function Signup() {
     }
   };
 
-  // ========== TOGGLE OWNER (VIEWER) ==========
   const toggleOwner = (uid) => {
     setSelectedOwners((prev) =>
       prev.includes(uid) ? prev.filter((u) => u !== uid) : [...prev, uid]
     );
   };
 
-  // ========== SUBMIT SIGN UP ==========
   const handleSubmit = async () => {
     setError("");
 
-    // Validasi
     const emailCheck = validateEmail(googleUser.email);
     if (!emailCheck.valid) {
       setError(emailCheck.error);
@@ -128,12 +119,10 @@ export default function Signup() {
       const passwordHash = await hashPassword(password);
 
       if (tipe === "user") {
-        // Simpen di collection users
         const userRef = doc(db, "users", googleUser.uid);
         const userSnap = await getDoc(userRef);
 
         if (userSnap.exists()) {
-          // Update doc yang udah ada (mungkin dari migrasi)
           await setDoc(userRef, {
             email: googleUser.email,
             nama: nama || googleUser.displayName,
@@ -143,7 +132,6 @@ export default function Signup() {
             updatedAt: nowISO(),
           }, { merge: true });
         } else {
-          // Bikin doc baru
           await setDoc(userRef, {
             email: googleUser.email,
             nama: nama || googleUser.displayName,
@@ -155,7 +143,6 @@ export default function Signup() {
           });
         }
       } else if (tipe === "viewer") {
-        // Simpen di collection viewers
         const viewerRef = doc(db, "viewers", googleUser.uid);
         await setDoc(viewerRef, {
           email: googleUser.email,
@@ -178,7 +165,6 @@ export default function Signup() {
     }
   };
 
-  // ========== REDIRECT SETELAH SUKSES ==========
   useEffect(() => {
     if (step === "success") {
       const t = setTimeout(() => {
@@ -188,7 +174,6 @@ export default function Signup() {
     }
   }, [step, router]);
 
-  // ========== RENDER ==========
   return (
     <div className="min-h-screen flex items-center justify-center bg-base-200 p-4">
       <div className="card w-full max-w-md bg-base-100 shadow-xl">
@@ -196,7 +181,6 @@ export default function Signup() {
 
           <h2 className="card-title text-2xl text-center justify-center">📝 Sign Up</h2>
 
-          {/* STEP: CHOOSE */}
           {step === "choose" && (
             <>
               <p className="text-sm opacity-70 text-center mb-3">Daftar sebagai:</p>
@@ -232,7 +216,6 @@ export default function Signup() {
             </>
           )}
 
-          {/* STEP: FORM */}
           {step === "form" && googleUser && (
             <>
               <div className={`badge ${tipe === "user" ? "badge-primary" : "badge-secondary"} mx-auto`}>
@@ -288,7 +271,6 @@ export default function Signup() {
                 />
               </div>
 
-              {/* VIEWER: PILIH OWNER */}
               {tipe === "viewer" && (
                 <div className="form-control mt-3">
                   <label className="label">
@@ -353,7 +335,6 @@ export default function Signup() {
             </>
           )}
 
-          {/* STEP: SUCCESS */}
           {step === "success" && (
             <div className="text-center">
               <p className="text-4xl mb-3">🎉</p>
@@ -364,7 +345,6 @@ export default function Signup() {
             </div>
           )}
 
-          {/* ERROR */}
           {error && (
             <div className="alert alert-error mt-3 py-2 text-xs">
               <span>❌ {error}</span>
