@@ -722,7 +722,7 @@ async function saveWizard(firestore, userData, state) {
   throw new Error(`Menu "${menuId}" belum didukung.`);
 }
 
-// ========== WIZARD VENDOR (DINAMIS + CRUD PERTANYAAN) ==========
+// ========== WIZARD VENDOR ==========
 const VENDOR_MENUS = ["pekerjaan_vendor", "bisnis_vendor"];
 
 async function startVendorWizard(firestore, chatId, menuId, userData, extraFields = {}) {
@@ -1395,7 +1395,6 @@ async function saveVendorWizard(firestore, userData, state) {
     await userRef.update({ vendorPertanyaanList: questions });
   }
 }
-
 // ========== HANDLE SUB-MENU PICK ==========
 async function handleSubMenuPick(firestore, chatId, messageId, userData, command, subMenuId, baseFields) {
   if (subMenuId === "vendor") {
@@ -1999,6 +1998,70 @@ export async function POST(req) {
     if (update.message && update.message.text) {
       await handleTextMessage(firestore, chatId, update.message.text, userData, update.message.message_id, fromData);
       return NextResponse.json({ ok: true });
+    }
+
+    // ==== HANDLE VOICE NOTE (VN) ====
+    if (update.message && update.message.voice) {
+      if (!userData) {
+        await sendTelegramMessage(chatId, `⚠️ Belum di-link. Buka web → Telegram → Generate Pairing Code.`);
+        return NextResponse.json({ ok: true });
+      }
+
+      const voice = update.message.voice;
+      const fileId = voice.file_id;
+      const duration = voice.duration || 0;
+
+      // Ambil state untuk tau user lagi di wizard Hafalan atau nggak
+      const state = await getState(firestore, chatId);
+
+      if (state && state.menuId === "hafalan") {
+        // User lagi di wizard hafalan — simpen VN ke surat yang dipilih
+        const suratId = state.fields?.suratId;
+        const juzId = state.fields?.juzId;
+
+        if (!suratId || !juzId) {
+          await sendTelegramMessage(chatId, `⚠️ Pilih surat dulu. Ketik /hafalan.`);
+          return NextResponse.json({ ok: true });
+        }
+
+        const todayLocal = today();
+        const voiceNote = {
+          id: `vn_${Date.now()}`,
+          fileId,
+          duration,
+          tanggal: todayLocal,
+          suratId,
+          juzId,
+          createdAt: new Date().toISOString(),
+        };
+
+        // Simpen ke hafalanVoiceNotes[suratId]
+        const current = userData.hafalanVoiceNotes || {};
+        const suratList = current[suratId] || [];
+        const updated = {
+          ...current,
+          [suratId]: [...suratList, voiceNote],
+        };
+
+        await firestore.collection("users").doc(userData._uid).set(
+          { hafalanVoiceNotes: updated },
+          { merge: true }
+        );
+
+        // Kirim konfirmasi
+        await sendTelegramMessage(
+          chatId,
+          `✅ <b>Voice Note tersimpan!</b>\n\n📖 Surat: <b>${suratId}</b>\n⏱️ Durasi: ${duration} detik\n📅 ${todayLocal}\n\n<i>Buka web → Hafalan → ${suratId} → Rekaman Hafalan</i>`
+        );
+        return NextResponse.json({ ok: true });
+      } else {
+        // User kirim VN tapi nggak di wizard hafalan
+        await sendTelegramMessage(
+          chatId,
+          `⚠️ <b>Kirim VN lewat menu /hafalan dulu ya.</b>\n\n1. Ketik /hafalan\n2. Pilih Juz & Surat\n3. Baru kirim VN\n\n<i>Atau kalo mau simpen VN ke surat tertentu tanpa wizard, kirim format:</i>\n<code>/vn suratId</code>\n\nContoh: <code>/vn 1_alfatihah</code>`
+        );
+        return NextResponse.json({ ok: true });
+      }
     }
 
     await sendTelegramMessage(chatId, "🤖 Format nggak didukung.");

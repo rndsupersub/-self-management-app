@@ -26,14 +26,19 @@ export default function HafalanSuratPage() {
   // Hafalan data
   const [hafalanMembaca, setHafalanMembaca] = useState({});
   const [hafalanMurajaah, setHafalanMurajaah] = useState({});
+  const [hafalanVoiceNotes, setHafalanVoiceNotes] = useState({});
   const [jenisKesalahanList, setJenisKesalahanList] = useState(
     DEFAULT_JENIS_KESALAHAN
   );
 
-  // Catatan surat (disimpan di field hafalanCatatanSurat)
+  // Catatan surat
   const [catatanSurat, setCatatanSurat] = useState("");
   const [editCatatan, setEditCatatan] = useState(false);
   const [catatanInput, setCatatanInput] = useState("");
+
+  // Audio player state
+  const [playingId, setPlayingId] = useState(null);
+  const [loadingFileId, setLoadingFileId] = useState(null);
 
   const router = useRouter();
   const params = useParams();
@@ -48,7 +53,6 @@ export default function HafalanSuratPage() {
   const suratIndex = suratList.findIndex((s) => s.id === suratId);
   const suratData = suratList[suratIndex];
 
-  // Surat sebelum & sesudah
   const suratPrev = suratIndex > 0 ? suratList[suratIndex - 1] : null;
   const suratNext =
     suratIndex < suratList.length - 1 ? suratList[suratIndex + 1] : null;
@@ -95,6 +99,11 @@ export default function HafalanSuratPage() {
           setHafalanMurajaah(data.hafalanMurajaah);
         }
 
+        // Fetch Voice Notes
+        if (data.hafalanVoiceNotes && typeof data.hafalanVoiceNotes === "object") {
+          setHafalanVoiceNotes(data.hafalanVoiceNotes);
+        }
+
         if (
           data.hafalanJenisKesalahan &&
           Array.isArray(data.hafalanJenisKesalahan)
@@ -102,7 +111,6 @@ export default function HafalanSuratPage() {
           setJenisKesalahanList(data.hafalanJenisKesalahan);
         }
 
-        // Catatan surat
         const catatanMap = data.hafalanCatatanSurat || {};
         const cat = catatanMap[suratId] || "";
         setCatatanSurat(cat);
@@ -149,11 +157,9 @@ export default function HafalanSuratPage() {
     const updated = { ...hafalanMembaca };
 
     if (found) {
-      // Batalkan - hapus tanda sudah, tapi tetep simpan entry
       const [tanggal, entry] = found;
       updated[tanggal] = { ...entry, sudah: false };
     } else {
-      // Tandai sudah hafal
       const today = new Date().toISOString().split("T")[0];
       if (updated[today]) {
         updated[today] = {
@@ -179,13 +185,11 @@ export default function HafalanSuratPage() {
     await simpanSettings({ hafalanMembaca: updated });
   };
 
-  // ========== CEK STATUS HAFAL ==========
   const sudahHafal = useMemo(() => {
     const entries = Object.values(hafalanMembaca || {});
     return entries.some((e) => e.suratId === suratId && e.sudah === true);
   }, [hafalanMembaca, suratId]);
 
-  // ========== RIWAYAT MEMBACA ==========
   const riwayatMembaca = useMemo(() => {
     return Object.entries(hafalanMembaca || {})
       .map(([tanggal, entry]) => ({ tanggal, ...entry }))
@@ -193,13 +197,46 @@ export default function HafalanSuratPage() {
       .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
   }, [hafalanMembaca, suratId]);
 
-  // ========== RIWAYAT MURAJAAN ==========
   const riwayatMurajaah = useMemo(() => {
     return Object.entries(hafalanMurajaah || {})
       .map(([tanggal, entry]) => ({ tanggal, ...entry }))
       .filter((e) => e.suratId === suratId)
       .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
   }, [hafalanMurajaah, suratId]);
+
+  // ========== VOICE NOTES ==========
+  const voiceNotesSuratIni = useMemo(() => {
+    return hafalanVoiceNotes?.[suratId] || [];
+  }, [hafalanVoiceNotes, suratId]);
+
+  const handlePlayVoiceNote = async (vn) => {
+    // Kalau lagi play, stop
+    if (playingId === vn.id) {
+      setPlayingId(null);
+      return;
+    }
+
+    setLoadingFileId(vn.id);
+    try {
+      // Nembak API buat dapetin link file
+      const res = await fetch(`/api/telegram/get-file-url?fileId=${encodeURIComponent(vn.fileId)}`);
+      const data = await res.json();
+
+      if (data.ok && data.fileUrl) {
+        setPlayingId(vn.id);
+        // Play pake Audio API
+        const audio = new Audio(data.fileUrl);
+        audio.play();
+        audio.onended = () => setPlayingId(null);
+      } else {
+        alert("Gagal ambil link file: " + (data.error || "Unknown"));
+      }
+    } catch (err) {
+      console.error("[playVN] Error:", err);
+      alert("Error: " + err.message);
+    }
+    setLoadingFileId(null);
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -242,7 +279,6 @@ export default function HafalanSuratPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
       <div className="navbar bg-base-100 shadow px-4">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
@@ -256,7 +292,6 @@ export default function HafalanSuratPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <div
           className={`${
             sidebarCollapsed ? "w-12" : "w-64"
@@ -269,9 +304,7 @@ export default function HafalanSuratPage() {
           />
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
           <div className="text-sm breadcrumbs mb-6">
             <ul>
               <li>
@@ -304,7 +337,6 @@ export default function HafalanSuratPage() {
             </ul>
           </div>
 
-          {/* Header Surat + Navigasi */}
           <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
             <div className="flex items-center gap-2">
               <button
@@ -335,7 +367,7 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* ========== STATUS HAFALAN ========== */}
+          {/* STATUS HAFALAN */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <div className="flex justify-between items-center">
@@ -363,7 +395,7 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* ========== CATATAN ========== */}
+          {/* CATATAN */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-2">
@@ -419,7 +451,7 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* ========== RIWAYAT MEMBACA ========== */}
+          {/* RIWAYAT MEMBACA */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <h3 className="text-sm font-bold text-gray-800 mb-3">
@@ -464,7 +496,7 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* ========== RIWAYAT MURAJAAN ========== */}
+          {/* RIWAYAT MURAJAAN */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <h3 className="text-sm font-bold text-gray-800 mb-3">
@@ -514,21 +546,58 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* ========== VOICE NOTE PLACEHOLDER ========== */}
-          <div className="card bg-white shadow border border-dashed border-2 border-gray-300">
-            <div className="card-body p-4 text-center">
-              <h3 className="text-sm font-bold text-gray-800 justify-center">
-                🎙️ Rekaman Hafalan (Telegram)
+          {/* REKAMAN HAFALAN (TELEGRAM) */}
+          <div className="card bg-white shadow border border-dashed border-2 border-gray-300 mb-4">
+            <div className="card-body p-4">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">
+                🎙️ Rekaman Hafalan (Telegram) ({voiceNotesSuratIni.length})
               </h3>
-              <p className="text-xs text-gray-500 mt-2">
-                Kirim voice note hafalan lewat Telegram Bot, nanti otomatis
-                muncul di sini.
-              </p>
-              <p className="text-xs text-gray-400 italic mt-1">
-                (Fitur ini segera hadir)
-              </p>
+
+              {voiceNotesSuratIni.length === 0 ? (
+                <div className="text-center py-6 text-gray-400">
+                  <p className="text-2xl mb-2">🎙️</p>
+                  <p className="text-xs italic">
+                    Belum ada rekaman. Kirim voice note hafalan lewat Telegram Bot.
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    (Ketik /hafalan di bot, pilih surat, lalu kirim VN)
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {voiceNotesSuratIni.map((vn) => (
+                    <div
+                      key={vn.id}
+                      className="flex items-center gap-3 p-2 rounded border border-gray-200 bg-gray-50"
+                    >
+                      <button
+                        className={`btn btn-circle btn-sm ${
+                          playingId === vn.id ? "btn-error" : "btn-primary"
+                        }`}
+                        onClick={() => handlePlayVoiceNote(vn)}
+                        disabled={loadingFileId === vn.id}
+                      >
+                        {loadingFileId === vn.id
+                          ? "..."
+                          : playingId === vn.id
+                          ? "■"
+                          : "▶"}
+                      </button>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-800">
+                          {formatTanggalPendek(vn.tanggal)} • {vn.duration} detik
+                        </p>
+                        <p className="text-[10px] text-gray-500">
+                          ID: {vn.fileId.substring(0, 20)}...
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
         </div>
       </div>
     </div>
