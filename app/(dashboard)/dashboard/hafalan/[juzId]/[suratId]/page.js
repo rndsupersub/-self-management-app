@@ -23,7 +23,6 @@ export default function HafalanSuratPage() {
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Hafalan data
   const [hafalanMembaca, setHafalanMembaca] = useState({});
   const [hafalanMurajaah, setHafalanMurajaah] = useState({});
   const [hafalanVoiceNotes, setHafalanVoiceNotes] = useState({});
@@ -31,12 +30,10 @@ export default function HafalanSuratPage() {
     DEFAULT_JENIS_KESALAHAN
   );
 
-  // Catatan surat
   const [catatanSurat, setCatatanSurat] = useState("");
   const [editCatatan, setEditCatatan] = useState(false);
   const [catatanInput, setCatatanInput] = useState("");
 
-  // Audio player state
   const [playingId, setPlayingId] = useState(null);
   const [loadingFileId, setLoadingFileId] = useState(null);
 
@@ -45,7 +42,6 @@ export default function HafalanSuratPage() {
   const juzId = params.juzId;
   const suratId = params.suratId;
 
-  // Ambil data juz & surat
   const hafalanActivity = DEFAULT_ACTIVITIES.find((a) => a.id === "hafalan");
   const allJuz = hafalanActivity?.children || [];
   const juzData = allJuz.find((j) => j.id === juzId);
@@ -57,7 +53,6 @@ export default function HafalanSuratPage() {
   const suratNext =
     suratIndex < suratList.length - 1 ? suratList[suratIndex + 1] : null;
 
-  // ========== LOAD USER DATA ==========
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -99,7 +94,6 @@ export default function HafalanSuratPage() {
           setHafalanMurajaah(data.hafalanMurajaah);
         }
 
-        // Fetch Voice Notes
         if (data.hafalanVoiceNotes && typeof data.hafalanVoiceNotes === "object") {
           setHafalanVoiceNotes(data.hafalanVoiceNotes);
         }
@@ -125,14 +119,12 @@ export default function HafalanSuratPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // ========== SIMPAN KE FIRESTORE ==========
   const simpanSettings = async (updates) => {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, updates, { merge: true });
   };
 
-  // ========== SIMPAN CATATAN SURAT ==========
   const handleSimpanCatatan = async () => {
     const docRef = doc(db, "users", user.uid);
     const docSnap = await getDoc(docRef);
@@ -148,7 +140,6 @@ export default function HafalanSuratPage() {
     setEditCatatan(false);
   };
 
-  // ========== TOGGLE STATUS HAFAL ==========
   const handleToggleHafal = async () => {
     const entries = Object.entries(hafalanMembaca || {});
     const found = entries.find(
@@ -185,6 +176,22 @@ export default function HafalanSuratPage() {
     await simpanSettings({ hafalanMembaca: updated });
   };
 
+  const handleHapusRiwayatMembaca = async (tanggal) => {
+    if (!confirm("Hapus riwayat membaca ini?")) return;
+    const updated = { ...hafalanMembaca };
+    delete updated[tanggal];
+    setHafalanMembaca(updated);
+    await simpanSettings({ hafalanMembaca: updated });
+  };
+
+  const handleHapusRiwayatMurajaah = async (tanggal) => {
+    if (!confirm("Hapus riwayat murajaah ini?")) return;
+    const updated = { ...hafalanMurajaah };
+    delete updated[tanggal];
+    setHafalanMurajaah(updated);
+    await simpanSettings({ hafalanMurajaah: updated });
+  };
+
   const sudahHafal = useMemo(() => {
     const entries = Object.values(hafalanMembaca || {});
     return entries.some((e) => e.suratId === suratId && e.sudah === true);
@@ -204,13 +211,11 @@ export default function HafalanSuratPage() {
       .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
   }, [hafalanMurajaah, suratId]);
 
-  // ========== VOICE NOTES ==========
   const voiceNotesSuratIni = useMemo(() => {
     return hafalanVoiceNotes?.[suratId] || [];
   }, [hafalanVoiceNotes, suratId]);
 
   const handlePlayVoiceNote = async (vn) => {
-    // Kalau lagi play, stop
     if (playingId === vn.id) {
       setPlayingId(null);
       return;
@@ -218,13 +223,11 @@ export default function HafalanSuratPage() {
 
     setLoadingFileId(vn.id);
     try {
-      // Nembak API buat dapetin link file
       const res = await fetch(`/api/telegram/get-file-url?fileId=${encodeURIComponent(vn.fileId)}`);
       const data = await res.json();
 
       if (data.ok && data.fileUrl) {
         setPlayingId(vn.id);
-        // Play pake Audio API
         const audio = new Audio(data.fileUrl);
         audio.play();
         audio.onended = () => setPlayingId(null);
@@ -367,7 +370,6 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* STATUS HAFALAN */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <div className="flex justify-between items-center">
@@ -395,7 +397,6 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* CATATAN */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-2">
@@ -451,7 +452,6 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* RIWAYAT MEMBACA */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <h3 className="text-sm font-bold text-gray-800 mb-3">
@@ -467,28 +467,37 @@ export default function HafalanSuratPage() {
                   {riwayatMembaca.map((entry) => (
                     <div
                       key={entry.tanggal}
-                      className="p-2 rounded border border-gray-200 bg-gray-50"
+                      className="p-2 rounded border border-gray-200 bg-gray-50 flex items-start gap-2"
                     >
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm font-semibold text-gray-800">
-                          📅 {formatTanggalPendek(entry.tanggal)}
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm font-semibold text-gray-800">
+                            📅 {formatTanggalPendek(entry.tanggal)}
+                          </p>
+                          <span
+                            className={`badge badge-xs ${
+                              entry.sudah ? "badge-success" : "badge-warning"
+                            }`}
+                          >
+                            {entry.sudah ? "Sudah" : "Belum"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          📄 Halaman {entry.halamanMulai}--{entry.halamanSelesai}
                         </p>
-                        <span
-                          className={`badge badge-xs ${
-                            entry.sudah ? "badge-success" : "badge-warning"
-                          }`}
-                        >
-                          {entry.sudah ? "Sudah" : "Belum"}
-                        </span>
+                        {entry.catatan && (
+                          <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
+                            📝 {entry.catatan}
+                          </p>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-600 mt-1">
-                        📄 Halaman {entry.halamanMulai}--{entry.halamanSelesai}
-                      </p>
-                      {entry.catatan && (
-                        <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
-                          📝 {entry.catatan}
-                        </p>
-                      )}
+                      <button
+                        className="btn btn-ghost btn-xs text-red-500"
+                        onClick={() => handleHapusRiwayatMembaca(entry.tanggal)}
+                        title="Hapus"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -496,7 +505,6 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* RIWAYAT MURAJAAN */}
           <div className="card bg-white shadow border border-gray-200 mb-4">
             <div className="card-body p-4">
               <h3 className="text-sm font-bold text-gray-800 mb-3">
@@ -511,34 +519,43 @@ export default function HafalanSuratPage() {
                   {riwayatMurajaah.map((entry) => (
                     <div
                       key={entry.tanggal}
-                      className="p-2 rounded border border-gray-200 bg-gray-50"
+                      className="p-2 rounded border border-gray-200 bg-gray-50 flex items-start gap-2"
                     >
-                      <p className="text-sm font-semibold text-gray-800">
-                        📅 {formatTanggalPendek(entry.tanggal)}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        📄 Halaman {entry.halamanMulai}--{entry.halamanSelesai}
-                      </p>
-                      {getTotalKesalahan(entry.kesalahan) > 0 && (
-                        <p className="text-xs text-red-600 mt-1">
-                          ⚠️ {formatKesalahan(entry.kesalahan)}
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800">
+                          📅 {formatTanggalPendek(entry.tanggal)}
                         </p>
-                      )}
-                      {entry.catatan && (
-                        <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
-                          📝 {entry.catatan}
+                        <p className="text-xs text-gray-600 mt-1">
+                          📄 Halaman {entry.halamanMulai}--{entry.halamanSelesai}
                         </p>
-                      )}
-                      {entry.voiceNoteUrl && (
-                        <a
-                          href={entry.voiceNoteUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs link link-primary mt-1 inline-block"
-                        >
-                          🎙️ Voice Note
-                        </a>
-                      )}
+                        {getTotalKesalahan(entry.kesalahan) > 0 && (
+                          <p className="text-xs text-red-600 mt-1">
+                            ⚠️ {formatKesalahan(entry.kesalahan)}
+                          </p>
+                        )}
+                        {entry.catatan && (
+                          <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
+                            📝 {entry.catatan}
+                          </p>
+                        )}
+                        {entry.voiceNoteUrl && (
+                          <a
+                            href={entry.voiceNoteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs link link-primary mt-1 inline-block"
+                          >
+                            🎙️ Voice Note
+                          </a>
+                        )}
+                      </div>
+                      <button
+                        className="btn btn-ghost btn-xs text-red-500"
+                        onClick={() => handleHapusRiwayatMurajaah(entry.tanggal)}
+                        title="Hapus"
+                      >
+                        🗑️
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -546,7 +563,6 @@ export default function HafalanSuratPage() {
             </div>
           </div>
 
-          {/* REKAMAN HAFALAN (TELEGRAM) */}
           <div className="card bg-white shadow border border-dashed border-2 border-gray-300 mb-4">
             <div className="card-body p-4">
               <h3 className="text-sm font-bold text-gray-800 mb-3">
@@ -560,7 +576,7 @@ export default function HafalanSuratPage() {
                     Belum ada rekaman. Kirim voice note hafalan lewat Telegram Bot.
                   </p>
                   <p className="text-[10px] text-gray-400 mt-1">
-                    (Ketik /hafalan di bot, pilih surat, lalu kirim VN)
+                    (Ketik /vn di bot, pilih surat, lalu kirim VN)
                   </p>
                 </div>
               ) : (

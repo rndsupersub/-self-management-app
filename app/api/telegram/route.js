@@ -240,8 +240,8 @@ async function renderStep(firestore, chatId, state, userData) {
 
   if (step.type === "text" || step.type === "number" || step.type === "optional-text" || step.type === "optional-number") {
     buttons = [];
-    if (step.type === "optional-text" || step.type === "optional-number") {
-      buttons.push([{ text: "⏭️ Skip", callback_data: "wiz_skip" }]);
+    if (step.type === "optional-text" || step.type === "optional-number" || !step.required) {
+      buttons.push([{ text: step.skipLabel || "⏭️ Skip", callback_data: "wiz_skip" }]);
     }
   }
 
@@ -1395,6 +1395,7 @@ async function saveVendorWizard(firestore, userData, state) {
     await userRef.update({ vendorPertanyaanList: questions });
   }
 }
+
 // ========== HANDLE SUB-MENU PICK ==========
 async function handleSubMenuPick(firestore, chatId, messageId, userData, command, subMenuId, baseFields) {
   if (subMenuId === "vendor") {
@@ -2011,11 +2012,9 @@ export async function POST(req) {
       const fileId = voice.file_id;
       const duration = voice.duration || 0;
 
-      // Ambil state untuk tau user lagi di wizard Hafalan atau nggak
       const state = await getState(firestore, chatId);
 
       if (state && state.menuId === "hafalan") {
-        // User lagi di wizard hafalan — simpen VN ke surat yang dipilih
         const suratId = state.fields?.suratId;
         const juzId = state.fields?.juzId;
 
@@ -2035,7 +2034,6 @@ export async function POST(req) {
           createdAt: new Date().toISOString(),
         };
 
-        // Simpen ke hafalanVoiceNotes[suratId]
         const current = userData.hafalanVoiceNotes || {};
         const suratList = current[suratId] || [];
         const updated = {
@@ -2048,14 +2046,12 @@ export async function POST(req) {
           { merge: true }
         );
 
-        // Kirim konfirmasi
         await sendTelegramMessage(
           chatId,
           `✅ <b>Voice Note tersimpan!</b>\n\n📖 Surat: <b>${suratId}</b>\n⏱️ Durasi: ${duration} detik\n📅 ${todayLocal}\n\n<i>Buka web → Hafalan → ${suratId} → Rekaman Hafalan</i>`
         );
         return NextResponse.json({ ok: true });
       } else {
-        // User kirim VN tapi nggak di wizard hafalan
         await sendTelegramMessage(
           chatId,
           `⚠️ <b>Kirim VN lewat menu /hafalan dulu ya.</b>\n\n1. Ketik /hafalan\n2. Pilih Juz & Surat\n3. Baru kirim VN\n\n<i>Atau kalo mau simpen VN ke surat tertentu tanpa wizard, kirim format:</i>\n<code>/vn suratId</code>\n\nContoh: <code>/vn 1_alfatihah</code>`
