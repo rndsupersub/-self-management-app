@@ -99,18 +99,13 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
     await onUpdate("bisnisKegiatan", updated);
   };
 
-  // ========== KLIK TANGGAL ==========
-  // - Kalau tanggal sama yang diklik → deselect (biru hilang, form hilang)
-  // - Kalau tanggal beda → select + form auto-muncul
   const handleDateClick = (date) => {
     if (date === selectedDate) {
-      // Klik tanggal yang sama → deselect
       setSelectedDate(null);
       setShowForm(false);
       setEditingId(null);
       setFormData({ judul: "", catatan: "" });
     } else {
-      // Klik tanggal beda → select + form auto-muncul
       setSelectedDate(date);
       setShowForm(true);
       setEditingId(null);
@@ -168,8 +163,9 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
       {/* KALENDER */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          {/* Navigasi */}
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+          
+          {/* Navigasi - IGNORE */}
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4" data-html2canvas-ignore="true">
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear} title="Tahun sebelumnya">«</button>
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth} title="Bulan sebelumnya">‹</button>
@@ -200,7 +196,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
             </div>
           </div>
 
-          <div className="flex justify-center mb-3">
+          <div className="flex justify-center mb-3" data-html2canvas-ignore="true">
             <button className="btn btn-outline btn-xs text-gray-700" onClick={goToToday}>📅 Hari Ini</button>
           </div>
 
@@ -229,20 +225,16 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
               const holiday = HOLIDAYS[item.date];
               const isHolidayDate = !!holiday;
 
-              // Base: putih
               let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
 
-              // Hari ini: kuning muda
               if (isToday && !isSelected && !isHolidayDate) {
                 boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
               }
 
-              // Libur: merah
               if (isHolidayDate && !isSelected) {
                 boxClass = "bg-red-600 text-white border-red-700 font-bold";
               }
 
-              // Selected: biru soft + border tebal
               if (isSelected) {
                 boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-2 ring-blue-300";
               }
@@ -338,6 +330,7 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                   </span>
                 )}
               </div>
+              {/* Tombol Tambah - IGNORE */}
               {!showForm && (
                 <button
                   className="btn btn-primary btn-sm"
@@ -346,14 +339,16 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                     setEditingId(null);
                     setShowForm(true);
                   }}
+                  data-html2canvas-ignore="true"
                 >
                   + Tambah Kegiatan
                 </button>
               )}
             </div>
 
+            {/* Form - IGNORE */}
             {showForm && (
-              <div className="bg-blue-50 rounded p-3 mb-3 space-y-2 border border-blue-200">
+              <div className="bg-blue-50 rounded p-3 mb-3 space-y-2 border border-blue-200" data-html2canvas-ignore="true">
                 <p className="text-xs font-semibold text-blue-700">
                   ✏️ {editingId ? "Edit kegiatan" : "Tambah kegiatan baru"}
                 </p>
@@ -408,23 +403,27 @@ export default function BisnisCalendar({ user, db, onUpdate, onDelete }) {
                         : "bg-gray-50 border-gray-200"
                     }`}
                   >
-                    <button
-                      className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                        keg.status === "selesai"
-                          ? "bg-green-600 text-white"
-                          : "bg-gray-300 text-gray-700"
-                      }`}
-                      onClick={() => handleToggleStatus(keg.id)}
-                    >
-                      {keg.status === "selesai" ? "✓" : "○"}
-                    </button>
+                    {/* Tombol Aksi - IGNORE */}
+                    <div data-html2canvas-ignore="true">
+                      <button
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                          keg.status === "selesai"
+                            ? "bg-green-600 text-white"
+                            : "bg-gray-300 text-gray-700"
+                        }`}
+                        onClick={() => handleToggleStatus(keg.id)}
+                      >
+                        {keg.status === "selesai" ? "✓" : "○"}
+                      </button>
+                    </div>
                     <div className="flex-1">
                       <p className={`text-sm font-medium text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>
                         {keg.judul}
                       </p>
                       {keg.catatan && <p className="text-xs text-gray-500 mt-1">{keg.catatan}</p>}
                     </div>
-                    <div className="flex gap-1">
+                    {/* Tombol Aksi - IGNORE */}
+                    <div className="flex gap-1" data-html2canvas-ignore="true">
                       <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(keg)} title="Edit">✏️</button>
                       <button className="btn btn-ghost btn-xs text-red-600" onClick={() => handleDelete(keg.id)} title="Hapus">🗑️</button>
                     </div>

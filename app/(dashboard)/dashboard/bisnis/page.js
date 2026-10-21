@@ -7,6 +7,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_BISNIS_BRANDS,
@@ -54,7 +55,6 @@ export default function BisnisPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Activities
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
@@ -66,12 +66,10 @@ export default function BisnisPage() {
           setActivities(DEFAULT_ACTIVITIES);
         }
 
-        // Load brands, fallback ke default
         let brandsSekarang = Array.isArray(data.bisnisBrands)
           ? data.bisnisBrands
           : DEFAULT_BISNIS_BRANDS;
 
-        // ========== MIGRASI DATA LAMA ==========
         const { brands: brandsHasilMigrasi, migrated } = migrasiBisnisLama(
           data.bisnisKegiatan,
           brandsSekarang
@@ -255,8 +253,8 @@ export default function BisnisPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -269,11 +267,12 @@ export default function BisnisPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - IGNORE */}
         <div
           className={`${
             sidebarCollapsed ? "w-12" : "w-64"
           } transition-all duration-300 bg-base-100`}
+          data-html2canvas-ignore="true"
         >
           <Sidebar
             activities={activities}
@@ -284,8 +283,8 @@ export default function BisnisPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li>
                 <a
@@ -299,9 +298,9 @@ export default function BisnisPage() {
             </ul>
           </div>
 
-          {/* Notif Migrasi */}
+          {/* Notif Migrasi - IGNORE */}
           {migrasiNotif && (
-            <div className="alert alert-success mb-4 text-sm">
+            <div className="alert alert-success mb-4 text-sm" data-html2canvas-ignore="true">
               <span>
                 ✅ Migrasi berhasil! Data bisnis lama lo udah dipindah ke brand
                 "Level Up".
@@ -309,124 +308,136 @@ export default function BisnisPage() {
             </div>
           )}
 
-          {/* Header */}
-          <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
-            <h1 className="text-2xl font-bold text-gray-800">💼 Bisnis</h1>
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleBukaForm}
-            >
-              + Tambah Brand
-            </button>
-          </div>
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`Daftar_Bisnis_${today}.pdf`} 
+                title="Daftar Bisnis" 
+              />
+            </div>
 
-          {/* Form Tambah/Edit Brand */}
-          {showForm && (
-            <div className="card bg-white shadow border border-blue-300 mb-4">
-              <div className="card-body p-4">
-                <p className="text-xs font-semibold text-blue-700 mb-2">
-                  {editingId ? "✏️ Edit Brand" : "✏️ Tambah Brand Baru"}
-                </p>
-                <input
-                  type="text"
-                  className="input input-bordered w-full text-gray-800 bg-white"
-                  placeholder="Nama brand (misal: Level Up)"
-                  value={formData.nama}
-                  onChange={(e) =>
-                    setFormData({ nama: e.target.value })
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && handleSimpanBrand()}
-                  autoFocus
-                />
-                <div className="flex gap-2 mt-3">
-                  <button
-                    className="btn btn-primary btn-sm flex-1"
-                    onClick={handleSimpanBrand}
-                    disabled={!formData.nama.trim()}
-                  >
-                    {editingId ? "💾 Simpan" : "➕ Tambah"}
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm text-gray-700"
-                    onClick={() => {
-                      setShowForm(false);
-                      setFormData({ nama: "" });
-                      setEditingId(null);
-                    }}
-                  >
-                    Batal
-                  </button>
+            {/* Header - IGNORE */}
+            <div className="flex flex-wrap justify-between items-center mb-6 gap-2" data-html2canvas-ignore="true">
+              <h1 className="text-2xl font-bold text-gray-800">💼 Bisnis</h1>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleBukaForm}
+              >
+                + Tambah Brand
+              </button>
+            </div>
+
+            {/* Form Tambah/Edit Brand - IGNORE */}
+            {showForm && (
+              <div className="card bg-white shadow border border-blue-300 mb-4" data-html2canvas-ignore="true">
+                <div className="card-body p-4">
+                  <p className="text-xs font-semibold text-blue-700 mb-2">
+                    {editingId ? "✏️ Edit Brand" : "✏️ Tambah Brand Baru"}
+                  </p>
+                  <input
+                    type="text"
+                    className="input input-bordered w-full text-gray-800 bg-white"
+                    placeholder="Nama brand (misal: Level Up)"
+                    value={formData.nama}
+                    onChange={(e) =>
+                      setFormData({ nama: e.target.value })
+                    }
+                    onKeyDown={(e) => e.key === "Enter" && handleSimpanBrand()}
+                    autoFocus
+                  />
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      className="btn btn-primary btn-sm flex-1"
+                      onClick={handleSimpanBrand}
+                      disabled={!formData.nama.trim()}
+                    >
+                      {editingId ? "💾 Simpan" : "➕ Tambah"}
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm text-gray-700"
+                      onClick={() => {
+                        setShowForm(false);
+                        setFormData({ nama: "" });
+                        setEditingId(null);
+                      }}
+                    >
+                      Batal
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* List Brand */}
-          {brands.length === 0 ? (
-            <div className="card bg-white shadow border border-gray-200">
-              <div className="card-body p-8 text-center text-gray-400">
-                <p className="text-3xl mb-2">🏷️</p>
-                <p className="text-sm">
-                  Belum ada brand. Klik "+ Tambah Brand" untuk mulai.
-                </p>
+            {/* List Brand */}
+            {brands.length === 0 ? (
+              <div className="card bg-white shadow border border-gray-200">
+                <div className="card-body p-8 text-center text-gray-400">
+                  <p className="text-3xl mb-2">🏷️</p>
+                  <p className="text-sm">
+                    Belum ada brand. Klik "+ Tambah Brand" untuk mulai.
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {brands.map((brand) => {
-                const totalKegiatan = brand.kegiatan?.length || 0;
-                const totalVendor = brand.vendorList?.length || 0;
-                const totalSelesai =
-                  brand.kegiatan?.filter((k) => k.status === "selesai")
-                    .length || 0;
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {brands.map((brand) => {
+                  const totalKegiatan = brand.kegiatan?.length || 0;
+                  const totalVendor = brand.vendorList?.length || 0;
+                  const totalSelesai =
+                    brand.kegiatan?.filter((k) => k.status === "selesai")
+                      .length || 0;
 
-                return (
-                  <div
-                    key={brand.id}
-                    className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer"
-                    onClick={() => handleKlikBrand(brand.id)}
-                  >
-                    <div className="card-body p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h2 className="card-title text-base text-gray-800 flex-1">
-                          🏷️ {brand.nama}
-                        </h2>
-                        <div className="flex gap-1">
-                          <button
-                            className="btn btn-ghost btn-xs text-gray-500"
-                            onClick={(e) => handleBukaEdit(brand, e)}
-                            title="Edit nama brand"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-xs text-red-500"
-                            onClick={(e) => handleHapusBrand(brand.id, e)}
-                            title="Hapus brand"
-                          >
-                            🗑️
-                          </button>
+                  return (
+                    <div
+                      key={brand.id}
+                      className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer"
+                      onClick={() => handleKlikBrand(brand.id)}
+                    >
+                      <div className="card-body p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h2 className="card-title text-base text-gray-800 flex-1">
+                            🏷️ {brand.nama}
+                          </h2>
+                          {/* Tombol Aksi - IGNORE */}
+                          <div className="flex gap-1" data-html2canvas-ignore="true">
+                            <button
+                              className="btn btn-ghost btn-xs text-gray-500"
+                              onClick={(e) => handleBukaEdit(brand, e)}
+                              title="Edit nama brand"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              className="btn btn-ghost btn-xs text-red-500"
+                              onClick={(e) => handleHapusBrand(brand.id, e)}
+                              title="Hapus brand"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          {totalKegiatan} Kegiatan • {totalVendor} Vendor
+                        </p>
+                        {totalSelesai > 0 && (
+                          <p className="text-xs text-green-600">
+                            ✅ {totalSelesai} selesai
+                          </p>
+                        )}
+                        <div className="card-actions justify-end mt-2">
+                          <span className="text-gray-400 text-xs">
+                            Buka →
+                          </span>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-500">
-                        {totalKegiatan} Kegiatan • {totalVendor} Vendor
-                      </p>
-                      {totalSelesai > 0 && (
-                        <p className="text-xs text-green-600">
-                          ✅ {totalSelesai} selesai
-                        </p>
-                      )}
-                      <div className="card-actions justify-end mt-2">
-                        <span className="text-gray-400 text-xs">
-                          Buka →
-                        </span>
-                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

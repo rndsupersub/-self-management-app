@@ -12,6 +12,7 @@ import VendorManager from "@/components/VendorManager";
 import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_BISNIS_BRANDS,
@@ -97,7 +98,6 @@ export default function BisnisBrandPage() {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Activities
         if (data.activities && Array.isArray(data.activities)) {
           setActivities(data.activities);
         } else {
@@ -109,7 +109,6 @@ export default function BisnisBrandPage() {
           setActivities(DEFAULT_ACTIVITIES);
         }
 
-        // Brands
         if (data.bisnisBrands && Array.isArray(data.bisnisBrands)) {
           setBrands(data.bisnisBrands);
         } else {
@@ -121,7 +120,6 @@ export default function BisnisBrandPage() {
           setBrands(DEFAULT_BISNIS_BRANDS);
         }
 
-        // ========== LOAD SETTINGS BISNIS ==========
         if (
           data.bisnisPrioritasList &&
           Array.isArray(data.bisnisPrioritasList)
@@ -212,14 +210,12 @@ export default function BisnisBrandPage() {
     setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
-  // Cari brand dari URL
   const brand = brands.find((b) => b.id === brandId);
 
   useEffect(() => {
     if (brand) setEditNama(brand.nama);
   }, [brand]);
 
-  // ========== SIMPAN BRANDS KE FIRESTORE ==========
   const simpanBrands = async (updatedBrands) => {
     setBrands(updatedBrands);
     if (!user) return;
@@ -227,13 +223,11 @@ export default function BisnisBrandPage() {
     await setDoc(docRef, { bisnisBrands: updatedBrands }, { merge: true });
   };
 
-  // ========== SIMPAN SETTINGS KE FIRESTORE ==========
   const simpanSettings = async (updates) => {
     const docRef = doc(db, "users", user.uid);
     await setDoc(docRef, updates, { merge: true });
   };
 
-  // ========== UPDATE BRAND (helper) ==========
   const updateBrandData = async (updatedBrandData) => {
     const updatedBrands = brands.map((b) =>
       b.id === brandId
@@ -243,19 +237,16 @@ export default function BisnisBrandPage() {
     await simpanBrands(updatedBrands);
   };
 
-  // ========== KATEGORI KEGIATAN ==========
   const handleUpdateKategoriList = async (updatedList) => {
     setKategoriList(updatedList);
     await simpanSettings({ bisnisKategoriList: updatedList });
   };
 
-  // ========== TAMBAH KEGIATAN ==========
   const handleTambahKegiatan = async (newKegiatan) => {
     const newKegiatanList = [...(brand.kegiatan || []), newKegiatan];
     await updateBrandData({ kegiatan: newKegiatanList });
   };
 
-  // ========== EDIT KEGIATAN ==========
   const handleBukaEdit = (kegiatan) => {
     setEditingKegiatan(kegiatan);
     setEditForm({
@@ -278,13 +269,11 @@ export default function BisnisBrandPage() {
     setEditingKegiatan(null);
   };
 
-  // ========== HAPUS KEGIATAN ==========
   const handleHapusKegiatan = async (kegId) => {
     if (!confirm("Hapus kegiatan ini? Data akan masuk history.")) return;
     const keg = brand.kegiatan.find((k) => k.id === kegId);
     if (!keg) return;
 
-    // Simpan ke history
     const docRef = doc(db, "users", user.uid);
     const docSnap = await getDoc(docRef);
     const data = docSnap.data();
@@ -297,12 +286,10 @@ export default function BisnisBrandPage() {
     await updateBrandData({ kegiatan: newKegiatanList });
   };
 
-  // ========== KLIK KEGIATAN ==========
   const handleClickKegiatan = (kegId) => {
     router.push(`/dashboard/bisnis/${brandId}/${kegId}`);
   };
 
-  // ========== EDIT NAMA BRAND ==========
   const handleSimpanNamaBrand = async () => {
     if (!editNama.trim()) return;
     const updatedBrands = brands.map((b) =>
@@ -314,7 +301,6 @@ export default function BisnisBrandPage() {
     setEditMode(false);
   };
 
-  // ========== HAPUS BRAND ==========
   const handleHapusBrand = async () => {
     const updatedBrands = brands.filter((b) => b.id !== brandId);
     await simpanBrands(updatedBrands);
@@ -322,7 +308,6 @@ export default function BisnisBrandPage() {
     router.push("/dashboard/bisnis");
   };
 
-  // ========== VENDOR HANDLERS ==========
   const handleAddVendor = async (newVendor) => {
     const newVendorList = [...(brand.vendorList || []), newVendor];
     await updateBrandData({ vendorList: newVendorList });
@@ -358,12 +343,10 @@ export default function BisnisBrandPage() {
     await simpanSettings({ bisnisVendorSatuanMoqList: updatedList });
   };
 
-  // ========== LAPORAN HANDLER ==========
   const handleUpdateLaporan = async (newLaporanData) => {
     await updateBrandData({ laporanData: newLaporanData });
   };
 
-  // ========== EVALUASI HANDLERS ==========
   const handleUpdateFieldEvaluasi = async (updatedList) => {
     setFieldEvaluasiList(updatedList);
     await simpanSettings({ bisnisFieldEvaluasiList: updatedList });
@@ -431,8 +414,8 @@ export default function BisnisBrandPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -445,11 +428,12 @@ export default function BisnisBrandPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - IGNORE */}
         <div
           className={`${
             sidebarCollapsed ? "w-12" : "w-64"
           } transition-all duration-300 bg-base-100`}
+          data-html2canvas-ignore="true"
         >
           <Sidebar
             activities={activities}
@@ -460,8 +444,8 @@ export default function BisnisBrandPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li>
                 <a
@@ -483,8 +467,8 @@ export default function BisnisBrandPage() {
             </ul>
           </div>
 
-          {/* Header Brand */}
-          <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+          {/* Header Brand - IGNORE */}
+          <div className="flex flex-wrap justify-between items-center mb-4 gap-2" data-html2canvas-ignore="true">
             {editMode ? (
               <div className="flex gap-2 items-center flex-1">
                 <input
@@ -533,9 +517,9 @@ export default function BisnisBrandPage() {
             )}
           </div>
 
-          {/* Konfirmasi Hapus Brand */}
+          {/* Konfirmasi Hapus Brand - IGNORE */}
           {confirmHapusBrand && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4" data-html2canvas-ignore="true">
               <p className="text-sm text-red-700 mb-2">
                 Yakin mau hapus <strong>{brand.nama}</strong>? Semua kegiatan,
                 vendor, laporan, dan evaluasi bakal hilang.
@@ -557,8 +541,8 @@ export default function BisnisBrandPage() {
             </div>
           )}
 
-          {/* TAB NAVIGATION */}
-          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
+          {/* TAB NAVIGATION - IGNORE */}
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
             <button
               className={`tab ${
                 activeTab === "kalender"
@@ -604,147 +588,161 @@ export default function BisnisBrandPage() {
             </button>
           </div>
 
-          {/* ========== TAB KALENDER ========== */}
-          {activeTab === "kalender" && (
-            <>
-              <KalenderPekerjaan
-                kegiatan={brand.kegiatan || []}
-                onAdd={handleTambahKegiatan}
-                onClickKegiatan={handleClickKegiatan}
-                prioritasList={prioritasList}
-                sumberList={sumberList}
-                kategoriList={kategoriList}
-                onUpdateKategoriList={handleUpdateKategoriList}
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            {/* Tombol Export - IGNORE */}
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`Bisnis_${brand.nama}_${activeTab}.pdf`} 
+                title={`Bisnis - ${brand.nama}`} 
               />
+            </div>
 
-              {brand.kegiatan && brand.kegiatan.length > 0 && (
-                <div className="card bg-white shadow border border-gray-200 mt-4">
-                  <div className="card-body p-4">
-                    <h3 className="text-base font-bold text-gray-800 mb-3">
-                      📋 Semua Kegiatan ({brand.kegiatan.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {brand.kegiatan
-                        .slice()
-                        .sort((a, b) => {
-                          const aTgl = a.tanggalMulai || a.tanggal || "";
-                          const bTgl = b.tanggalMulai || b.tanggal || "";
-                          return aTgl.localeCompare(bTgl);
-                        })
-                        .map((keg) => (
-                          <div
-                            key={keg.id}
-                            className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200"
-                          >
+            {/* ========== TAB KALENDER ========== */}
+            {activeTab === "kalender" && (
+              <>
+                <KalenderPekerjaan
+                  kegiatan={brand.kegiatan || []}
+                  onAdd={handleTambahKegiatan}
+                  onClickKegiatan={handleClickKegiatan}
+                  prioritasList={prioritasList}
+                  sumberList={sumberList}
+                  kategoriList={kategoriList}
+                  onUpdateKategoriList={handleUpdateKategoriList}
+                />
+
+                {brand.kegiatan && brand.kegiatan.length > 0 && (
+                  <div className="card bg-white shadow border border-gray-200 mt-4">
+                    <div className="card-body p-4">
+                      <h3 className="text-base font-bold text-gray-800 mb-3">
+                        📋 Semua Kegiatan ({brand.kegiatan.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {brand.kegiatan
+                          .slice()
+                          .sort((a, b) => {
+                            const aTgl = a.tanggalMulai || a.tanggal || "";
+                            const bTgl = b.tanggalMulai || b.tanggal || "";
+                            return aTgl.localeCompare(bTgl);
+                          })
+                          .map((keg) => (
                             <div
-                              className="flex-1 cursor-pointer"
-                              onClick={() => handleClickKegiatan(keg.id)}
+                              key={keg.id}
+                              className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200"
                             >
-                              <p
-                                className={`text-sm font-semibold text-gray-800 ${
-                                  keg.status === "selesai"
-                                    ? "line-through opacity-60"
-                                    : ""
-                                }`}
+                              <div
+                                className="flex-1 cursor-pointer"
+                                onClick={() => handleClickKegiatan(keg.id)}
                               >
-                                {keg.judul}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                📅 {keg.tanggal} •{" "}
-                                {keg.status === "selesai"
-                                  ? "✅ Selesai"
-                                  : "⏳ Belum"}
-                              </p>
+                                <p
+                                  className={`text-sm font-semibold text-gray-800 ${
+                                    keg.status === "selesai"
+                                      ? "line-through opacity-60"
+                                      : ""
+                                  }`}
+                                >
+                                  {keg.judul}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  📅 {keg.tanggal} •{" "}
+                                  {keg.status === "selesai"
+                                    ? "✅ Selesai"
+                                    : "⏳ Belum"}
+                                </p>
+                              </div>
+                              {/* Tombol Aksi - IGNORE */}
+                              <div className="flex gap-1" data-html2canvas-ignore="true">
+                                <button
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={() => handleBukaEdit(keg)}
+                                  title="Edit"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  className="btn btn-ghost btn-xs text-red-500"
+                                  onClick={() => handleHapusKegiatan(keg.id)}
+                                  title="Hapus"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex gap-1">
-                              <button
-                                className="btn btn-ghost btn-xs"
-                                onClick={() => handleBukaEdit(keg)}
-                                title="Edit"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                className="btn btn-ghost btn-xs text-red-500"
-                                onClick={() => handleHapusKegiatan(keg.id)}
-                                title="Hapus"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
 
-          {/* ========== TAB VENDOR ========== */}
-          {activeTab === "vendor" && (
-            <>
-              {selectedVendor ? (
-                <VendorDetail
-                  vendor={selectedVendor}
-                  kategoriVendorList={vendorKategoriList}
-                  tujuanKunjunganList={vendorTujuanList}
-                  fieldEvaluasiVendorList={fieldEvaluasiVendorList}
-                  periodeEvaluasiList={periodeEvaluasiList}
-                  onUpdateVendor={handleUpdateVendor}
-                  onDeleteVendor={handleDeleteVendor}
-                  onBack={() => setSelectedVendorId(null)}
-                />
-              ) : (
-                <VendorManager
-                  vendorList={vendorList}
-                  kategoriVendorList={vendorKategoriList}
-                  pertanyaanVendorList={vendorPertanyaanList}
-                  satuanMoqList={vendorSatuanMoqList}
-                  onAddVendor={handleAddVendor}
-                  onDeleteVendor={handleDeleteVendor}
-                  onClickVendor={setSelectedVendorId}
-                  onUpdateKategoriVendor={handleUpdateVendorKategori}
-                  onUpdatePertanyaanVendor={handleUpdateVendorPertanyaan}
-                  onUpdateSatuanMoq={handleUpdateVendorSatuanMoq}
-                />
-              )}
-            </>
-          )}
+            {/* ========== TAB VENDOR ========== */}
+            {activeTab === "vendor" && (
+              <>
+                {selectedVendor ? (
+                  <VendorDetail
+                    vendor={selectedVendor}
+                    kategoriVendorList={vendorKategoriList}
+                    tujuanKunjunganList={vendorTujuanList}
+                    fieldEvaluasiVendorList={fieldEvaluasiVendorList}
+                    periodeEvaluasiList={periodeEvaluasiList}
+                    onUpdateVendor={handleUpdateVendor}
+                    onDeleteVendor={handleDeleteVendor}
+                    onBack={() => setSelectedVendorId(null)}
+                  />
+                ) : (
+                  <VendorManager
+                    vendorList={vendorList}
+                    kategoriVendorList={vendorKategoriList}
+                    pertanyaanVendorList={vendorPertanyaanList}
+                    satuanMoqList={vendorSatuanMoqList}
+                    onAddVendor={handleAddVendor}
+                    onDeleteVendor={handleDeleteVendor}
+                    onClickVendor={setSelectedVendorId}
+                    onUpdateKategoriVendor={handleUpdateVendorKategori}
+                    onUpdatePertanyaanVendor={handleUpdateVendorPertanyaan}
+                    onUpdateSatuanMoq={handleUpdateVendorSatuanMoq}
+                  />
+                )}
+              </>
+            )}
 
-          {/* ========== TAB LAPORAN ========== */}
-          {activeTab === "laporan" && (
-            <LaporanPekerjaan
-              kegiatanList={brand.kegiatan || []}
-              laporanData={laporanData}
-              onUpdateLaporan={handleUpdateLaporan}
-              prioritasList={prioritasList}
-              sumberList={sumberList}
-            />
-          )}
+            {/* ========== TAB LAPORAN ========== */}
+            {activeTab === "laporan" && (
+              <LaporanPekerjaan
+                kegiatanList={brand.kegiatan || []}
+                laporanData={laporanData}
+                onUpdateLaporan={handleUpdateLaporan}
+                prioritasList={prioritasList}
+                sumberList={sumberList}
+              />
+            )}
 
-          {/* ========== TAB EVALUASI ========== */}
-          {activeTab === "evaluasi" && (
-            <EvaluasiPekerjaan
-              kegiatanList={brand.kegiatan || []}
-              laporanData={laporanData}
-              evaluasiData={evaluasiData}
-              vendorList={vendorList}
-              fieldEvaluasiList={fieldEvaluasiList}
-              periodeEvaluasiList={periodeEvaluasiList}
-              fieldEvaluasiVendorList={fieldEvaluasiVendorList}
-              onUpdateEvaluasi={handleUpdateEvaluasi}
-              onUpdateFieldEvaluasi={handleUpdateFieldEvaluasi}
-              onUpdatePeriodeEvaluasi={handleUpdatePeriodeEvaluasi}
-              onUpdateFieldEvaluasiVendor={handleUpdateFieldEvaluasiVendor}
-            />
-          )}
+            {/* ========== TAB EVALUASI ========== */}
+            {activeTab === "evaluasi" && (
+              <EvaluasiPekerjaan
+                kegiatanList={brand.kegiatan || []}
+                laporanData={laporanData}
+                evaluasiData={evaluasiData}
+                vendorList={vendorList}
+                fieldEvaluasiList={fieldEvaluasiList}
+                periodeEvaluasiList={periodeEvaluasiList}
+                fieldEvaluasiVendorList={fieldEvaluasiVendorList}
+                onUpdateEvaluasi={handleUpdateEvaluasi}
+                onUpdateFieldEvaluasi={handleUpdateFieldEvaluasi}
+                onUpdatePeriodeEvaluasi={handleUpdatePeriodeEvaluasi}
+                onUpdateFieldEvaluasiVendor={handleUpdateFieldEvaluasiVendor}
+              />
+            )}
+          </div>
+
         </div>
       </div>
 
-      {/* Modal Edit Kegiatan */}
+      {/* Modal Edit Kegiatan - IGNORE */}
       {editingKegiatan && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-md">
             <div className="card-body p-4">
               <h3 className="text-base font-bold text-gray-800 mb-3">
