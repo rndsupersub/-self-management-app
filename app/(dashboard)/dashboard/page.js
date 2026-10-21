@@ -13,7 +13,7 @@ import MenuManager from "@/components/MenuManager";
 import SyncSheetsButton from "@/components/SyncSheetsButton";
 import TelegramSetting from "@/components/TelegramSetting";
 import ViewerManager from "@/components/ViewerManager";
-import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN BARU
+import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
@@ -61,7 +61,6 @@ export default function Dashboard() {
     let perluSimpan = false;
     const updates = {};
 
-    // ========== MIGRASI NPD + MANDARIN ==========
     let activitiesBaru = data.activities;
     if (Array.isArray(activitiesBaru)) {
       const adaNpd = activitiesBaru.some((a) => a.id === "npd");
@@ -111,7 +110,6 @@ export default function Dashboard() {
       }
     }
 
-    // ========== MIGRASI MENUS ==========
     let menusBaru = data.menus;
     if (!Array.isArray(menusBaru) || menusBaru.length === 0) {
       menusBaru = buildMenusFromOldData(activitiesBaru);
@@ -147,7 +145,6 @@ export default function Dashboard() {
       perluSimpan = true;
     }
 
-    // ========== MIGRASI STATUS VENDOR ==========
     let pekerjaanBaru = data.pekerjaan;
     if (Array.isArray(pekerjaanBaru)) {
       const migrated = migrasiStatusVendorPekerjaan(pekerjaanBaru);
@@ -168,19 +165,7 @@ export default function Dashboard() {
       }
     }
 
-    return {
-      perluSimpan,
-      updates,
-      activitiesBaru,
-      jadwalBaru,
-      progressBaru,
-      menusBaru,
-      menusCustomBaru,
-      logCustomBaru,
-      targetCustomBaru,
-      pekerjaanBaru,
-      bisnisBrandsBaru,
-    };
+    return { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru, menusBaru, menusCustomBaru, logCustomBaru, targetCustomBaru };
   };
 
   useEffect(() => {
@@ -191,7 +176,6 @@ export default function Dashboard() {
       }
       setUser(user);
 
-      // Cek apakah user ini viewer
       try {
         const viewerRef = doc(db, "viewers", user.uid);
         const viewerSnap = await getDoc(viewerRef);
@@ -210,17 +194,7 @@ export default function Dashboard() {
         const data = docSnap.data();
         setUserData({ ...data, _uid: user.uid });
 
-        const {
-          perluSimpan,
-          updates,
-          activitiesBaru,
-          jadwalBaru,
-          progressBaru,
-          menusBaru,
-          menusCustomBaru,
-          logCustomBaru,
-          targetCustomBaru,
-        } = runMigrasi(data);
+        const { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru, menusBaru, menusCustomBaru, logCustomBaru, targetCustomBaru } = runMigrasi(data);
 
         if (perluSimpan) await setDoc(docRef, updates, { merge: true });
 
@@ -246,76 +220,49 @@ export default function Dashboard() {
           setJadwalUser(DEFAULT_JADWAL);
         }
 
-        if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru))
-          setProgress(progressBaru || {});
+        if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru)) setProgress(progressBaru || {});
         else {
           await setDoc(docRef, { dailyProgress: {} }, { merge: true });
           setProgress({});
         }
 
-        if (data.keuanganDompet && Array.isArray(data.keuanganDompet))
-          setDompetList(data.keuanganDompet);
+        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet);
         else {
           await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true });
           setDompetList(DEFAULT_DOMPET);
         }
 
-        if (data.keuanganGoals && Array.isArray(data.keuanganGoals))
-          setGoalsList(data.keuanganGoals);
+        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) setGoalsList(data.keuanganGoals);
         else {
           await setDoc(docRef, { keuanganGoals: DEFAULT_GOALS }, { merge: true });
           setGoalsList(DEFAULT_GOALS);
         }
 
-        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi))
-          setKeuanganTransaksi(data.keuanganTransaksi);
+        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi)) setKeuanganTransaksi(data.keuanganTransaksi);
         else {
           await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true });
           setKeuanganTransaksi({});
         }
 
-        if (data.keuanganSetting && typeof data.keuanganSetting === "object")
-          setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting });
+        if (data.keuanganSetting && typeof data.keuanganSetting === "object") setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting });
         else {
           await setDoc(docRef, { keuanganSetting: DEFAULT_SETTING }, { merge: true });
           setKeuanganSetting(DEFAULT_SETTING);
         }
       } else {
         const initialData = {
-          activities: DEFAULT_ACTIVITIES,
-          menus: DEFAULT_MENUS,
-          menusArsip: [],
-          menusCustom: {},
-          menusCustomLogHarian: {},
-          menusCustomTargetHarian: {},
-          jadwalUser: DEFAULT_JADWAL,
-          dailyProgress: {},
-          keuanganDompet: DEFAULT_DOMPET,
-          keuanganGoals: DEFAULT_GOALS,
-          keuanganTransaksi: {},
-          keuanganSetting: DEFAULT_SETTING,
+          activities: DEFAULT_ACTIVITIES, menus: DEFAULT_MENUS, menusArsip: [], menusCustom: {}, menusCustomLogHarian: {}, menusCustomTargetHarian: {}, jadwalUser: DEFAULT_JADWAL, dailyProgress: {}, keuanganDompet: DEFAULT_DOMPET, keuanganGoals: DEFAULT_GOALS, keuanganTransaksi: {}, keuanganSetting: DEFAULT_SETTING,
         };
-
         await setDoc(docRef, initialData);
         setUserData({ ...initialData, _uid: user.uid });
-        setActivities(DEFAULT_ACTIVITIES);
-        setMenus(DEFAULT_MENUS);
-        setMenusCustom({});
-        setMenusCustomLogHarian({});
-        setMenusCustomTargetHarian({});
-        setJadwalUser(DEFAULT_JADWAL);
-        setProgress({});
+        setActivities(DEFAULT_ACTIVITIES); setMenus(DEFAULT_MENUS); setMenusCustom({}); setMenusCustomLogHarian({}); setMenusCustomTargetHarian({}); setJadwalUser(DEFAULT_JADWAL); setProgress({});
       }
-
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
-  }, []);
+  useEffect(() => { setToday(new Date().toISOString().split("T")[0]); }, []);
 
   const updateProgress = async (date, field, value) => {
     if (!user) return;
@@ -349,68 +296,40 @@ export default function Dashboard() {
     router.push("/login");
   };
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  }
+  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* data-html2canvas-ignore DITAMBAHIN BIAR NAVBAR NGGAK KEFOTO */}
-      <div className="navbar bg-base-100 shadow px-4 print:hidden" data-html2canvas-ignore="true">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-2 md:px-4 flex-wrap gap-2" data-html2canvas-ignore="true">
         <div className="flex-1">
-          <h1 className="text-xl font-bold">🌙 Self Management</h1>
+          <h1 className="text-lg md:text-xl font-bold">🌙 Self Management</h1>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap justify-end">
           <MenuManager
-            menus={menus}
-            activities={activities}
-            menusCustom={menusCustom}
-            user={user}
-            onUpdate={handleUpdateMenus}
-            onUpdateCustom={async (newCustom) => {
-              setMenusCustom(newCustom);
-              if (!user) return;
-              await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true });
-            }}
+            menus={menus} activities={activities} menusCustom={menusCustom} user={user} onUpdate={handleUpdateMenus} onUpdateCustom={async (newCustom) => { setMenusCustom(newCustom); if (!user) return; await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true }); }}
           />
           <SyncSheetsButton user={user} />
           <ViewerManager user={user} />
           <TelegramSetting user={user} />
-          <span className="text-sm font-mono">{today}</span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            Logout
-          </button>
+          <span className="text-xs md:text-sm font-mono hidden md:block">{today}</span>
+          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* data-html2canvas-ignore DITAMBAHIN BIAR SIDEBAR NGGAK KEFOTO */}
-        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100 print:hidden`} data-html2canvas-ignore="true">
+        {/* Sidebar - IGNORE & HIDDEN DI HP */}
+        <div className={`hidden md:block ${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`} data-html2canvas-ignore="true">
           <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
 
-        {/* ========================================== */}
-        {/* AREA YANG MAU DI-EXPORT (DIBUNGKUS ID) */}
-        {/* ========================================== */}
-        <div id="export-area" className="flex-1 overflow-y-auto p-6 bg-base-200">
-          
-          {/* Tombol Export (pojok kanan atas, disembunyiin pas nge-foto) */}
-          <div className="flex justify-end mb-4 print:hidden" data-html2canvas-ignore="true">
-            <ExportPDFButton
-              targetId="export-area"
-              fileName={`Dashboard_${today}.pdf`}
-              title="Dashboard Self Management"
-            />
+        <div id="export-area" className="flex-1 overflow-y-auto p-3 md:p-6 bg-base-200">
+          <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+            <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />
           </div>
 
           <Schedule
-            jadwalUser={jadwalUser}
-            onUpdateJadwal={updateJadwal}
-            progress={progress}
-            onUpdateProgress={updateProgress}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            userData={userData}
+            jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData}
           />
 
           <div className="text-center text-base-content/50 mt-10 mb-6">
@@ -419,14 +338,9 @@ export default function Dashboard() {
           </div>
 
           <RingkasanKeuangan
-            dompetList={dompetList}
-            goalsList={goalsList}
-            keuanganTransaksi={keuanganTransaksi}
-            setting={keuanganSetting}
-            onClickDetail={() => router.push("/dashboard/keuangan")}
+            dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")}
           />
         </div>
-
       </div>
     </div>
   );

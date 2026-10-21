@@ -85,23 +85,25 @@ export default function Schedule({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
 
   return (
-    <div className="card bg-base-100 shadow">
-      <div className="card-body p-4">
+    <div className="card bg-base-100 shadow w-full">
+      <div className="card-body p-3 md:p-4">
         
         {/* HEADER: NAVIGASI HARI (Di-ignore pas export) */}
-        <div className="flex flex-wrap justify-between items-center gap-2 mb-3" data-html2canvas-ignore="true">
-          <div className="flex items-center gap-1">
-            <button className="btn btn-ghost btn-sm" onClick={prevDay} title="Hari sebelumnya">‹</button>
-            <h2 className="text-base font-bold min-w-[200px] text-center">📅 {formatTanggalPanjang(selectedDate)}</h2>
-            <button className="btn btn-ghost btn-sm" onClick={nextDay} title="Hari berikutnya">›</button>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4" data-html2canvas-ignore="true">
+          <div className="flex items-center gap-1 w-full md:w-auto justify-between md:justify-start">
+            <div className="flex items-center gap-1">
+              <button className="btn btn-ghost btn-sm" onClick={prevDay} title="Hari sebelumnya">‹</button>
+              <h2 className="text-sm md:text-base font-bold text-center">📅 {formatTanggalPanjang(selectedDate)}</h2>
+              <button className="btn btn-ghost btn-sm" onClick={nextDay} title="Hari berikutnya">›</button>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={handleDateChange} />
+          <div className="flex items-center gap-1 w-full md:w-auto">
+            <input type="date" className="input input-bordered input-sm text-gray-800 bg-white flex-1 md:flex-none" value={selectedDate} onChange={handleDateChange} />
             <button className="btn btn-outline btn-xs" onClick={goToday}>📅 Hari Ini</button>
           </div>
         </div>
 
-        {/* BADGE HARI + TOMBOL KELOLA (Tombol kelola di-ignore) */}
+        {/* BADGE HARI + TOMBOL KELOLA */}
         <div className="flex justify-between items-center mb-3">
           <span className="badge badge-primary badge-sm">{hari}</span>
           <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelola(true)} title="Kelola Jadwal" data-html2canvas-ignore="true">
@@ -120,23 +122,25 @@ export default function Schedule({
             const isSyncing = syncing === item.id;
 
             return (
-              <div key={item.id} className="flex items-center justify-between py-2 gap-2">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <span className="font-mono text-xs font-bold w-24 flex-shrink-0">
+              <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between py-3 gap-2">
+                {/* Kiri: Jam & Judul */}
+                <div className="flex items-start md:items-center gap-2 flex-1 min-w-0">
+                  <span className="font-mono text-xs font-bold w-24 flex-shrink-0 text-gray-500">
                     {formatWaktu(item.waktuMulai, item.waktuSelesai)}
                   </span>
-                  <span className={`text-sm truncate ${done ? "line-through text-success" : ""} ${mulai && !done ? "text-info font-semibold" : ""}`}>
+                  <span className={`text-sm ${done ? "line-through text-success" : ""} ${mulai && !done ? "text-info font-semibold" : ""}`}>
                     {item.label}
                     <span className="text-xs text-base-content/50 ml-1">({item.unit})</span>
                     {auto && done && <span className="text-xs text-info ml-2 italic">⚡ auto</span>}
                     {mulai && !done && <span className="text-xs text-info ml-2 italic">▶️ proses</span>}
-                    {pilihanTampil && <span className="text-xs ml-2 font-semibold">→ {pilihanTampil}</span>}
+                    {pilihanTampil && <span className="text-xs ml-2 font-semibold block md:inline">→ {pilihanTampil}</span>}
                   </span>
                 </div>
 
-                <div className="flex gap-1 items-center flex-shrink-0" data-html2canvas-ignore="true">
+                {/* Kanan: Tombol Aksi */}
+                <div className="flex gap-1 items-center flex-shrink-0 justify-end w-full md:w-auto mt-1 md:mt-0" data-html2canvas-ignore="true">
                   {item.manual && !done && !mulai && (
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 mr-auto md:mr-0">
                       {item.manual.map((pilih) => (
                         <button key={pilih} className="btn btn-outline btn-xs" onClick={() => handleManualPilih(item.id, pilih)}>
                           {pilih}
@@ -160,8 +164,8 @@ export default function Schedule({
                       <button className="btn btn-ghost btn-xs text-warning" onClick={() => handleUndo(item.id)} title="Batal">↩️</button>
                     </>
                   ) : (
-                    <div className="flex gap-1">
-                      <button className="btn btn-outline btn-xs" onClick={() => handleMulai(item.id, item.label)} disabled={isSyncing} title="Mulai aktivitas">
+                    <div className="flex gap-1 w-full md:w-auto justify-end">
+                      <button className="btn btn-outline btn-xs flex-1 md:flex-none" onClick={() => handleMulai(item.id, item.label)} disabled={isSyncing} title="Mulai aktivitas">
                         {isSyncing ? "⏳" : "▶️ Mulai"}
                       </button>
                       <button className="btn btn-ghost btn-xs" onClick={() => handleDone(item.id, item.label)} title="Tandai selesai (langsung)">✅</button>
