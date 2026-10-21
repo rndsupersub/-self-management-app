@@ -18,51 +18,51 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
     setIsExporting(true);
 
     try {
-      // 1. KLOning ELEMEN (Trik biar nggak kepotong scroll)
-      const clone = element.cloneNode(true);
-      
-      // Set style kloningan biar posisinya di luar layar dan tinggi ngikutin konten
-      clone.style.position = "absolute";
-      clone.style.top = "0";
-      clone.style.left = "-9999px";
-      clone.style.width = `${element.scrollWidth}px`;
-      clone.style.height = "auto";
-      clone.style.maxHeight = "none";
-      clone.style.overflow = "visible";
-      clone.style.backgroundColor = "#ffffff";
-      clone.id = "export-area-clone"; // Ganti ID biar nggak bentrok
-
-      document.body.appendChild(clone);
-
-      // 2. Render kloningan ke canvas
-      const canvas = await html2canvas(clone, {
+      const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: clone.scrollWidth,
-        windowHeight: clone.scrollHeight,
         ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById(targetId);
+          if (clonedElement) {
+            // 1. Lepas semua batasan tinggi/scroll
+            clonedElement.style.height = "auto";
+            clonedElement.style.maxHeight = "none";
+            clonedElement.style.minHeight = "auto";
+            clonedElement.style.overflow = "visible";
+            
+            // 2. Kasih padding bawah biar footer nggak nabrak konten
+            clonedElement.style.paddingBottom = "20mm";
+            
+            // 3. Lepas batasan dari parent container (flex-1) biar nggak nyisa space kosong
+            let parent = clonedElement.parentElement;
+            while (parent && parent.tagName !== "BODY") {
+              parent.style.height = "auto";
+              parent.style.minHeight = "auto";
+              parent.style.overflow = "visible";
+              parent = parent.parentElement;
+            }
+          }
+        }
       });
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
-
-      // 3. Setup PDF A4
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
       let heightLeft = imgHeight;
       let position = 0;
 
-      // 4. Halaman pertama
+      // Halaman pertama
       pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // 5. Halaman berikutnya (toleransi 1mm biar nggak bikin halaman kosong)
+      // Halaman berikutnya
       while (heightLeft > 1) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -70,19 +70,23 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
         heightLeft -= pageHeight;
       }
 
-      // 6. Footer
+      // Footer & Penutup Bawah
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
+        
+        // Gambar kotak putih di area paling bawah (setinggi 10mm)
+        // Biar tulisan footer nggak nabrak gambar konten
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, pageHeight - 10, pdfWidth, 10, 'F');
+        
+        // Tulis teks footer
         pdf.setFontSize(8);
         pdf.setTextColor(150);
-        pdf.text(`${title} — Halaman ${i} dari ${totalPages}`, 10, pageHeight - 5);
+        pdf.text(`${title} — Halaman ${i} dari ${totalPages}`, 10, pageHeight - 3);
       }
 
       pdf.save(fileName);
-
-      // 7. Hapus kloningan
-      document.body.removeChild(clone);
     } catch (err) {
       console.error("Export PDF error:", err);
       alert("Gagal export PDF: " + err.message);
