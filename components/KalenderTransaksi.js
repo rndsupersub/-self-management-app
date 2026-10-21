@@ -93,10 +93,8 @@ export default function KalenderTransaksi({
     );
     if (!kategoriObj) return null;
 
-    // Cari dompet berdasarkan nama kategori
     const namaKat = kategoriObj.nama.toLowerCase();
 
-    // Kategori khusus → wallet khusus
     if (namaKat.includes("dana darurat")) return "dana_darurat";
     if (namaKat.includes("tabungan") || namaKat.includes("laptop") || namaKat.includes("mobil") || namaKat.includes("rumah")) return "tabungan";
     if (namaKat.includes("kurban")) return "kurban";
@@ -210,7 +208,6 @@ export default function KalenderTransaksi({
 
   const getDotColor = (trxList) => {
     if (!trxList || trxList.length === 0) return null;
-    // Prioritaskan jenis
     if (trxList.some((t) => t.jenis === "masuk")) return "bg-green-500";
     if (trxList.some((t) => t.jenis === "keluar")) return "bg-red-500";
     if (trxList.some((t) => t.jenis === "tabungan")) return "bg-blue-500";
@@ -240,7 +237,6 @@ export default function KalenderTransaksi({
     return "text-gray-700 bg-gray-50 border-gray-200";
   };
 
-  // Total per jenis hari ini
   const totalHariIni = useMemo(() => {
     const total = { masuk: 0, keluar: 0, tabungan: 0, sedekah: 0 };
     transaksiHariIni.forEach((t) => {
@@ -253,8 +249,8 @@ export default function KalenderTransaksi({
 
   return (
     <div className="space-y-4">
-      {/* INFO */}
-      <div className="alert alert-info py-2 text-xs">
+      {/* INFO - IGNORE */}
+      <div className="alert alert-info py-2 text-xs" data-html2canvas-ignore="true">
         <span>
           📌 Klik tanggal di kalender buat input / liat transaksi. Dot = ada
           transaksi.
@@ -264,8 +260,9 @@ export default function KalenderTransaksi({
       {/* KALENDER */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          {/* Navigasi */}
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+          
+          {/* Navigasi Bulan - IGNORE */}
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4" data-html2canvas-ignore="true">
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear}>
                 «
@@ -308,7 +305,7 @@ export default function KalenderTransaksi({
             </div>
           </div>
 
-          <div className="flex justify-center mb-3">
+          <div className="flex justify-center mb-3" data-html2canvas-ignore="true">
             <button
               className="btn btn-outline btn-xs text-gray-700"
               onClick={goToToday}
@@ -407,16 +404,17 @@ export default function KalenderTransaksi({
                 {formatRupiah(totalHariIni.keluar)} keluar
               </p>
             </div>
+            {/* Tombol Tambah Transaksi - IGNORE */}
             {!showForm && (
-              <button className="btn btn-primary btn-sm" onClick={handleBukaForm}>
+              <button className="btn btn-primary btn-sm" onClick={handleBukaForm} data-html2canvas-ignore="true">
                 + Tambah Transaksi
               </button>
             )}
           </div>
 
-          {/* FORM */}
+          {/* FORM - IGNORE */}
           {showForm && (
-            <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3">
+            <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3" data-html2canvas-ignore="true">
               <p className="text-xs font-semibold text-blue-700">
                 {editingId ? "✏️ Edit Transaksi" : "✏️ Tambah Transaksi"}
               </p>
@@ -597,7 +595,8 @@ export default function KalenderTransaksi({
                           </p>
                         )}
                       </div>
-                      <div className="flex gap-1">
+                      {/* Tombol Aksi - IGNORE */}
+                      <div className="flex gap-1" data-html2canvas-ignore="true">
                         <button
                           className="btn btn-ghost btn-xs"
                           onClick={() => handleBukaEdit(trx)}

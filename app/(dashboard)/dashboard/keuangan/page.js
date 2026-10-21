@@ -13,6 +13,7 @@ import KalenderTransaksi from "@/components/KalenderTransaksi";
 import WalletManager from "@/components/WalletManager";
 import GoalsManager from "@/components/GoalsManager";
 import SettingKeuangan from "@/components/SettingKeuangan";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN BARU
 
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
@@ -243,8 +244,8 @@ export default function KeuanganPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -257,11 +258,12 @@ export default function KeuanganPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - IGNORE */}
         <div
           className={`${
             sidebarCollapsed ? "w-12" : "w-64"
           } transition-all duration-300 bg-base-100`}
+          data-html2canvas-ignore="true"
         >
           <Sidebar
             activities={activities}
@@ -272,8 +274,8 @@ export default function KeuanganPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li>
                 <a
@@ -287,13 +289,13 @@ export default function KeuanganPage() {
             </ul>
           </div>
 
-          {/* Header */}
-          <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+          {/* Header - IGNORE */}
+          <div className="flex flex-wrap justify-between items-center mb-4 gap-2" data-html2canvas-ignore="true">
             <h1 className="text-2xl font-bold text-gray-800">💰 Keuangan</h1>
           </div>
 
-          {/* Tab Navigation */}
-          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit flex-wrap">
+          {/* Tab Navigation - IGNORE */}
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit flex-wrap" data-html2canvas-ignore="true">
             <button
               className={`tab ${
                 activeTab === "dashboard"
@@ -346,55 +348,68 @@ export default function KeuanganPage() {
             </button>
           </div>
 
-          {/* ========== TAB DASHBOARD ========== */}
-          {activeTab === "dashboard" && (
-            <DashboardKeuangan
-              dompetList={dompetList}
-              goalsList={goalsList}
-              keuanganTransaksi={keuanganTransaksi}
-              setting={setting}
-            />
-          )}
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            {/* Tombol Export - IGNORE */}
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`Keuangan_${activeTab}_${today}.pdf`} 
+                title={`Keuangan - ${activeTab}`} 
+              />
+            </div>
 
-          {/* ========== TAB INPUT TRANSAKSI ========== */}
-          {activeTab === "transaksi" && (
-            <KalenderTransaksi
-              keuanganTransaksi={keuanganTransaksi}
-              dompetList={dompetList}
-              kategoriList={kategoriList}
-              onUpdateTransaksi={handleUpdateTransaksi}
-            />
-          )}
+            {/* TAB DASHBOARD */}
+            {activeTab === "dashboard" && (
+              <DashboardKeuangan
+                dompetList={dompetList}
+                goalsList={goalsList}
+                keuanganTransaksi={keuanganTransaksi}
+                setting={setting}
+              />
+            )}
 
-          {/* ========== TAB KELOLA DOMPET ========== */}
-          {activeTab === "dompet" && (
-            <WalletManager
-              dompetList={dompetList}
-              onUpdateDompetList={handleUpdateDompet}
-            />
-          )}
+            {/* TAB INPUT TRANSAKSI */}
+            {activeTab === "transaksi" && (
+              <KalenderTransaksi
+                keuanganTransaksi={keuanganTransaksi}
+                dompetList={dompetList}
+                kategoriList={kategoriList}
+                onUpdateTransaksi={handleUpdateTransaksi}
+              />
+            )}
 
-          {/* ========== TAB KELOLA GOALS ========== */}
-          {activeTab === "goals" && (
-            <GoalsManager
-              goalsList={goalsList}
-              dompetList={dompetList}
-              keuanganTransaksi={keuanganTransaksi}
-              onUpdateGoalsList={handleUpdateGoals}
-            />
-          )}
+            {/* TAB KELOLA DOMPET */}
+            {activeTab === "dompet" && (
+              <WalletManager
+                dompetList={dompetList}
+                onUpdateDompetList={handleUpdateDompet}
+              />
+            )}
 
-          {/* ========== TAB SETTING ========== */}
-          {activeTab === "setting" && (
-            <SettingKeuangan
-              setting={setting}
-              sumberPemasukanList={sumberPemasukanList}
-              kategoriList={kategoriList}
-              onUpdateSetting={handleUpdateSetting}
-              onUpdateSumberPemasukan={handleUpdateSumberPemasukan}
-              onUpdateKategori={handleUpdateKategori}
-            />
-          )}
+            {/* TAB KELOLA GOALS */}
+            {activeTab === "goals" && (
+              <GoalsManager
+                goalsList={goalsList}
+                dompetList={dompetList}
+                keuanganTransaksi={keuanganTransaksi}
+                onUpdateGoalsList={handleUpdateGoals}
+              />
+            )}
+
+            {/* TAB SETTING */}
+            {activeTab === "setting" && (
+              <SettingKeuangan
+                setting={setting}
+                sumberPemasukanList={sumberPemasukanList}
+                kategoriList={kategoriList}
+                onUpdateSetting={handleUpdateSetting}
+                onUpdateSumberPemasukan={handleUpdateSumberPemasukan}
+                onUpdateKategori={handleUpdateKategori}
+              />
+            )}
+          </div>
+
         </div>
       </div>
     </div>
