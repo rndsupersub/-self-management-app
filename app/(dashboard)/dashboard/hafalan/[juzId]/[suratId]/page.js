@@ -214,7 +214,25 @@ export default function HafalanSuratPage() {
   const voiceNotesSuratIni = useMemo(() => {
     return hafalanVoiceNotes?.[suratId] || [];
   }, [hafalanVoiceNotes, suratId]);
-
+const handleHapusVN = async (vnId) => {
+  if (!confirm("Hapus rekaman VN ini?")) return;
+  
+  try {
+    const current = hafalanVoiceNotes?.[suratId] || [];
+    const updated = current.filter((v) => v.id !== vnId);
+    
+    const newVoiceNotes = {
+      ...hafalanVoiceNotes,
+      [suratId]: updated,
+    };
+    
+    await simpanSettings({ hafalanVoiceNotes: newVoiceNotes });
+    setHafalanVoiceNotes(newVoiceNotes);
+  } catch (err) {
+    console.error("[handleHapusVN] Error:", err);
+    alert("Gagal hapus VN: " + err.message);
+  }
+};
   const handlePlayVoiceNote = async (vn) => {
     if (playingId === vn.id) {
       setPlayingId(null);
@@ -582,33 +600,40 @@ export default function HafalanSuratPage() {
               ) : (
                 <div className="space-y-2">
                   {voiceNotesSuratIni.map((vn) => (
-                    <div
-                      key={vn.id}
-                      className="flex items-center gap-3 p-2 rounded border border-gray-200 bg-gray-50"
-                    >
-                      <button
-                        className={`btn btn-circle btn-sm ${
-                          playingId === vn.id ? "btn-error" : "btn-primary"
-                        }`}
-                        onClick={() => handlePlayVoiceNote(vn)}
-                        disabled={loadingFileId === vn.id}
-                      >
-                        {loadingFileId === vn.id
-                          ? "..."
-                          : playingId === vn.id
-                          ? "■"
-                          : "▶"}
-                      </button>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-800">
-                          {formatTanggalPendek(vn.tanggal)} • {vn.duration} detik
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          ID: {vn.fileId.substring(0, 20)}...
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+  <div
+    key={vn.id}
+    className="flex items-center gap-3 p-2 rounded border border-gray-200 bg-gray-50"
+  >
+    <button
+      className={`btn btn-circle btn-sm ${
+        playingId === vn.id ? "btn-error" : "btn-primary"
+      }`}
+      onClick={() => handlePlayVoiceNote(vn)}
+      disabled={loadingFileId === vn.id}
+    >
+      {loadingFileId === vn.id
+        ? "..."
+        : playingId === vn.id
+        ? "■"
+        : "▶"}
+    </button>
+    <div className="flex-1">
+      <p className="text-sm text-gray-800">
+        {formatTanggalPendek(vn.tanggal)} • {vn.duration} detik
+      </p>
+      <p className="text-[10px] text-gray-500">
+        ID: {vn.fileId.substring(0, 20)}...
+      </p>
+    </div>
+    <button
+      className="btn btn-ghost btn-xs text-red-500"
+      onClick={() => handleHapusVN(vn.id)}
+      title="Hapus VN"
+    >
+      🗑️
+    </button>
+  </div>
+))}
                 </div>
               )}
             </div>
