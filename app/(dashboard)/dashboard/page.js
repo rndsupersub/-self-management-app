@@ -355,7 +355,8 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      <div className="navbar bg-base-100 shadow px-4 print:hidden">
+      {/* data-html2canvas-ignore DITAMBAHIN BIAR NAVBAR NGGAK KEFOTO */}
+      <div className="navbar bg-base-100 shadow px-4 print:hidden" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -383,7 +384,8 @@ export default function Dashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100 print:hidden`}>
+        {/* data-html2canvas-ignore DITAMBAHIN BIAR SIDEBAR NGGAK KEFOTO */}
+        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100 print:hidden`} data-html2canvas-ignore="true">
           <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
 
@@ -392,8 +394,8 @@ export default function Dashboard() {
         {/* ========================================== */}
         <div id="export-area" className="flex-1 overflow-y-auto p-6 bg-base-200">
           
-          {/* Tombol Export (pojok kanan atas) */}
-          <div className="flex justify-end mb-4 print:hidden">
+          {/* Tombol Export (pojok kanan atas, disembunyiin pas nge-foto) */}
+          <div className="flex justify-end mb-4 print:hidden" data-html2canvas-ignore="true">
             <ExportPDFButton
               targetId="export-area"
               fileName={`Dashboard_${today}.pdf`}

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import html2canvas from "html2canvas-pro"; // <-- UDAH DIGANTI KE PRO
+import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 
 export default function ExportPDFButton({ targetId = "export-area", fileName = "laporan.pdf", title = "Laporan" }) {
@@ -20,41 +20,43 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
     try {
       // 1. Capture element jadi canvas
       const canvas = await html2canvas(element, {
-        scale: 2, // Biar tajam (Retina)
+        scale: 2,
         useCORS: true,
-        backgroundColor: "#ffffff", // Biar nggak transparan
+        backgroundColor: "#ffffff",
         logging: false,
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight,
+        // SKIP ELEMEN YANG ADA ATRIBUT data-html2canvas-ignore
+        ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
       });
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
-      // 2. Setup PDF A4 (210 x 297 mm)
+      // 2. Setup PDF A4
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // 3. Hitung dimensi gambar biar proporsional
+      // 3. Hitung dimensi
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       let heightLeft = imgHeight;
       let position = 0;
 
-      // 4. Tambahin halaman pertama
+      // 4. Halaman pertama
       pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // 5. Kalau kepanjangan, potong otomatis jadi multi-page
-      while (heightLeft > 0) {
+      // 5. Halaman berikutnya (Fix: toleransi 10mm biar nggak bikin halaman kosong)
+      while (heightLeft > 10) { 
         position = heightLeft - imgHeight;
         pdf.addPage();
         pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
 
-      // 6. Bikin footer teks di tiap halaman
+      // 6. Footer
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
@@ -63,7 +65,6 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
         pdf.text(`${title} — Halaman ${i} dari ${totalPages}`, 10, pageHeight - 5);
       }
 
-      // 7. Save
       pdf.save(fileName);
     } catch (err) {
       console.error("Export PDF error:", err);
@@ -79,6 +80,7 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
       disabled={isExporting}
       className="btn btn-ghost btn-sm gap-1"
       title="Export halaman ini ke PDF"
+      data-html2canvas-ignore="true" // Tombol ini nggak usah difoto
     >
       {isExporting ? (
         <span className="loading loading-spinner loading-xs" />

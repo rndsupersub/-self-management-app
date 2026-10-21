@@ -19,83 +19,39 @@ export default function Schedule({
   onUpdateProgress,
   selectedDate,
   setSelectedDate,
-  userData, // seluruh data user dari Firestore (buat deteksi otomatis + sync Telegram)
+  userData,
 }) {
   const [showKelola, setShowKelola] = useState(false);
-  const [syncing, setSyncing] = useState(null); // menuId yang lagi sync
+  const [syncing, setSyncing] = useState(null);
 
-  // Ambil jadwal untuk tanggal yang dipilih
   const { jadwal, hari, dayIndex } = useMemo(
     () => getJadwalUntukTanggal(jadwalUser, selectedDate),
     [jadwalUser, selectedDate]
   );
 
-  // Progress hari yang dipilih
   const dayProgress = progress?.[selectedDate] || {};
 
-  // ========== CEK SELESAI (MANUAL ATAU OTOMATIS) ==========
   const getStatus = (item) => {
-    // 1. Cek manual (user override)
     const manual = dayProgress?.[item.id];
-    if (manual?.selesai === true) {
-      return {
-        auto: false,
-        selesai: true,
-        mulai: manual.mulai || false,
-        pilihan: manual.pilihan || null,
-        label: manual.label || null,
-        warna: manual.warna || null,
-      };
-    }
-    if (manual?.selesai === false && manual?.override && !manual?.mulai) {
-      // User sengaja set belum
-      return { auto: false, selesai: false, mulai: false };
-    }
-    if (manual?.mulai === true) {
-      // User udah klik "Mulai" tapi belum selesai
-      return { auto: false, selesai: false, mulai: true };
-    }
-
-    // 2. Cek otomatis dari userData
+    if (manual?.selesai === true) return { auto: false, selesai: true, mulai: manual.mulai || false, pilihan: manual.pilihan || null, label: manual.label || null, warna: manual.warna || null };
+    if (manual?.selesai === false && manual?.override && !manual?.mulai) return { auto: false, selesai: false, mulai: false };
+    if (manual?.mulai === true) return { auto: false, selesai: false, mulai: true };
     const auto = deteksiJadwalOtomatis(item.id, selectedDate, userData);
-    if (auto.auto) {
-      return {
-        auto: true,
-        selesai: true,
-        mulai: false,
-        pilihan: auto.label,
-        label: auto.label,
-        warna: auto.warna,
-      };
-    }
-
-    // 3. Default: belum
+    if (auto.auto) return { auto: true, selesai: true, mulai: false, pilihan: auto.label, label: auto.label, warna: auto.warna };
     return { auto: false, selesai: false, mulai: false };
   };
 
-  // ========== TANDAI SELESAI (MANUAL OVERRIDE) + SYNC TELEGRAM ==========
   const handleDone = async (id, label, pilihan = null) => {
     const updates = { selesai: true, override: true, mulai: false };
     if (pilihan) updates.pilihan = pilihan;
     onUpdateProgress(selectedDate, id, updates);
-
-    // Sync ke Telegram
     await syncKeTelegram(id, label, "selesai");
   };
 
-  // ========== MULAI AKTIVITAS + SYNC TELEGRAM ==========
   const handleMulai = async (id, label) => {
     setSyncing(id);
     try {
-      // 1. Update progress di Firestore (status: proses)
-      onUpdateProgress(selectedDate, id, {
-        selesai: false,
-        mulai: true,
-        mulaiAt: new Date().toISOString(),
-        override: true,
-      });
-
-      // 2. Kirim sinyal ke Telegram
+      onUpdateProgress(selectedDate, id, { selesai: false, mulai: true, mulaiAt: new Date().toISOString(), override: true });
       await syncKeTelegram(id, label, "mulai");
     } catch (e) {
       console.error("[handleMulai] Error:", e);
@@ -104,59 +60,25 @@ export default function Schedule({
     }
   };
 
-  // ========== SYNC KE TELEGRAM ==========
   const syncKeTelegram = async (aktivitasId, aktivitasLabel, status) => {
     if (!userData) return;
     const uid = userData._uid || userData.uid;
     if (!uid) return;
-    // Kalau user belum link Telegram, tetep lanjut (API bakal skip)
     try {
       await fetch("/api/telegram/sync-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          uid,
-          aktivitasId,
-          aktivitasLabel,
-          status, // "mulai" | "selesai"
-          waktu: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ uid, aktivitasId, aktivitasLabel, status, waktu: new Date().toISOString() }),
       });
     } catch (e) {
       console.error("[syncKeTelegram] Gagal sync:", e);
     }
   };
 
-  // ========== BATALKAN ==========
-  const handleUndo = (id) => {
-    onUpdateProgress(selectedDate, id, {
-      selesai: false,
-      mulai: false,
-      override: true,
-    });
-  };
+  const handleUndo = (id) => onUpdateProgress(selectedDate, id, { selesai: false, mulai: false, override: true });
+  const handleResetAuto = (id) => onUpdateProgress(selectedDate, id, { selesai: false, mulai: false, override: false, pilihan: null });
+  const handleManualPilih = (id, pilihan) => onUpdateProgress(selectedDate, id, { selesai: true, mulai: false, pilihan, override: true });
 
-  // ========== RESET AUTO ==========
-  const handleResetAuto = (id) => {
-    onUpdateProgress(selectedDate, id, {
-      selesai: false,
-      mulai: false,
-      override: false,
-      pilihan: null,
-    });
-  };
-
-  // ========== PILIH MANUAL (OVERRIDE) ==========
-  const handleManualPilih = (id, pilihan) => {
-    onUpdateProgress(selectedDate, id, {
-      selesai: true,
-      mulai: false,
-      pilihan,
-      override: true,
-    });
-  };
-
-  // ========== NAVIGASI ==========
   const prevDay = () => setSelectedDate(tambahHari(selectedDate, -1));
   const nextDay = () => setSelectedDate(tambahHari(selectedDate, 1));
   const goToday = () => setSelectedDate(new Date().toISOString().split("T")[0]);
@@ -165,51 +87,24 @@ export default function Schedule({
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body p-4">
-        {/* HEADER: NAVIGASI HARI */}
-        <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+        
+        {/* HEADER: NAVIGASI HARI (Di-ignore pas export) */}
+        <div className="flex flex-wrap justify-between items-center gap-2 mb-3" data-html2canvas-ignore="true">
           <div className="flex items-center gap-1">
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={prevDay}
-              title="Hari sebelumnya"
-            >
-              ‹
-            </button>
-            <h2 className="text-base font-bold min-w-[200px] text-center">
-              📅 {formatTanggalPanjang(selectedDate)}
-            </h2>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={nextDay}
-              title="Hari berikutnya"
-            >
-              ›
-            </button>
+            <button className="btn btn-ghost btn-sm" onClick={prevDay} title="Hari sebelumnya">‹</button>
+            <h2 className="text-base font-bold min-w-[200px] text-center">📅 {formatTanggalPanjang(selectedDate)}</h2>
+            <button className="btn btn-ghost btn-sm" onClick={nextDay} title="Hari berikutnya">›</button>
           </div>
           <div className="flex items-center gap-1">
-            <input
-              type="date"
-              className="input input-bordered input-sm text-gray-800 bg-white"
-              value={selectedDate}
-              onChange={handleDateChange}
-            />
-            <button
-              className="btn btn-outline btn-xs"
-              onClick={goToday}
-            >
-              📅 Hari Ini
-            </button>
+            <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={handleDateChange} />
+            <button className="btn btn-outline btn-xs" onClick={goToday}>📅 Hari Ini</button>
           </div>
         </div>
 
-        {/* BADGE HARI + TOMBOL KELOLA */}
+        {/* BADGE HARI + TOMBOL KELOLA (Tombol kelola di-ignore) */}
         <div className="flex justify-between items-center mb-3">
           <span className="badge badge-primary badge-sm">{hari}</span>
-          <button
-            className="btn btn-ghost btn-xs text-gray-600"
-            onClick={() => setShowKelola(true)}
-            title="Kelola Jadwal"
-          >
+          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelola(true)} title="Kelola Jadwal" data-html2canvas-ignore="true">
             ⚙️ Kelola Jadwal
           </button>
         </div>
@@ -225,50 +120,25 @@ export default function Schedule({
             const isSyncing = syncing === item.id;
 
             return (
-              <div
-                key={item.id}
-                className="flex items-center justify-between py-2 gap-2"
-              >
+              <div key={item.id} className="flex items-center justify-between py-2 gap-2">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <span className="font-mono text-xs font-bold w-24 flex-shrink-0">
                     {formatWaktu(item.waktuMulai, item.waktuSelesai)}
                   </span>
-                  <span
-                    className={`text-sm truncate ${
-                      done ? "line-through text-success" : ""
-                    } ${mulai && !done ? "text-info font-semibold" : ""}`}
-                  >
+                  <span className={`text-sm truncate ${done ? "line-through text-success" : ""} ${mulai && !done ? "text-info font-semibold" : ""}`}>
                     {item.label}
-                    <span className="text-xs text-base-content/50 ml-1">
-                      ({item.unit})
-                    </span>
-                    {auto && done && (
-                      <span className="text-xs text-info ml-2 italic">
-                        ⚡ auto
-                      </span>
-                    )}
-                    {mulai && !done && (
-                      <span className="text-xs text-info ml-2 italic">
-                        ▶️ proses
-                      </span>
-                    )}
-                    {pilihanTampil && (
-                      <span className="text-xs ml-2 font-semibold">
-                        → {pilihanTampil}
-                      </span>
-                    )}
+                    <span className="text-xs text-base-content/50 ml-1">({item.unit})</span>
+                    {auto && done && <span className="text-xs text-info ml-2 italic">⚡ auto</span>}
+                    {mulai && !done && <span className="text-xs text-info ml-2 italic">▶️ proses</span>}
+                    {pilihanTampil && <span className="text-xs ml-2 font-semibold">→ {pilihanTampil}</span>}
                   </span>
                 </div>
 
-                <div className="flex gap-1 items-center flex-shrink-0">
+                <div className="flex gap-1 items-center flex-shrink-0" data-html2canvas-ignore="true">
                   {item.manual && !done && !mulai && (
                     <div className="flex gap-1">
                       {item.manual.map((pilih) => (
-                        <button
-                          key={pilih}
-                          className="btn btn-outline btn-xs"
-                          onClick={() => handleManualPilih(item.id, pilih)}
-                        >
+                        <button key={pilih} className="btn btn-outline btn-xs" onClick={() => handleManualPilih(item.id, pilih)}>
                           {pilih}
                         </button>
                       ))}
@@ -277,63 +147,24 @@ export default function Schedule({
 
                   {done ? (
                     <>
-                      <span className="badge badge-success badge-sm">
-                        ✅ Selesai
-                      </span>
-                      <button
-                        className="btn btn-ghost btn-xs text-warning"
-                        onClick={() => handleUndo(item.id)}
-                        title="Batal"
-                      >
-                        ↩️
-                      </button>
+                      <span className="badge badge-success badge-sm">✅ Selesai</span>
+                      <button className="btn btn-ghost btn-xs text-warning" onClick={() => handleUndo(item.id)} title="Batal">↩️</button>
                       {auto && (
-                        <button
-                          className="btn btn-ghost btn-xs text-info"
-                          onClick={() => handleResetAuto(item.id)}
-                          title="Reset ke auto (hapus override manual)"
-                        >
-                          🔄
-                        </button>
+                        <button className="btn btn-ghost btn-xs text-info" onClick={() => handleResetAuto(item.id)} title="Reset ke auto">🔄</button>
                       )}
                     </>
                   ) : mulai ? (
                     <>
-                      <span className="badge badge-info badge-sm">
-                        ▶️ Proses
-                      </span>
-                      <button
-                        className="btn btn-success btn-xs"
-                        onClick={() => handleDone(item.id, item.label)}
-                        title="Tandai selesai"
-                      >
-                        ✅ Selesai
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-xs text-warning"
-                        onClick={() => handleUndo(item.id)}
-                        title="Batal"
-                      >
-                        ↩️
-                      </button>
+                      <span className="badge badge-info badge-sm">▶️ Proses</span>
+                      <button className="btn btn-success btn-xs" onClick={() => handleDone(item.id, item.label)} title="Tandai selesai">✅ Selesai</button>
+                      <button className="btn btn-ghost btn-xs text-warning" onClick={() => handleUndo(item.id)} title="Batal">↩️</button>
                     </>
                   ) : (
                     <div className="flex gap-1">
-                      <button
-                        className="btn btn-outline btn-xs"
-                        onClick={() => handleMulai(item.id, item.label)}
-                        disabled={isSyncing}
-                        title="Mulai aktivitas + sync ke Telegram"
-                      >
+                      <button className="btn btn-outline btn-xs" onClick={() => handleMulai(item.id, item.label)} disabled={isSyncing} title="Mulai aktivitas">
                         {isSyncing ? "⏳" : "▶️ Mulai"}
                       </button>
-                      <button
-                        className="btn btn-ghost btn-xs"
-                        onClick={() => handleDone(item.id, item.label)}
-                        title="Tandai selesai (langsung)"
-                      >
-                        ✅
-                      </button>
+                      <button className="btn btn-ghost btn-xs" onClick={() => handleDone(item.id, item.label)} title="Tandai selesai (langsung)">✅</button>
                     </div>
                   )}
                 </div>
@@ -342,16 +173,8 @@ export default function Schedule({
           })}
         </div>
 
-        {/* MODAL KELOLA JADWAL */}
         {showKelola && (
-          <KelolaJadwal
-            jadwal={jadwal}
-            hari={hari}
-            dayIndex={dayIndex}
-            jadwalUser={jadwalUser}
-            onUpdateJadwal={onUpdateJadwal}
-            onClose={() => setShowKelola(false)}
-          />
+          <KelolaJadwal jadwal={jadwal} hari={hari} dayIndex={dayIndex} jadwalUser={jadwalUser} onUpdateJadwal={onUpdateJadwal} onClose={() => setShowKelola(false)} />
         )}
       </div>
     </div>
