@@ -4,30 +4,14 @@ import { google } from "googleapis";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-// ========== HELPER: PARSE PRIVATE KEY (TOLERAN FORMAT) ==========
+// ========== HELPER: PARSE PRIVATE KEY ==========
 function parsePrivateKey(raw) {
   if (!raw) return "";
-  let key = String(raw);
-
-  // Kalau di-wrap tanda kutip, buang
-  key = key.trim();
-  if (key.startsWith('"') && key.endsWith('"')) {
-    key = key.slice(1, -1);
-  }
-  if (key.startsWith("'") && key.endsWith("'")) {
-    key = key.slice(1, -1);
-  }
-
-  // Kalau ada literal backslash-n, convert jadi newline
-  // Tapi hati-hati: cek dulu ada backslash nggak
-  if (key.includes("\\n")) {
-    key = key.replace(/\\n/g, "\n");
-  }
-
-  // Trim sisa spasi
-  key = key.trim();
-
-  return key;
+  let key = String(raw).trim();
+  if (key.startsWith('"') && key.endsWith('"')) key = key.slice(1, -1);
+  if (key.startsWith("'") && key.endsWith("'")) key = key.slice(1, -1);
+  if (key.includes("\\n")) key = key.replace(/\\n/g, "\n");
+  return key.trim();
 }
 
 // ========== FIREBASE ADMIN INIT ==========
@@ -38,9 +22,7 @@ function getAdminApp() {
     adminApp = getApps()[0];
     return adminApp;
   }
-
   const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
-
   adminApp = initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
@@ -158,10 +140,10 @@ const MENU_CONFIG = {
             firestoreId: tx.id,
             menu: "keuangan",
             tanggal,
-            tipe: tx.tipe || "",
-            kategori: tx.kategori || "",
-            jumlah: tx.jumlah || 0,
-            dompet: tx.dompet || "",
+            tipe: tx.tipe || tx.jenis || "",
+            kategori: tx.kategori || tx.kategoriId || "",
+            jumlah: tx.jumlah || tx.nominal || 0,
+            dompet: tx.dompet || tx.walletId || "",
             catatan: tx.catatan || "",
             updatedAt: tx.updatedAt || "",
           });
@@ -184,7 +166,7 @@ const MENU_CONFIG = {
           menu: "olahraga",
           tanggal,
           aktivitas: entry.aktivitas || entry.jenis || "",
-          durasi: entry.durasi || entry.jarak || "",
+          durasi: entry.durasi || entry.jarak || entry.jumlah || "",
           catatan: entry.catatan || "",
           updatedAt: entry.updatedAt || "",
         });
@@ -356,24 +338,158 @@ async function getOrCreateSheet(sheets, spreadsheetId, sheetName) {
   return result.data.replies?.[0]?.addSheet?.properties?.sheetId;
 }
 
-// ========== HELPER: WRITE ROWS TO SHEET ==========
-async function writeRowsToSheet(sheets, spreadsheetId, sheetName, headers, rows) {
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${sheetName}!A:Z`,
+// ========== HELPER: SMART SYNC ROWS ==========
+// Baca data lama, bandingin pakai firestoreId, lalu update/add/delete
+async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows) {
+  const sheetId = await getOrCreateSheet(sheets, spreadsheetId, sheetName);
+  
+  // 1. Baca data lama
+  let oldRows = [];
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A2:Z`, // Mulai dari baris 2 (skip header)
+    });
+    oldRows = res.data.values || [];
+  } catch (e) {
+    // Kalau sheet kosong, abaikan
+  }
+
+  // 2. Map data lama berdasarkan firestoreId
+  const oldMap = new Map();
+  oldRows.forEach((row, idx) => {
+    const id = row[0]; // Kolom pertama adalah firestoreId
+    if (id) oldMap.set(id, { row, rowIndex: idx + 2 }); // rowIndex di Sheet (mulai dari 2)
   });
 
-  const values = [headers];
-  rows.forEach((r) => {
-    values.push(headers.map((h) => r[h] ?? ""));
-  });
+  // 3. Siapin data baru untuk di-update / di-add
+  const newMap = new Map();
+  newRows.forEach((r) => newMap.set(r.firestoreId, r));
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${sheetName}!A1`,
-    valueInputOption: "RAW",
-    requestBody: { values },
-  });
+  const toAdd = [];
+  const toUpdate = []; // { range, values }
+  const toDelete = []; // { rowIndex }
+
+  // Cek yang baru & berubah
+  for (const [id, newRow] of newMap.entries()) {
+    const values = headers.map((h) => newRow[h] ?? "");
+    if (oldMap.has(id)) {
+      const old = oldMap.get(id);
+      // Cek apakah ada perubahan data (bandingin semua kolom)
+      const isChanged = JSON.stringify(old.row) !== JSON.stringify(values);
+      if (isChanged) {
+        // Update baris ini (range: A{rowIndex})
+        toUpdate.push({
+          range: `${sheetName}!A${old.rowIndex}`,
+          values: [values],
+        });
+      }
+    } else {
+      toAdd.push(values);
+    }
+  }
+
+  // Cek yang dihapus (ada di old, nggak ada di new)
+  for (const [id, old] of oldMap.entries()) {
+    if (!newMap.has(id)) {
+      toDelete.push({ rowIndex: old.rowIndex });
+    }
+  }
+
+  // 4. Eksekusi: Hapus (dari bawah ke atas biar index nggak geser)
+  toDelete.sort((a, b) => b.rowIndex - a.rowIndex);
+  for (const del of toDelete) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheetId,
+                dimension: "ROWS",
+                startIndex: del.rowIndex - 1, // 0-indexed
+                endIndex: del.rowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  // 5. Eksekusi: Update (batch)
+  if (toUpdate.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        valueInputOption: "RAW",
+        data: toUpdate,
+      },
+    });
+  }
+
+  // 6. Eksekusi: Add (append)
+  if (toAdd.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A1`,
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values: toAdd },
+    });
+  }
+
+  // 7. Styling (Header Bold, Freeze, Auto-Resize)
+  // Cuma jalan kalau ada perubahan / sheet baru
+  if (toAdd.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          // Freeze Row 1
+          {
+            updateSheetProperties: {
+              properties: {
+                sheetId,
+                gridProperties: { frozenRowCount: 1 },
+              },
+              fields: "gridProperties.frozenRowCount",
+            },
+          },
+          // Bold Header + Background
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: 0,
+                endRowIndex: 1,
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 },
+                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+                  horizontalAlignment: "CENTER",
+                },
+              },
+              fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)",
+            },
+          },
+          // Auto Resize Columns
+          {
+            autoResizeDimensions: {
+              dimensions: {
+                sheetId,
+                dimension: "COLUMNS",
+                startIndex: 0,
+                endIndex: headers.length,
+              },
+            },
+          },
+        ],
+      },
+    });
+  }
 }
 
 // ========== MAIN HANDLER ==========
@@ -406,16 +522,9 @@ export async function POST(req) {
     const results = [];
     for (const [menuKey, config] of Object.entries(MENU_CONFIG)) {
       try {
-        await getOrCreateSheet(sheets, spreadsheetId, config.sheetName);
-        const rows = config.flatten(userData);
-        await writeRowsToSheet(
-          sheets,
-          spreadsheetId,
-          config.sheetName,
-          config.headers,
-          rows
-        );
-        results.push({ menu: menuKey, sheet: config.sheetName, rows: rows.length, status: "ok" });
+        const newRows = config.flatten(userData);
+        await smartSyncRows(sheets, spreadsheetId, config.sheetName, config.headers, newRows);
+        results.push({ menu: menuKey, sheet: config.sheetName, rows: newRows.length, status: "ok" });
       } catch (err) {
         console.error(`[sync-sheets] Error sync ${menuKey}:`, err.message);
         results.push({ menu: menuKey, sheet: config.sheetName, status: "error", error: err.message });
