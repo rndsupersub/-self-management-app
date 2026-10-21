@@ -1,5 +1,4 @@
 // app/(dashboard)/dashboard/pekerjaan/[ptId]/[brandId]/[...slug]/page.js
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,6 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import DetailKegiatan from "@/components/DetailKegiatan";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_PRIORITAS,
@@ -269,8 +269,8 @@ export default function DetailKegiatanPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -283,9 +283,10 @@ export default function DetailKegiatanPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - IGNORE */}
         <div
           className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
+          data-html2canvas-ignore="true"
         >
           <Sidebar
             activities={activities}
@@ -296,8 +297,8 @@ export default function DetailKegiatanPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li>
                 <a
@@ -338,17 +339,28 @@ export default function DetailKegiatanPage() {
             </ul>
           </div>
 
-          {/* Detail Kegiatan */}
-          <DetailKegiatan
-            kegiatan={kegiatan}
-            prioritasList={prioritasList}
-            sumberList={sumberList}
-            sections={sections}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            onToggleStatus={handleToggleStatus}
-            onEdit={handleEdit}
-          />
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            {/* Tombol Export - IGNORE */}
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`Kegiatan_${kegiatan.judul}.pdf`} 
+                title={kegiatan.judul} 
+              />
+            </div>
+
+            <DetailKegiatan
+              kegiatan={kegiatan}
+              prioritasList={prioritasList}
+              sumberList={sumberList}
+              sections={sections}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+              onToggleStatus={handleToggleStatus}
+              onEdit={handleEdit}
+            />
+          </div>
         </div>
       </div>
     </div>

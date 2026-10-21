@@ -12,6 +12,7 @@ import VendorManager from "@/components/VendorManager";
 import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
   DEFAULT_PRIORITAS,
@@ -555,8 +556,8 @@ export default function BrandPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -569,11 +570,12 @@ export default function BrandPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - IGNORE */}
         <div
           className={`${
             sidebarCollapsed ? "w-12" : "w-64"
           } transition-all duration-300 bg-base-100`}
+          data-html2canvas-ignore="true"
         >
           <Sidebar
             activities={activities}
@@ -584,8 +586,8 @@ export default function BrandPage() {
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li>
                 <a onClick={() => router.push("/dashboard")} className="cursor-pointer">
@@ -612,8 +614,8 @@ export default function BrandPage() {
             </ul>
           </div>
 
-          {/* Header Brand */}
-          <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
+          {/* Header Brand - IGNORE */}
+          <div className="flex flex-wrap justify-between items-center mb-4 gap-2" data-html2canvas-ignore="true">
             {editMode ? (
               <div className="flex gap-2 items-center flex-1">
                 <input
@@ -659,9 +661,9 @@ export default function BrandPage() {
             )}
           </div>
 
-          {/* Konfirmasi Hapus Brand */}
+          {/* Konfirmasi Hapus Brand - IGNORE */}
           {confirmHapusBrand && (
-            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4" data-html2canvas-ignore="true">
               <p className="text-sm text-red-700 mb-2">
                 Yakin mau hapus <strong>{brand.nama}</strong>? Semua kegiatan
                 akan hilang.
@@ -680,8 +682,8 @@ export default function BrandPage() {
             </div>
           )}
 
-          {/* TAB NAVIGATION */}
-          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
+          {/* TAB NAVIGATION - IGNORE */}
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
             <button
               className={`tab ${
                 activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""
@@ -719,135 +721,150 @@ export default function BrandPage() {
             </button>
           </div>
 
-          {/* ========== TAB KALENDER ========== */}
-          {activeTab === "kalender" && (
-            <>
-              <KalenderPekerjaan
-                kegiatan={brand.kegiatan || []}
-                onAdd={handleTambahKegiatan}
-                onClickKegiatan={handleClickKegiatan}
-                prioritasList={prioritasList}
-                sumberList={sumberList}
-                kategoriList={kategoriPekerjaanList}
-                onUpdateKategoriList={handleUpdateKategoriPekerjaan}
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            
+            {/* Tombol Export - IGNORE */}
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`${brand.nama}_${activeTab}.pdf`} 
+                title={`${brand.nama} - ${activeTab}`} 
               />
+            </div>
 
-              {brand.kegiatan && brand.kegiatan.length > 0 && (
-                <div className="card bg-white shadow border border-gray-200 mt-4">
-                  <div className="card-body p-4">
-                    <h3 className="text-base font-bold text-gray-800 mb-3">
-                      📋 Semua Kegiatan ({brand.kegiatan.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {brand.kegiatan
-                        .slice()
-                        .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
-                        .map((keg) => (
-                          <div
-                            key={keg.id}
-                            className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200"
-                          >
+            {/* TAB KALENDER */}
+            {activeTab === "kalender" && (
+              <>
+                <KalenderPekerjaan
+                  kegiatan={brand.kegiatan || []}
+                  onAdd={handleTambahKegiatan}
+                  onClickKegiatan={handleClickKegiatan}
+                  prioritasList={prioritasList}
+                  sumberList={sumberList}
+                  kategoriList={kategoriPekerjaanList}
+                  onUpdateKategoriList={handleUpdateKategoriPekerjaan}
+                />
+
+                {brand.kegiatan && brand.kegiatan.length > 0 && (
+                  <div className="card bg-white shadow border border-gray-200 mt-4">
+                    <div className="card-body p-4">
+                      <h3 className="text-base font-bold text-gray-800 mb-3">
+                        📋 Semua Kegiatan ({brand.kegiatan.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {brand.kegiatan
+                          .slice()
+                          .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+                          .map((keg) => (
                             <div
-                              className="flex-1 cursor-pointer"
-                              onClick={() => handleClickKegiatan(keg.id)}
+                              key={keg.id}
+                              className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200"
                             >
-                              <p
-                                className={`text-sm font-semibold text-gray-800 ${
-                                  keg.status === "selesai"
-                                    ? "line-through opacity-60"
-                                    : ""
-                                }`}
+                              <div
+                                className="flex-1 cursor-pointer"
+                                onClick={() => handleClickKegiatan(keg.id)}
                               >
-                                {keg.judul}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                📅 {keg.tanggal} •{" "}
-                                {keg.status === "selesai" ? "✅ Selesai" : "⏳ Belum"}
-                              </p>
+                                <p
+                                  className={`text-sm font-semibold text-gray-800 ${
+                                    keg.status === "selesai"
+                                      ? "line-through opacity-60"
+                                      : ""
+                                  }`}
+                                >
+                                  {keg.judul}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  📅 {keg.tanggal} •{" "}
+                                  {keg.status === "selesai" ? "✅ Selesai" : "⏳ Belum"}
+                                </p>
+                              </div>
+                              {/* Tombol aksi di-ignore */}
+                              <div className="flex gap-1" data-html2canvas-ignore="true">
+                                <button
+                                  className="btn btn-ghost btn-xs"
+                                  onClick={() => handleBukaEdit(keg)}
+                                  title="Edit"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  className="btn btn-ghost btn-xs text-red-500"
+                                  onClick={() => handleHapusKegiatan(keg.id)}
+                                  title="Hapus"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex gap-1">
-                              <button
-                                className="btn btn-ghost btn-xs"
-                                onClick={() => handleBukaEdit(keg)}
-                                title="Edit"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                className="btn btn-ghost btn-xs text-red-500"
-                                onClick={() => handleHapusKegiatan(keg.id)}
-                                title="Hapus"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
 
-          {/* ========== TAB VENDOR ========== */}
-          {activeTab === "vendor" && (
-            <>
-              {selectedVendor ? (
-                <VendorDetail
-                  vendor={selectedVendor}
-                  kategoriVendorList={vendorKategoriList}
-                  tujuanKunjunganList={vendorTujuanList}
-                  fieldEvaluasiVendorList={fieldEvaluasiVendorList}
-                  periodeEvaluasiList={periodeEvaluasiPekerjaanList}
-                  onUpdateVendor={handleUpdateVendor}
-                  onDeleteVendor={handleDeleteVendor}
-                  onBack={() => setSelectedVendorId(null)}
-                />
-              ) : (
-                <VendorManager
-                  vendorList={vendorList}
-                  kategoriVendorList={vendorKategoriList}
-                  pertanyaanVendorList={vendorPertanyaanList}
-                  satuanMoqList={vendorSatuanMoqList}
-                  onAddVendor={handleAddVendor}
-                  onDeleteVendor={handleDeleteVendor}
-                  onClickVendor={setSelectedVendorId}
-                  onUpdateKategoriVendor={handleUpdateKategoriVendor}
-                  onUpdatePertanyaanVendor={handleUpdatePertanyaanVendor}
-                  onUpdateSatuanMoq={handleUpdateSatuanMoq}
-                />
-              )}
-            </>
-          )}
+            {/* TAB VENDOR */}
+            {activeTab === "vendor" && (
+              <>
+                {selectedVendor ? (
+                  <VendorDetail
+                    vendor={selectedVendor}
+                    kategoriVendorList={vendorKategoriList}
+                    tujuanKunjunganList={vendorTujuanList}
+                    fieldEvaluasiVendorList={fieldEvaluasiVendorList}
+                    periodeEvaluasiList={periodeEvaluasiPekerjaanList}
+                    onUpdateVendor={handleUpdateVendor}
+                    onDeleteVendor={handleDeleteVendor}
+                    onBack={() => setSelectedVendorId(null)}
+                  />
+                ) : (
+                  <VendorManager
+                    vendorList={vendorList}
+                    kategoriVendorList={vendorKategoriList}
+                    pertanyaanVendorList={vendorPertanyaanList}
+                    satuanMoqList={vendorSatuanMoqList}
+                    onAddVendor={handleAddVendor}
+                    onDeleteVendor={handleDeleteVendor}
+                    onClickVendor={setSelectedVendorId}
+                    onUpdateKategoriVendor={handleUpdateKategoriVendor}
+                    onUpdatePertanyaanVendor={handleUpdatePertanyaanVendor}
+                    onUpdateSatuanMoq={handleUpdateSatuanMoq}
+                  />
+                )}
+              </>
+            )}
 
-          {/* ========== TAB LAPORAN ========== */}
-          {activeTab === "laporan" && (
-            <LaporanPekerjaan
-              kegiatanList={brand.kegiatan || []}
-              laporanData={laporanData}
-              onUpdateLaporan={handleUpdateLaporan}
-              prioritasList={prioritasList}
-              sumberList={sumberList}
-            />
-          )}
+            {/* TAB LAPORAN */}
+            {activeTab === "laporan" && (
+              <LaporanPekerjaan
+                kegiatanList={brand.kegiatan || []}
+                laporanData={laporanData}
+                onUpdateLaporan={handleUpdateLaporan}
+                prioritasList={prioritasList}
+                sumberList={sumberList}
+              />
+            )}
 
-          {/* ========== TAB EVALUASI ========== */}
-          {activeTab === "evaluasi" && (
-            <EvaluasiPekerjaan
-              kegiatanList={brand.kegiatan || []}
-              laporanData={laporanData}
-              evaluasiData={evaluasiData}
-              vendorList={vendorList}
-              fieldEvaluasiList={fieldEvaluasiPekerjaanList}
-              periodeEvaluasiList={periodeEvaluasiPekerjaanList}
-              fieldEvaluasiVendorList={fieldEvaluasiVendorList}
-              onUpdateEvaluasi={handleUpdateEvaluasi}
-              onUpdateFieldEvaluasi={handleUpdateFieldEvaluasi}
-              onUpdatePeriodeEvaluasi={handleUpdatePeriodeEvaluasi}
-              onUpdateFieldEvaluasiVendor={handleUpdateFieldEvaluasiVendor}
-            />
-          )}
+            {/* TAB EVALUASI */}
+            {activeTab === "evaluasi" && (
+              <EvaluasiPekerjaan
+                kegiatanList={brand.kegiatan || []}
+                laporanData={laporanData}
+                evaluasiData={evaluasiData}
+                vendorList={vendorList}
+                fieldEvaluasiList={fieldEvaluasiPekerjaanList}
+                periodeEvaluasiList={periodeEvaluasiPekerjaanList}
+                fieldEvaluasiVendorList={fieldEvaluasiVendorList}
+                onUpdateEvaluasi={handleUpdateEvaluasi}
+                onUpdateFieldEvaluasi={handleUpdateFieldEvaluasi}
+                onUpdatePeriodeEvaluasi={handleUpdatePeriodeEvaluasi}
+                onUpdateFieldEvaluasiVendor={handleUpdateFieldEvaluasiVendor}
+              />
+            )}
+          </div>
+
         </div>
       </div>
 
