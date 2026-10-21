@@ -46,7 +46,8 @@ function getAuth() {
 }
 
 // ========== MAPPING MENU & LEBAR KOLOM ==========
-// Gua tambahin `width` biar kolomnya rapi
+// (LO TINGGAL COPY PASTE MENU_CONFIG YANG LAMA DARI FILE LO)
+// Pastikan struktur headers tetap sama (ada name & width)
 const MENU_CONFIG = {
   belajar: {
     sheetName: "Belajar",
@@ -114,7 +115,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   pekerjaan: {
     sheetName: "Pekerjaan",
     headers: [
@@ -151,7 +151,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   keuangan: {
     sheetName: "Keuangan",
     headers: [
@@ -187,7 +186,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   olahraga: {
     sheetName: "Olahraga",
     headers: [
@@ -217,7 +215,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   hafalan: {
     sheetName: "Hafalan",
     headers: [
@@ -249,7 +246,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   bisnis: {
     sheetName: "Bisnis",
     headers: [
@@ -282,7 +278,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   youtube: {
     sheetName: "YouTube",
     headers: [
@@ -319,7 +314,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   bedahbuku: {
     sheetName: "BedahBuku",
     headers: [
@@ -352,7 +346,6 @@ const MENU_CONFIG = {
       return rows;
     },
   },
-
   custom: {
     sheetName: "MenuCustom",
     headers: [
@@ -437,7 +430,7 @@ async function getOrCreateSheet(sheets, spreadsheetId, sheetName) {
 async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows) {
   const sheetId = await getOrCreateSheet(sheets, spreadsheetId, sheetName);
   const headerNames = headers.map((h) => h.name);
-  
+
   // 1. Baca data lama
   let oldRows = [];
   try {
@@ -517,7 +510,7 @@ async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows)
     });
   }
 
-  // 6. Styling (Header, Width, Wrap)
+  // 6. Styling (Header, Width, Wrap, Border, Banding)
   const widthRequests = headers.map((h, i) => ({
     updateDimensionProperties: {
       range: {
@@ -531,44 +524,302 @@ async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows)
     },
   }));
 
+  // Hide firestoreId and updatedAt
+  const hideRequests = [];
+  const idIndex = headerNames.indexOf("firestoreId");
+  if (idIndex !== -1) {
+    hideRequests.push({
+      updateDimensionProperties: {
+        range: { sheetId, dimension: "COLUMNS", startIndex: idIndex, endIndex: idIndex + 1 },
+        properties: { hiddenByUser: true },
+        fields: "hiddenByUser",
+      },
+    });
+  }
+  const updatedAtIndex = headerNames.indexOf("updatedAt");
+  if (updatedAtIndex !== -1) {
+    hideRequests.push({
+      updateDimensionProperties: {
+        range: { sheetId, dimension: "COLUMNS", startIndex: updatedAtIndex, endIndex: updatedAtIndex + 1 },
+        properties: { hiddenByUser: true },
+        fields: "hiddenByUser",
+      },
+    });
+  }
+
+  // Border request
+  const borderRequest = {
+    updateBorders: {
+      range: {
+        sheetId,
+        startRowIndex: 0,
+        endRowIndex: Math.max(2, oldRows.length + newRows.length + 5),
+        startColumnIndex: 0,
+        endColumnIndex: headers.length,
+      },
+      top: { style: "SOLID", width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+      bottom: { style: "SOLID", width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+      left: { style: "SOLID", width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+      right: { style: "SOLID", width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+      innerHorizontal: { style: "SOLID", width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+      innerVertical: { style: "SOLID", width: 1, color: { red: 0.8, green: 0.8, blue: 0.8 } },
+    },
+  };
+
+  // Delete existing bandings and add new ones
+  const sheetData = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties,sheets.bandedRanges" });
+  const sheet = sheetData.data.sheets?.find(s => s.properties?.sheetId === sheetId);
+  const bandedRanges = sheet?.bandedRanges || [];
+  const deleteBandingRequests = bandedRanges.map(br => ({
+    deleteBanding: { bandedRangeId: br.bandedRangeId }
+  }));
+
+  const addBandingRequest = {
+    addBanding: {
+      bandedRange: {
+        range: {
+          sheetId,
+          startRowIndex: 1,
+          endRowIndex: Math.max(2, oldRows.length + newRows.length + 5),
+          startColumnIndex: 0,
+          endColumnIndex: headers.length,
+        },
+        rowProperties: {
+          firstBandColor: { red: 1, green: 1, blue: 1 },
+          secondBandColor: { red: 0.95, green: 0.95, blue: 0.95 },
+        },
+      },
+    },
+  };
+
+  const requests = [
+    // Freeze Row 1
+    {
+      updateSheetProperties: {
+        properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+        fields: "gridProperties.frozenRowCount",
+      },
+    },
+    // Style Header
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 },
+            textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+            horizontalAlignment: "CENTER",
+            verticalAlignment: "MIDDLE",
+          },
+        },
+        fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)",
+      },
+    },
+    // Wrap Text
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1 },
+        cell: { userEnteredFormat: { wrapStrategy: "WRAP", verticalAlignment: "TOP" } },
+        fields: "userEnteredFormat(wrapStrategy,verticalAlignment)",
+      },
+    },
+    // Set Width
+    ...widthRequests,
+    // Hide columns
+    ...hideRequests,
+    // Border
+    borderRequest,
+    // Delete bandings
+    ...deleteBandingRequests,
+    // Add banding
+    addBandingRequest,
+  ];
+
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
-    requestBody: {
-      requests: [
-        // Freeze Row 1
-        {
-          updateSheetProperties: {
-            properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
-            fields: "gridProperties.frozenRowCount",
-          },
-        },
-        // Style Header
-        {
-          repeatCell: {
-            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 },
-                textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
-                horizontalAlignment: "CENTER",
-                verticalAlignment: "MIDDLE",
-              },
-            },
-            fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)",
-          },
-        },
-        // Wrap Text (biar catatan panjang turun)
-        {
-          repeatCell: {
-            range: { sheetId, startRowIndex: 1 },
-            cell: { userEnteredFormat: { wrapStrategy: "WRAP", verticalAlignment: "TOP" } },
-            fields: "userEnteredFormat(wrapStrategy,verticalAlignment)",
-          },
-        },
-        // Set Width
-        ...widthRequests,
-      ],
+    requestBody: { requests },
+  });
+}
+
+// ========== HELPER: UPDATE DASHBOARD ==========
+async function updateDashboardSheet(sheets, spreadsheetId, userData) {
+  const sheetName = "Dashboard";
+  const sheetId = await getOrCreateSheet(sheets, spreadsheetId, sheetName);
+
+  const now = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+
+  const totalBelajar = (userData.belajar?.kategori || []).reduce((acc, kat) => {
+    return acc + (kat.subKategori || []).reduce((acc2, sub) => {
+      return acc2 + (sub.tools || []).reduce((acc3, tool) => {
+        return acc3 + (tool.fitur || []).reduce((acc4, fitur) => {
+          return acc4 + (fitur.parts?.length || 0);
+        }, 0);
+      }, 0);
+    }, 0);
+  }, 0);
+
+  const totalPekerjaan = (userData.pekerjaan || []).reduce((acc, pt) => {
+    return acc + (pt.brands || []).reduce((acc2, brand) => {
+      return acc2 + (brand.kegiatan?.length || 0);
+    }, 0);
+  }, 0);
+
+  const totalKeuangan = Object.values(userData.keuanganTransaksi || {}).reduce((acc, list) => acc + (list.length || 0), 0);
+
+  const totalHafalan = Object.keys(userData.hafalanMembaca || {}).length;
+
+  const totalOlahraga = Object.keys(userData.olahraga?.harian || {}).length;
+
+  const totalBisnis = (userData.bisnisBrands || []).reduce((acc, brand) => {
+    return acc + (brand.kegiatan?.length || 0);
+  }, 0);
+
+  const totalYoutube = (userData.youtube_logs || []).length;
+
+  const totalBedahBuku = (userData.bedahBuku?.buku || []).length;
+
+  const values = [
+    ["📊 SELF MANAGEMENT DASHBOARD", "", "", ""],
+    [`Terakhir di-sync: ${now}`, "", "", ""],
+    ["", "", "", ""],
+    ["📚 Total Belajar (Part)", totalBelajar, "💼 Total Pekerjaan", totalPekerjaan],
+    ["💰 Total Keuangan", totalKeuangan, "📖 Total Hafalan", totalHafalan],
+    ["🏃 Total Olahraga", totalOlahraga, "🏢 Total Bisnis", totalBisnis],
+    ["📺 Total YouTube", totalYoutube, "📚 Total Bedah Buku", totalBedahBuku],
+  ];
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${sheetName}!A1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values },
+  });
+
+  const requests = [
+    // Merge title
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 4 },
+        mergeType: "MERGE_ALL",
+      },
     },
+    // Merge subtitle
+    {
+      mergeCells: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 4 },
+        mergeType: "MERGE_ALL",
+      },
+    },
+    // Style title
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: { red: 0.1, green: 0.2, blue: 0.4 },
+            textFormat: { bold: true, fontSize: 16, foregroundColor: { red: 1, green: 1, blue: 1 } },
+            horizontalAlignment: "CENTER",
+            verticalAlignment: "MIDDLE",
+            padding: { top: 10, bottom: 10 },
+          },
+        },
+        fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)",
+      },
+    },
+    // Style subtitle
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: 2 },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { italic: true, fontSize: 10, foregroundColor: { red: 0.4, green: 0.4, blue: 0.4 } },
+            horizontalAlignment: "CENTER",
+          },
+        },
+        fields: "userEnteredFormat(textFormat,horizontalAlignment)",
+      },
+    },
+    // Style data cells
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 3, endRowIndex: 7, startColumnIndex: 0, endColumnIndex: 4 },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { fontSize: 11 },
+            horizontalAlignment: "LEFT",
+            verticalAlignment: "MIDDLE",
+            padding: { top: 8, bottom: 8, left: 8, right: 8 },
+            borders: {
+              top: { style: "SOLID", color: { red: 0.8, green: 0.8, blue: 0.8 } },
+              bottom: { style: "SOLID", color: { red: 0.8, green: 0.8, blue: 0.8 } },
+              left: { style: "SOLID", color: { red: 0.8, green: 0.8, blue: 0.8 } },
+              right: { style: "SOLID", color: { red: 0.8, green: 0.8, blue: 0.8 } },
+            },
+          },
+        },
+        fields: "userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment,padding,borders)",
+      },
+    },
+    // Style numbers (B column)
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 3, endRowIndex: 7, startColumnIndex: 1, endColumnIndex: 2 },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: true, fontSize: 14, foregroundColor: { red: 0.2, green: 0.6, blue: 0.2 } },
+            horizontalAlignment: "CENTER",
+          },
+        },
+        fields: "userEnteredFormat(textFormat,horizontalAlignment)",
+      },
+    },
+    // Style numbers (D column)
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 3, endRowIndex: 7, startColumnIndex: 3, endColumnIndex: 4 },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: true, fontSize: 14, foregroundColor: { red: 0.2, green: 0.6, blue: 0.2 } },
+            horizontalAlignment: "CENTER",
+          },
+        },
+        fields: "userEnteredFormat(textFormat,horizontalAlignment)",
+      },
+    },
+    // Set column widths
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
+        properties: { pixelSize: 200 },
+        fields: "pixelSize",
+      },
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: 2 },
+        properties: { pixelSize: 100 },
+        fields: "pixelSize",
+      },
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 3 },
+        properties: { pixelSize: 200 },
+        fields: "pixelSize",
+      },
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: "COLUMNS", startIndex: 3, endIndex: 4 },
+        properties: { pixelSize: 100 },
+        fields: "pixelSize",
+      },
+    },
+  ];
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
   });
 }
 
@@ -585,7 +836,7 @@ export async function POST(req) {
     const userRef = firestore.collection("users").doc(uid);
     const userSnap = await userRef.get();
     if (!userSnap.exists) return NextResponse.json({ error: "user tidak ditemukan" }, { status: 404 });
-    
+
     const userData = userSnap.data();
 
     const auth = getAuth();
@@ -593,6 +844,13 @@ export async function POST(req) {
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
     if (!spreadsheetId) return NextResponse.json({ error: "GOOGLE_SHEETS_ID belum diset" }, { status: 500 });
+
+    // Update Dashboard first
+    try {
+      await updateDashboardSheet(sheets, spreadsheetId, userData);
+    } catch (err) {
+      console.error("[sync-sheets] Error update dashboard:", err.message);
+    }
 
     const results = [];
     for (const [menuKey, config] of Object.entries(MENU_CONFIG)) {
