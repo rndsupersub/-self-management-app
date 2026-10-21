@@ -13,6 +13,7 @@ import MenuManager from "@/components/MenuManager";
 import SyncSheetsButton from "@/components/SyncSheetsButton";
 import TelegramSetting from "@/components/TelegramSetting";
 import ViewerManager from "@/components/ViewerManager";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN BARU
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
@@ -188,7 +189,7 @@ export default function Dashboard() {
         router.push("/login");
         return;
       }
-            setUser(user);
+      setUser(user);
 
       // Cek apakah user ini viewer
       try {
@@ -208,6 +209,7 @@ export default function Dashboard() {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUserData({ ...data, _uid: user.uid });
+
         const {
           perluSimpan,
           updates,
@@ -293,6 +295,7 @@ export default function Dashboard() {
           keuanganTransaksi: {},
           keuanganSetting: DEFAULT_SETTING,
         };
+
         await setDoc(docRef, initialData);
         setUserData({ ...initialData, _uid: user.uid });
         setActivities(DEFAULT_ACTIVITIES);
@@ -303,8 +306,10 @@ export default function Dashboard() {
         setJadwalUser(DEFAULT_JADWAL);
         setProgress({});
       }
+
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -350,7 +355,7 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      <div className="navbar bg-base-100 shadow px-4">
+      <div className="navbar bg-base-100 shadow px-4 print:hidden">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -368,19 +373,34 @@ export default function Dashboard() {
             }}
           />
           <SyncSheetsButton user={user} />
-<ViewerManager user={user} />
-<TelegramSetting user={user} />
+          <ViewerManager user={user} />
+          <TelegramSetting user={user} />
           <span className="text-sm font-mono">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
           </button>
         </div>
       </div>
+
       <div className="flex-1 flex overflow-hidden">
-        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
+        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100 print:hidden`}>
           <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
-        <div className="flex-1 overflow-y-auto p-6">
+
+        {/* ========================================== */}
+        {/* AREA YANG MAU DI-EXPORT (DIBUNGKUS ID) */}
+        {/* ========================================== */}
+        <div id="export-area" className="flex-1 overflow-y-auto p-6 bg-base-200">
+          
+          {/* Tombol Export (pojok kanan atas) */}
+          <div className="flex justify-end mb-4 print:hidden">
+            <ExportPDFButton
+              targetId="export-area"
+              fileName={`Dashboard_${today}.pdf`}
+              title="Dashboard Self Management"
+            />
+          </div>
+
           <Schedule
             jadwalUser={jadwalUser}
             onUpdateJadwal={updateJadwal}
@@ -390,10 +410,12 @@ export default function Dashboard() {
             setSelectedDate={setSelectedDate}
             userData={userData}
           />
+
           <div className="text-center text-base-content/50 mt-10 mb-6">
             <p className="text-2xl mb-2">📋</p>
             <p>Pilih menu dari sidebar</p>
           </div>
+
           <RingkasanKeuangan
             dompetList={dompetList}
             goalsList={goalsList}
@@ -402,6 +424,7 @@ export default function Dashboard() {
             onClickDetail={() => router.push("/dashboard/keuangan")}
           />
         </div>
+
       </div>
     </div>
   );
