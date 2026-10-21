@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro"; // <-- UDAH DIGANTI KE PRO
 import jsPDF from "jspdf";
 
 export default function ExportPDFButton({ targetId = "export-area", fileName = "laporan.pdf", title = "Laporan" }) {
@@ -54,7 +54,7 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
         heightLeft -= pageHeight;
       }
 
-      // 6. Bikin header teks di tiap halaman (opsional, biar rapi)
+      // 6. Bikin footer teks di tiap halaman
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
