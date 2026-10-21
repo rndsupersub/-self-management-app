@@ -17,45 +17,52 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
 
     setIsExporting(true);
 
-    // Simpan style asli elemen (buat di-restore nanti)
-    const originalStyle = element.getAttribute("style") || "";
-
     try {
-      // Trik biar html2canvas bisa nangkep seluruh area scroll
-      element.style.overflow = "visible";
-      element.style.height = "auto";
-      element.style.maxHeight = "none";
+      // 1. KLOning ELEMEN (Trik biar nggak kepotong scroll)
+      const clone = element.cloneNode(true);
+      
+      // Set style kloningan biar posisinya di luar layar dan tinggi ngikutin konten
+      clone.style.position = "absolute";
+      clone.style.top = "0";
+      clone.style.left = "-9999px";
+      clone.style.width = `${element.scrollWidth}px`;
+      clone.style.height = "auto";
+      clone.style.maxHeight = "none";
+      clone.style.overflow = "visible";
+      clone.style.backgroundColor = "#ffffff";
+      clone.id = "export-area-clone"; // Ganti ID biar nggak bentrok
 
-      // Capture element jadi canvas
-      const canvas = await html2canvas(element, {
+      document.body.appendChild(clone);
+
+      // 2. Render kloningan ke canvas
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
+        windowWidth: clone.scrollWidth,
+        windowHeight: clone.scrollHeight,
         ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
       });
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
 
-      // Setup PDF A4
+      // 3. Setup PDF A4
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Hitung dimensi gambar
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       let heightLeft = imgHeight;
       let position = 0;
 
-      // Halaman pertama
+      // 4. Halaman pertama
       pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Halaman berikutnya (toleransi 1mm biar nggak bikin halaman kosong)
+      // 5. Halaman berikutnya (toleransi 1mm biar nggak bikin halaman kosong)
       while (heightLeft > 1) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -63,7 +70,7 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
         heightLeft -= pageHeight;
       }
 
-      // Footer
+      // 6. Footer
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
@@ -73,12 +80,13 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
       }
 
       pdf.save(fileName);
+
+      // 7. Hapus kloningan
+      document.body.removeChild(clone);
     } catch (err) {
       console.error("Export PDF error:", err);
       alert("Gagal export PDF: " + err.message);
     } finally {
-      // Balikin style aslinya
-      element.setAttribute("style", originalStyle);
       setIsExporting(false);
     }
   };
