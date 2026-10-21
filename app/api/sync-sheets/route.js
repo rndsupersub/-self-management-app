@@ -45,11 +45,26 @@ function getAuth() {
   });
 }
 
-// ========== MAPPING MENU → FIELD FIRESTORE ==========
+// ========== MAPPING MENU & LEBAR KOLOM ==========
+// Gua tambahin `width` biar kolomnya rapi
 const MENU_CONFIG = {
   belajar: {
     sheetName: "Belajar",
-    headers: ["firestoreId", "menu", "kategori", "subKategori", "tool", "fitur", "part", "judul", "tanggal", "status", "catatan", "gdriveUrl", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "kategori", width: 120 },
+      { name: "subKategori", width: 120 },
+      { name: "tool", width: 120 },
+      { name: "fitur", width: 120 },
+      { name: "part", width: 120 },
+      { name: "judul", width: 200 },
+      { name: "tanggal", width: 100 },
+      { name: "status", width: 80 },
+      { name: "catatan", width: 300 },
+      { name: "gdriveUrl", width: 250 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const kategori = data?.belajar?.kategori || [];
@@ -102,7 +117,17 @@ const MENU_CONFIG = {
 
   pekerjaan: {
     sheetName: "Pekerjaan",
-    headers: ["firestoreId", "menu", "pt", "brand", "judul", "tanggal", "status", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "pt", width: 150 },
+      { name: "brand", width: 150 },
+      { name: "judul", width: 250 },
+      { name: "tanggal", width: 100 },
+      { name: "status", width: 100 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const pekerjaan = data?.pekerjaan || [];
@@ -129,7 +154,17 @@ const MENU_CONFIG = {
 
   keuangan: {
     sheetName: "Keuangan",
-    headers: ["firestoreId", "menu", "tanggal", "tipe", "kategori", "jumlah", "dompet", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "tanggal", width: 100 },
+      { name: "tipe", width: 100 },
+      { name: "kategori", width: 150 },
+      { name: "jumlah", width: 120 },
+      { name: "dompet", width: 120 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const transaksi = data?.keuanganTransaksi || {};
@@ -155,7 +190,15 @@ const MENU_CONFIG = {
 
   olahraga: {
     sheetName: "Olahraga",
-    headers: ["firestoreId", "menu", "tanggal", "aktivitas", "durasi", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 150 },
+      { name: "menu", width: 80 },
+      { name: "tanggal", width: 100 },
+      { name: "aktivitas", width: 150 },
+      { name: "durasi", width: 100 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const harian = data?.olahraga?.harian || {};
@@ -177,7 +220,16 @@ const MENU_CONFIG = {
 
   hafalan: {
     sheetName: "Hafalan",
-    headers: ["firestoreId", "menu", "tanggal", "suratId", "juzId", "halaman", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 150 },
+      { name: "menu", width: 80 },
+      { name: "tanggal", width: 100 },
+      { name: "suratId", width: 120 },
+      { name: "juzId", width: 100 },
+      { name: "halaman", width: 100 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const membaca = data?.hafalanMembaca || {};
@@ -200,7 +252,16 @@ const MENU_CONFIG = {
 
   bisnis: {
     sheetName: "Bisnis",
-    headers: ["firestoreId", "menu", "brand", "judul", "tanggal", "status", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "brand", width: 150 },
+      { name: "judul", width: 250 },
+      { name: "tanggal", width: 100 },
+      { name: "status", width: 100 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const brands = data?.bisnisBrands || [];
@@ -224,7 +285,19 @@ const MENU_CONFIG = {
 
   youtube: {
     sheetName: "YouTube",
-    headers: ["firestoreId", "menu", "channel", "judul", "tipe", "tanggal", "status", "linkYoutube", "gdriveUrl", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "channel", width: 120 },
+      { name: "judul", width: 250 },
+      { name: "tipe", width: 100 },
+      { name: "tanggal", width: 100 },
+      { name: "status", width: 100 },
+      { name: "linkYoutube", width: 250 },
+      { name: "gdriveUrl", width: 250 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const logs = data?.youtube_logs || [];
@@ -249,7 +322,17 @@ const MENU_CONFIG = {
 
   bedahbuku: {
     sheetName: "BedahBuku",
-    headers: ["firestoreId", "menu", "judul", "penulis", "kategoriId", "totalHalaman", "targetPerHari", "tanggalMulai", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "judul", width: 250 },
+      { name: "penulis", width: 150 },
+      { name: "kategoriId", width: 120 },
+      { name: "totalHalaman", width: 100 },
+      { name: "targetPerHari", width: 100 },
+      { name: "tanggalMulai", width: 100 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const buku = data?.bedahBuku?.buku || [];
@@ -272,7 +355,19 @@ const MENU_CONFIG = {
 
   custom: {
     sheetName: "MenuCustom",
-    headers: ["firestoreId", "menu", "customId", "kategori", "subKategori", "tool", "fitur", "part", "judul", "catatan", "updatedAt"],
+    headers: [
+      { name: "firestoreId", width: 100 },
+      { name: "menu", width: 80 },
+      { name: "customId", width: 100 },
+      { name: "kategori", width: 120 },
+      { name: "subKategori", width: 120 },
+      { name: "tool", width: 120 },
+      { name: "fitur", width: 120 },
+      { name: "part", width: 120 },
+      { name: "judul", width: 200 },
+      { name: "catatan", width: 300 },
+      { name: "updatedAt", width: 150 },
+    ],
     flatten: (data) => {
       const rows = [];
       const menusCustom = data?.menusCustom || {};
@@ -338,47 +433,41 @@ async function getOrCreateSheet(sheets, spreadsheetId, sheetName) {
   return result.data.replies?.[0]?.addSheet?.properties?.sheetId;
 }
 
-// ========== HELPER: SMART SYNC ROWS ==========
-// Baca data lama, bandingin pakai firestoreId, lalu update/add/delete
+// ========== HELPER: SMART SYNC ==========
 async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows) {
   const sheetId = await getOrCreateSheet(sheets, spreadsheetId, sheetName);
+  const headerNames = headers.map((h) => h.name);
   
   // 1. Baca data lama
   let oldRows = [];
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A2:Z`, // Mulai dari baris 2 (skip header)
+      range: `${sheetName}!A2:Z`,
     });
     oldRows = res.data.values || [];
-  } catch (e) {
-    // Kalau sheet kosong, abaikan
-  }
+  } catch (e) {}
 
-  // 2. Map data lama berdasarkan firestoreId
+  // 2. Map data lama
   const oldMap = new Map();
   oldRows.forEach((row, idx) => {
-    const id = row[0]; // Kolom pertama adalah firestoreId
-    if (id) oldMap.set(id, { row, rowIndex: idx + 2 }); // rowIndex di Sheet (mulai dari 2)
+    const id = row[0];
+    if (id) oldMap.set(id, { row, rowIndex: idx + 2 });
   });
 
-  // 3. Siapin data baru untuk di-update / di-add
   const newMap = new Map();
   newRows.forEach((r) => newMap.set(r.firestoreId, r));
 
   const toAdd = [];
-  const toUpdate = []; // { range, values }
-  const toDelete = []; // { rowIndex }
+  const toUpdate = [];
+  const toDelete = [];
 
-  // Cek yang baru & berubah
+  // Cek baru & update
   for (const [id, newRow] of newMap.entries()) {
-    const values = headers.map((h) => newRow[h] ?? "");
+    const values = headerNames.map((h) => newRow[h] ?? "");
     if (oldMap.has(id)) {
       const old = oldMap.get(id);
-      // Cek apakah ada perubahan data (bandingin semua kolom)
-      const isChanged = JSON.stringify(old.row) !== JSON.stringify(values);
-      if (isChanged) {
-        // Update baris ini (range: A{rowIndex})
+      if (JSON.stringify(old.row) !== JSON.stringify(values)) {
         toUpdate.push({
           range: `${sheetName}!A${old.rowIndex}`,
           values: [values],
@@ -389,107 +478,98 @@ async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows)
     }
   }
 
-  // Cek yang dihapus (ada di old, nggak ada di new)
+  // Cek delete
   for (const [id, old] of oldMap.entries()) {
-    if (!newMap.has(id)) {
-      toDelete.push({ rowIndex: old.rowIndex });
-    }
+    if (!newMap.has(id)) toDelete.push({ rowIndex: old.rowIndex });
   }
 
-  // 4. Eksekusi: Hapus (dari bawah ke atas biar index nggak geser)
+  // 3. Eksekusi Delete (dari bawah ke atas)
   toDelete.sort((a, b) => b.rowIndex - a.rowIndex);
   for (const del of toDelete) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
       requestBody: {
-        requests: [
-          {
-            deleteDimension: {
-              range: {
-                sheetId: sheetId,
-                dimension: "ROWS",
-                startIndex: del.rowIndex - 1, // 0-indexed
-                endIndex: del.rowIndex,
-              },
-            },
+        requests: [{
+          deleteDimension: {
+            range: { sheetId, dimension: "ROWS", startIndex: del.rowIndex - 1, endIndex: del.rowIndex },
           },
-        ],
+        }],
       },
     });
   }
 
-  // 5. Eksekusi: Update (batch)
+  // 4. Eksekusi Update
   if (toUpdate.length > 0) {
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId,
-      requestBody: {
-        valueInputOption: "RAW",
-        data: toUpdate,
-      },
+      requestBody: { valueInputOption: "USER_ENTERED", data: toUpdate },
     });
   }
 
-  // 6. Eksekusi: Add (append)
+  // 5. Eksekusi Add
   if (toAdd.length > 0) {
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: `${sheetName}!A1`,
-      valueInputOption: "RAW",
+      valueInputOption: "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: toAdd },
     });
   }
 
-  // 7. Styling (Header Bold, Freeze, Auto-Resize)
-  // Cuma jalan kalau ada perubahan / sheet baru
-  if (toAdd.length > 0 || toUpdate.length > 0 || toDelete.length > 0) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [
-          // Freeze Row 1
-          {
-            updateSheetProperties: {
-              properties: {
-                sheetId,
-                gridProperties: { frozenRowCount: 1 },
-              },
-              fields: "gridProperties.frozenRowCount",
-            },
-          },
-          // Bold Header + Background
-          {
-            repeatCell: {
-              range: {
-                sheetId,
-                startRowIndex: 0,
-                endRowIndex: 1,
-              },
-              cell: {
-                userEnteredFormat: {
-                  backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 },
-                  textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
-                  horizontalAlignment: "CENTER",
-                },
-              },
-              fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)",
-            },
-          },
-          // Auto Resize Columns
-          {
-            autoResizeDimensions: {
-              dimensions: {
-                sheetId,
-                dimension: "COLUMNS",
-                startIndex: 0,
-                endIndex: headers.length,
-              },
-            },
-          },
-        ],
+  // 6. Styling (Header, Width, Wrap)
+  const widthRequests = headers.map((h, i) => ({
+    updateDimensionProperties: {
+      range: {
+        sheetId,
+        dimension: "COLUMNS",
+        startIndex: i,
+        endIndex: i + 1,
       },
-    });
-  }
+      properties: { pixelSize: h.width || 120 },
+      fields: "pixelSize",
+    },
+  }));
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        // Freeze Row 1
+        {
+          updateSheetProperties: {
+            properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+            fields: "gridProperties.frozenRowCount",
+          },
+        },
+        // Style Header
+        {
+          repeatCell: {
+            range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+            cell: {
+              userEnteredFormat: {
+                backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 },
+                textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
+                horizontalAlignment: "CENTER",
+                verticalAlignment: "MIDDLE",
+              },
+            },
+            fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)",
+          },
+        },
+        // Wrap Text (biar catatan panjang turun)
+        {
+          repeatCell: {
+            range: { sheetId, startRowIndex: 1 },
+            cell: { userEnteredFormat: { wrapStrategy: "WRAP", verticalAlignment: "TOP" } },
+            fields: "userEnteredFormat(wrapStrategy,verticalAlignment)",
+          },
+        },
+        // Set Width
+        ...widthRequests,
+      ],
+    },
+  });
 }
 
 // ========== MAIN HANDLER ==========
@@ -498,26 +578,21 @@ export async function POST(req) {
     const body = await req.json();
     const { uid } = body;
 
-    if (!uid) {
-      return NextResponse.json({ error: "uid wajib diisi" }, { status: 400 });
-    }
+    if (!uid) return NextResponse.json({ error: "uid wajib diisi" }, { status: 400 });
 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
     const userRef = firestore.collection("users").doc(uid);
     const userSnap = await userRef.get();
-    if (!userSnap.exists) {
-      return NextResponse.json({ error: "user tidak ditemukan" }, { status: 404 });
-    }
+    if (!userSnap.exists) return NextResponse.json({ error: "user tidak ditemukan" }, { status: 404 });
+    
     const userData = userSnap.data();
 
     const auth = getAuth();
     const sheets = google.sheets({ version: "v4", auth });
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
-    if (!spreadsheetId) {
-      return NextResponse.json({ error: "GOOGLE_SHEETS_ID belum diset" }, { status: 500 });
-    }
+    if (!spreadsheetId) return NextResponse.json({ error: "GOOGLE_SHEETS_ID belum diset" }, { status: 500 });
 
     const results = [];
     for (const [menuKey, config] of Object.entries(MENU_CONFIG)) {
@@ -544,7 +619,5 @@ export async function POST(req) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    message: "Endpoint sync-sheets aktif. Gunakan POST dengan { uid }.",
-  });
+  return NextResponse.json({ message: "Endpoint sync-sheets aktif. Gunakan POST dengan { uid }." });
 }
