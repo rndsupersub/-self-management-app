@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [userData, setUserData] = useState(null);
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
@@ -300,9 +301,16 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar - IGNORE */}
+      {/* Navbar */}
       <div className="navbar bg-base-100 shadow px-2 md:px-4 flex-wrap gap-2" data-html2canvas-ignore="true">
-        <div className="flex-1">
+        <div className="flex-1 flex items-center gap-1">
+          <button
+            className="btn btn-ghost btn-sm md:hidden"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Buka menu"
+          >
+            ☰
+          </button>
           <h1 className="text-lg md:text-xl font-bold">🌙 Self Management</h1>
         </div>
         <div className="flex gap-2 items-center flex-wrap justify-end">
@@ -318,11 +326,34 @@ export default function Dashboard() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - IGNORE & HIDDEN DI HP */}
-        <div className={`hidden md:block ${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`} data-html2canvas-ignore="true">
+        {/* Mobile Sidebar Drawer */}
+        {mobileSidebarOpen && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <div className="fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden overflow-y-auto">
+              <div className="p-4 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 z-10">
+                <h2 className="font-bold text-gray-800">🌙 Menu</h2>
+                <button className="btn btn-ghost btn-sm" onClick={() => setMobileSidebarOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} />
+            </div>
+          </>
+        )}
+
+        {/* Desktop Sidebar */}
+        <div
+          className={`hidden md:block ${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
+          data-html2canvas-ignore="true"
+        >
           <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
 
+        {/* Main Content */}
         <div id="export-area" className="flex-1 overflow-y-auto p-3 md:p-6 bg-base-200">
           <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
             <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />

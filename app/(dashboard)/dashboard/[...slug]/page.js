@@ -26,6 +26,7 @@ export default function ActivityPage() {
   const [menusCustomLogHarian, setMenusCustomLogHarian] = useState({});
   const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const router = useRouter();
   const params = useParams();
   const slug = params.slug || [];
@@ -122,7 +123,6 @@ export default function ActivityPage() {
   const selectedActivity = findItem(activities, slug);
   const parentPath = findParentPath(activities, slug).slice(0, -1);
 
-  // ========== CEK MENU CUSTOM ==========
   const slugId = slug[0];
   const isCustomMenu = slugId && menusCustom[slugId];
   const customMenu = isCustomMenu ? menusCustom[slugId] : null;
@@ -138,7 +138,6 @@ export default function ActivityPage() {
     setProgress(newProgress);
   };
 
-  // Update custom menu metadata
   const updateCustomMenu = async (menuId, updatedMenu) => {
     if (!user) return;
     const newMenusCustom = { ...menusCustom, [menuId]: updatedMenu };
@@ -147,7 +146,6 @@ export default function ActivityPage() {
     await setDoc(docRef, { menusCustom: newMenusCustom }, { merge: true });
   };
 
-  // Update custom log harian
   const updateCustomLog = async (menuId, newLogHarian, meta = {}) => {
     if (!user) return;
     setMenusCustomLogHarian(newLogHarian);
@@ -201,12 +199,19 @@ export default function ActivityPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      <div className="navbar bg-base-100 shadow px-4">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">🌙 Self Management</h1>
+      <div className="navbar bg-base-100 shadow px-2 md:px-4 flex-wrap gap-2">
+        <div className="flex-1 flex items-center gap-1">
+          <button
+            className="btn btn-ghost btn-sm md:hidden"
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Buka menu"
+          >
+            ☰
+          </button>
+          <h1 className="text-lg md:text-xl font-bold">🌙 Self Management</h1>
         </div>
-        <div className="flex gap-2 items-center">
-          <span className="text-sm font-mono">{today}</span>
+        <div className="flex gap-2 items-center flex-wrap justify-end">
+          <span className="text-xs md:text-sm font-mono hidden md:block">{today}</span>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Logout
           </button>
@@ -214,7 +219,27 @@ export default function ActivityPage() {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
+        {/* Mobile Sidebar Drawer */}
+        {mobileSidebarOpen && (
+          <>
+            <div
+              className="fixed inset-0 bg-black/50 z-40 md:hidden"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <div className="fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden overflow-y-auto">
+              <div className="p-4 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 z-10">
+                <h2 className="font-bold text-gray-800">🌙 Menu</h2>
+                <button className="btn btn-ghost btn-sm" onClick={() => setMobileSidebarOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} />
+            </div>
+          </>
+        )}
+
+        {/* Desktop Sidebar */}
+        <div className={`hidden md:block ${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
           <Sidebar
             menus={menus}
             collapsed={sidebarCollapsed}
@@ -222,8 +247,7 @@ export default function ActivityPage() {
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* ==== MENU CUSTOM DETAIL ==== */}
+        <div className="flex-1 overflow-y-auto p-3 md:p-6">
           {isCustomMenu && (
             <MenuCustomDetail
               customMenu={customMenu}
@@ -237,10 +261,9 @@ export default function ActivityPage() {
             />
           )}
 
-          {/* ==== BREADCRUMB DEFAULT (kalau bukan custom) ==== */}
           {!isCustomMenu && (
             <>
-              <div className="text-sm breadcrumbs mb-6">
+              <div className="text-sm breadcrumbs mb-4 md:mb-6">
                 <ul>
                   <li>
                     <a onClick={() => router.push("/dashboard")} className="cursor-pointer">
@@ -264,10 +287,9 @@ export default function ActivityPage() {
                 </ul>
               </div>
 
-              {/* HALAMAN BISNIS */}
               {isBisnisMain && user && (
                 <div>
-                  <h1 className="text-2xl font-bold mb-6">💼 Kalender Bisnis</h1>
+                  <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">💼 Kalender Bisnis</h1>
                   <BisnisCalendar
                     user={user}
                     db={db}
@@ -277,10 +299,9 @@ export default function ActivityPage() {
                 </div>
               )}
 
-              {/* HALAMAN HAFALAN UTAMA */}
               {isHafalanMain && (
                 <div className="space-y-4">
-                  <h1 className="text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
+                  <h1 className="text-xl md:text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
                     <WeeklyTest progressData={progressData} onUpdate={updateProgress} />
@@ -316,11 +337,10 @@ export default function ActivityPage() {
                 </div>
               )}
 
-              {/* HALAMAN JUZ */}
               {isHafalanJuz && selectedActivity && (
                 <div>
-                  <div className="flex items-center gap-2 mb-6">
-                    <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
+                  <div className="flex items-center gap-2 mb-4 md:mb-6">
+                    <h1 className="text-xl md:text-2xl font-bold">{selectedActivity.label}</h1>
                     <span className="badge badge-ghost">
                       {selectedActivity.children?.length || 0} surat
                     </span>
@@ -350,10 +370,9 @@ export default function ActivityPage() {
                 </div>
               )}
 
-              {/* HALAMAN SURAT */}
               {isHafalanSurat && selectedActivity && (
                 <div>
-                  <h1 className="text-2xl font-bold mb-6">{selectedActivity.label}</h1>
+                  <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">{selectedActivity.label}</h1>
                   <SuratDetail
                     surat={selectedActivity}
                     progressData={progressData}
@@ -362,11 +381,10 @@ export default function ActivityPage() {
                 </div>
               )}
 
-              {/* AKTIVITAS UMUM */}
               {!isHafalanMain && !isHafalanJuz && !isHafalanSurat && !isBisnisMain && selectedActivity && (
                 <div>
-                  <div className="flex items-center gap-2 mb-6">
-                    <h1 className="text-2xl font-bold">{selectedActivity.label}</h1>
+                  <div className="flex items-center gap-2 mb-4 md:mb-6">
+                    <h1 className="text-xl md:text-2xl font-bold">{selectedActivity.label}</h1>
                     {isLeaf && (
                       <span className={`badge ${(progressData?.page || 0) >= (selectedActivity.target || 1) ? "badge-success" : "badge-ghost"}`}>
                         {Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%
@@ -384,7 +402,7 @@ export default function ActivityPage() {
                             value={Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}
                             max="100"
                           />
-                          <div className="flex justify-between text-sm">
+                          <div className="flex flex-wrap justify-between text-sm gap-1">
                             <span>{progressData?.page || 0} / {selectedActivity.target || 1} {selectedActivity.unit}</span>
                             <span>{Math.min(100, Math.round(((progressData?.page || 0) / (selectedActivity.target || 1)) * 100))}%</span>
                           </div>

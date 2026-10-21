@@ -22,7 +22,6 @@ export default function RingkasanKeuangan({
   onClickDetail,
   loading = false,
 }) {
-  // ========== HITUNG SEMUA METRIK ==========
   const cash = useMemo(
     () => hitungCash(keuanganTransaksi),
     [keuanganTransaksi]
@@ -79,8 +78,8 @@ export default function RingkasanKeuangan({
   return (
     <div className="space-y-4">
       {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold text-gray-800">
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <h2 className="text-base md:text-lg font-bold text-gray-800">
           💰 Ringkasan Keuangan
         </h2>
         <button
@@ -95,7 +94,7 @@ export default function RingkasanKeuangan({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Cash Tersedia */}
         <div
-          className={`card shadow border ${
+          className={`card shadow border min-w-0 ${
             cash < 0
               ? "bg-red-50 border-red-300"
               : cash < 300000
@@ -103,10 +102,10 @@ export default function RingkasanKeuangan({
               : "bg-white border-gray-200"
           }`}
         >
-          <div className="card-body p-4">
+          <div className="card-body p-3 md:p-4">
             <p className="text-xs text-gray-500 mb-1">💰 Cash Tersedia</p>
             <p
-              className={`text-xl font-bold ${
+              className={`text-lg md:text-xl font-bold break-all ${
                 cash < 0
                   ? "text-red-700"
                   : cash < 300000
@@ -127,12 +126,12 @@ export default function RingkasanKeuangan({
         </div>
 
         {/* Pengeluaran Bulan Ini */}
-        <div className="card bg-white shadow border border-gray-200">
-          <div className="card-body p-4">
+        <div className="card bg-white shadow border border-gray-200 min-w-0">
+          <div className="card-body p-3 md:p-4">
             <p className="text-xs text-gray-500 mb-1">
               📤 Pengeluaran Bulan Ini
             </p>
-            <p className="text-xl font-bold text-gray-800">
+            <p className="text-lg md:text-xl font-bold text-gray-800 break-all">
               {formatRupiah(pengeluaranBulanIni)}
             </p>
             <p className="text-xs text-gray-500 mt-1">
@@ -143,7 +142,7 @@ export default function RingkasanKeuangan({
 
         {/* Financial Health Score */}
         <div
-          className={`card shadow border ${
+          className={`card shadow border min-w-0 ${
             healthScore.warna === "green"
               ? "bg-green-50 border-green-300"
               : healthScore.warna === "orange"
@@ -151,13 +150,13 @@ export default function RingkasanKeuangan({
               : "bg-red-50 border-red-300"
           }`}
         >
-          <div className="card-body p-4">
+          <div className="card-body p-3 md:p-4">
             <p className="text-xs text-gray-500 mb-1">
               🧮 Financial Health Score
             </p>
             <div className="flex items-baseline gap-2">
               <p
-                className={`text-2xl font-bold ${
+                className={`text-xl md:text-2xl font-bold ${
                   healthScore.warna === "green"
                     ? "text-green-700"
                     : healthScore.warna === "orange"
@@ -179,18 +178,18 @@ export default function RingkasanKeuangan({
       {/* PROGRESS GOALS */}
       {goalsProgress.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
-          <div className="card-body p-4">
+          <div className="card-body p-3 md:p-4">
             <h3 className="text-sm font-bold text-gray-800 mb-3">
               🎯 Progress Goals
             </h3>
             <div className="space-y-2">
               {goalsProgress.slice(0, 5).map((goal) => (
                 <div key={goal.id}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="font-medium text-gray-700">
+                  <div className="flex flex-wrap justify-between text-xs mb-1 gap-1">
+                    <span className="font-medium text-gray-700 break-words">
                       {goal.nama}
                     </span>
-                    <span className="text-gray-500">
+                    <span className="text-gray-500 break-all">
                       {formatRupiah(goal.saldo)} / {formatRupiah(goal.target)}
                       {" "}({goal.persen}%)
                     </span>
@@ -221,7 +220,7 @@ export default function RingkasanKeuangan({
       {/* SMART ALERT */}
       {alerts.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
-          <div className="card-body p-4">
+          <div className="card-body p-3 md:p-4">
             <h3 className="text-sm font-bold text-gray-800 mb-3">
               🔔 Smart Alert
             </h3>
@@ -229,7 +228,7 @@ export default function RingkasanKeuangan({
               {alerts.slice(0, 3).map((alert, idx) => (
                 <div
                   key={idx}
-                  className={`rounded p-2 border text-xs ${
+                  className={`rounded p-2 border text-xs break-words ${
                     alert.tipe === "danger"
                       ? "bg-red-50 border-red-200 text-red-800"
                       : alert.tipe === "warning"
