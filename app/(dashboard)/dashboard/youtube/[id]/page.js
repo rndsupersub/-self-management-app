@@ -1,3 +1,4 @@
+// app/(dashboard)/dashboard/youtube/[id]/page.js
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -6,6 +7,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
 import KalenderYouTube from "@/components/KalenderYouTube";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import { YOUTUBE_CHANNELS, KONTEN_STATUS } from "@/lib/youtubeData";
 
@@ -72,7 +74,8 @@ export default function YouTubeDetailPage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1">
           <h1 className="text-xl font-bold">🌙 Self Management</h1>
         </div>
@@ -82,7 +85,8 @@ export default function YouTubeDetailPage() {
         </div>
       </div>
       <div className="flex-1 flex overflow-hidden">
-        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
+        {/* Sidebar - IGNORE */}
+        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`} data-html2canvas-ignore="true">
           <Sidebar
             activities={activities}
             collapsed={sidebarCollapsed}
@@ -90,7 +94,8 @@ export default function YouTubeDetailPage() {
           />
         </div>
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li>
                 <a onClick={() => router.push("/dashboard")} className="cursor-pointer">🏠 Dashboard</a>
@@ -101,11 +106,14 @@ export default function YouTubeDetailPage() {
               <li><span>{currentChannel.nama}</span></li>
             </ul>
           </div>
-          <div className="mb-6 flex justify-between items-center">
+          
+          {/* Header - IGNORE */}
+          <div className="mb-6 flex justify-between items-center" data-html2canvas-ignore="true">
             <h1 className="text-2xl font-bold text-gray-800">{currentChannel.nama}</h1>
           </div>
 
-          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit">
+          {/* Tab Nav - IGNORE */}
+          <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
             <button
               className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`}
               onClick={() => setActiveTab("kalender")}
@@ -120,44 +128,56 @@ export default function YouTubeDetailPage() {
             </button>
           </div>
 
-          {activeTab === "kalender" && (
-            <KalenderYouTube
-              channelId={channelId}
-              channelNama={currentChannel.nama}
-              logs={logs}
-              onUpdateLog={saveLogsToFirestore}
-            />
-          )}
-
-          {activeTab === "daftar" && (
-            <div className="card bg-white shadow border border-gray-200">
-              <div className="card-body p-4">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">📋 Semua Konten</h2>
-                {channelLogs.length === 0 ? (
-                  <p className="text-center text-gray-400 py-4">Belum ada konten di channel ini.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {channelLogs.map((log) => {
-                      const statusObj = KONTEN_STATUS.find((s) => s.id === log.status);
-                      return (
-                        <div key={log.id} className="bg-gray-50 border border-gray-200 p-3 rounded-lg flex justify-between items-center">
-                          <div>
-                            <p className="font-bold text-sm text-gray-800">{log.judul}</p>
-                            <p className="text-xs text-gray-500">
-                              📅 {log.tanggal} • {log.tipe === "short" ? "📱 Short" : "🖥️ Video"}
-                            </p>
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded text-white ${statusObj?.color}`}>
-                            {statusObj?.nama}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`YouTube_${currentChannel.nama}_${activeTab}.pdf`} 
+                title={`YouTube - ${currentChannel.nama}`} 
+              />
             </div>
-          )}
+
+            {activeTab === "kalender" && (
+              <KalenderYouTube
+                channelId={channelId}
+                channelNama={currentChannel.nama}
+                logs={logs}
+                onUpdateLog={saveLogsToFirestore}
+              />
+            )}
+
+            {activeTab === "daftar" && (
+              <div className="card bg-white shadow border border-gray-200">
+                <div className="card-body p-4">
+                  <h2 className="text-lg font-bold text-gray-800 mb-4">📋 Semua Konten</h2>
+                  {channelLogs.length === 0 ? (
+                    <p className="text-center text-gray-400 py-4">Belum ada konten di channel ini.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {channelLogs.map((log) => {
+                        const statusObj = KONTEN_STATUS.find((s) => s.id === log.status);
+                        return (
+                          <div key={log.id} className="bg-gray-50 border border-gray-200 p-3 rounded-lg flex justify-between items-center">
+                            <div>
+                              <p className="font-bold text-sm text-gray-800">{log.judul}</p>
+                              <p className="text-xs text-gray-500">
+                                📅 {log.tanggal} • {log.tipe === "short" ? "📱 Short" : "🖥️ Video"}
+                              </p>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded text-white ${statusObj?.color}`}>
+                              {statusObj?.nama}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

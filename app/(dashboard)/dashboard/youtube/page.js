@@ -1,3 +1,4 @@
+// app/(dashboard)/dashboard/youtube/page.js
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -5,6 +6,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Sidebar from "@/components/Sidebar";
+import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import { YOUTUBE_CHANNELS } from "@/lib/youtubeData";
 
@@ -76,7 +78,6 @@ export default function YouTubePage() {
     setShowForm(false);
   };
 
-  // ========== RENAME CHANNEL (BARU) ==========
   const handleRenameChannel = async (chId, currentNama, e) => {
     e.stopPropagation();
     const newNama = window.prompt("Ganti nama channel jadi:", currentNama);
@@ -103,7 +104,8 @@ export default function YouTubePage() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      <div className="navbar bg-base-100 shadow px-4">
+      {/* Navbar - IGNORE */}
+      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
         <div className="flex-1"><h1 className="text-xl font-bold">🌙 Self Management</h1></div>
         <div className="flex gap-2 items-center">
           <span className="text-sm font-mono">{today}</span>
@@ -111,23 +113,28 @@ export default function YouTubePage() {
         </div>
       </div>
       <div className="flex-1 flex overflow-hidden">
-        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}>
+        {/* Sidebar - IGNORE */}
+        <div className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`} data-html2canvas-ignore="true">
           <Sidebar activities={activities} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="text-sm breadcrumbs mb-6">
+          {/* Breadcrumb - IGNORE */}
+          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
             <ul>
               <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer">🏠 Dashboard</a></li>
               <li>📺 YouTube</li>
             </ul>
           </div>
-          <div className="flex justify-between items-center mb-6">
+          
+          {/* Header - IGNORE */}
+          <div className="flex justify-between items-center mb-6" data-html2canvas-ignore="true">
             <h1 className="text-2xl font-bold text-gray-800">📺 YouTube</h1>
             <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Channel</button>
           </div>
 
+          {/* Form - IGNORE */}
           {showForm && (
-            <div className="card bg-white shadow border border-gray-200 mb-4">
+            <div className="card bg-white shadow border border-gray-200 mb-4" data-html2canvas-ignore="true">
               <div className="card-body p-4">
                 <p className="text-xs font-semibold text-blue-700 mb-2">✏️ Tambah channel baru</p>
                 <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Nama channel (misal: 🎥 Channel Vlog)" value={formData.nama} onChange={(e) => setFormData({ nama: e.target.value })} autoFocus />
@@ -139,31 +146,44 @@ export default function YouTubePage() {
             </div>
           )}
 
-          {channels.length === 0 ? (
-            <div className="card bg-white shadow border border-gray-200">
-              <div className="card-body p-8 text-center text-gray-400">
-                <p className="text-3xl mb-2">📺</p>
-                <p className="text-sm">Belum ada channel. Klik "+ Tambah Channel" untuk mulai.</p>
-              </div>
+          {/* ========== AREA EXPORT ========== */}
+          <div id="export-area">
+            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+              <ExportPDFButton 
+                targetId="export-area" 
+                fileName={`YouTube_Channels_${today}.pdf`} 
+                title="Daftar Channel YouTube" 
+              />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {channels.map((ch) => (
-                <div key={ch.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/youtube/${ch.id}`)}>
-                  <div className="card-body p-4">
-                    <div className="flex justify-between items-start">
-                      <h2 className="card-title text-base text-gray-800">{ch.nama}</h2>
-                      <div className="flex gap-1">
-                        <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenameChannel(ch.id, ch.nama, e)} title="Rename Channel">✏️</button>
-                        <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusChannel(ch.id, e)} title="Hapus Channel">🗑️</button>
-                      </div>
-                    </div>
-                    <div className="card-actions justify-end mt-2"><span className="text-gray-400 text-sm">Buka →</span></div>
-                  </div>
+
+            {channels.length === 0 ? (
+              <div className="card bg-white shadow border border-gray-200">
+                <div className="card-body p-8 text-center text-gray-400">
+                  <p className="text-3xl mb-2">📺</p>
+                  <p className="text-sm">Belum ada channel. Klik "+ Tambah Channel" untuk mulai.</p>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {channels.map((ch) => (
+                  <div key={ch.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/youtube/${ch.id}`)}>
+                    <div className="card-body p-4">
+                      <div className="flex justify-between items-start">
+                        <h2 className="card-title text-base text-gray-800">{ch.nama}</h2>
+                        {/* Tombol Aksi - IGNORE */}
+                        <div className="flex gap-1" data-html2canvas-ignore="true">
+                          <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenameChannel(ch.id, ch.nama, e)} title="Rename Channel">✏️</button>
+                          <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusChannel(ch.id, e)} title="Hapus Channel">🗑️</button>
+                        </div>
+                      </div>
+                      <div className="card-actions justify-end mt-2"><span className="text-gray-400 text-sm">Buka →</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

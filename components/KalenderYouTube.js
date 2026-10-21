@@ -190,7 +190,9 @@ export default function KalenderYouTube({
     <div className="space-y-4">
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+          
+          {/* Navigasi Kalender - IGNORE */}
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4" data-html2canvas-ignore="true">
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear}>«</button>
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth}>‹</button>
@@ -221,7 +223,7 @@ export default function KalenderYouTube({
             </div>
           </div>
 
-          <div className="flex justify-center mb-3">
+          <div className="flex justify-center mb-3" data-html2canvas-ignore="true">
             <button className="btn btn-outline btn-xs text-gray-700" onClick={goToToday}>
               📅 Hari Ini
             </button>
@@ -327,15 +329,17 @@ export default function KalenderYouTube({
                   {getTargetHarian(selectedDate).satuan}
                 </p>
               </div>
+              {/* Tombol Tambah - IGNORE */}
               {!showForm && (
-                <button className="btn btn-primary btn-sm" onClick={handleBukaFormTambah}>
+                <button className="btn btn-primary btn-sm" onClick={handleBukaFormTambah} data-html2canvas-ignore="true">
                   + Tambah Konten
                 </button>
               )}
             </div>
 
+            {/* Form - IGNORE */}
             {showForm && (
-              <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3">
+              <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3" data-html2canvas-ignore="true">
                 <p className="text-xs font-semibold text-blue-700">
                   {editingLogId ? "✏️ Edit Konten" : "✏️ Tambah Konten"}
                 </p>
@@ -496,7 +500,8 @@ export default function KalenderYouTube({
                             </p>
                           )}
                         </div>
-                        <div className="flex gap-1">
+                        {/* Tombol Aksi - IGNORE */}
+                        <div className="flex gap-1" data-html2canvas-ignore="true">
                           <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(log)} title="Edit">✏️</button>
                           <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(log)} title="Hapus">🗑️</button>
                         </div>
