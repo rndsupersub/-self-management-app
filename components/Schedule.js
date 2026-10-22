@@ -85,22 +85,37 @@ export default function Schedule({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
 
   return (
-    <div className="card bg-base-100 shadow w-full">
+    <div className="card bg-base-100 shadow w-full overflow-hidden">
       <div className="card-body p-3 md:p-4">
         
         {/* HEADER: NAVIGASI HARI (Di-ignore pas export) */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4" data-html2canvas-ignore="true">
+          
+          {/* Baris 1: Tombol Prev / Next Tanggal */}
           <div className="flex items-center gap-1 w-full md:w-auto justify-between md:justify-start">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 w-full justify-between">
               <button className="btn btn-ghost btn-sm" onClick={prevDay} title="Hari sebelumnya">‹</button>
               <h2 className="text-sm md:text-base font-bold text-center">📅 {formatTanggalPanjang(selectedDate)}</h2>
               <button className="btn btn-ghost btn-sm" onClick={nextDay} title="Hari berikutnya">›</button>
             </div>
           </div>
-          <div className="flex items-center gap-1 w-full md:w-auto">
-            <input type="date" className="input input-bordered input-sm text-gray-800 bg-white flex-1 md:flex-none" value={selectedDate} onChange={handleDateChange} />
-            <button className="btn btn-outline btn-xs" onClick={goToday}>📅 Hari Ini</button>
+
+          {/* Baris 2: Input Tanggal & Tombol Hari Ini */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <input 
+              type="date" 
+              className="input input-bordered input-sm text-gray-800 bg-white flex-1 min-w-0 md:flex-none md:w-auto" 
+              value={selectedDate} 
+              onChange={handleDateChange} 
+            />
+            <button 
+              className="btn btn-outline btn-sm md:btn-xs flex-shrink-0 flex-1 md:flex-none" 
+              onClick={goToday}
+            >
+              📅 Hari Ini
+            </button>
           </div>
+          
         </div>
 
         {/* BADGE HARI + TOMBOL KELOLA */}
