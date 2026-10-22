@@ -6,6 +6,7 @@ import {
   METODE_KUNJUNGAN,
   HASIL_KUNJUNGAN,
   STATUS_VENDOR,
+  SATUAN_MOQ, // <-- Tambahan import
   generateId,
   formatTanggal,
   formatRupiah,
@@ -42,6 +43,21 @@ export default function VendorDetail({
   const [filterTujuan, setFilterTujuan] = useState("all");
   const [confirmHapusVendor, setConfirmHapusVendor] = useState(false);
 
+  // ===== STATE EDIT PROFIL VENDOR =====
+  const [showEditProfil, setShowEditProfil] = useState(false);
+  const [formProfil, setFormProfil] = useState({
+    nama: "",
+    kategoriId: "",
+    kontakNama: "",
+    kontakTelp: "",
+    kontakEmail: "",
+    alamat: "",
+    moqNilai: "",
+    moqSatuan: "pcs",
+    hpp: "",
+    catatan: "",
+  });
+
   // ===== FORM KUNJUNGAN =====
   const [formKunjungan, setFormKunjungan] = useState({
     tanggal: new Date().toISOString().split("T")[0],
@@ -63,6 +79,24 @@ export default function VendorDetail({
   const [showHistoryEval, setShowHistoryEval] = useState(false);
   const [savedEvalNotif, setSavedEvalNotif] = useState(false);
   const [showEvalSection, setShowEvalSection] = useState(true);
+
+  // ===== SYNC DATA VENDOR KE FORM EDIT =====
+  useEffect(() => {
+    if (vendor) {
+      setFormProfil({
+        nama: vendor.nama || "",
+        kategoriId: vendor.kategoriId || "",
+        kontakNama: vendor.kontak?.nama || "",
+        kontakTelp: vendor.kontak?.telp || "",
+        kontakEmail: vendor.kontak?.email || "",
+        alamat: vendor.alamat || "",
+        moqNilai: vendor.moq?.nilai || "",
+        moqSatuan: vendor.moq?.satuan || "pcs",
+        hpp: vendor.hpp || "",
+        catatan: vendor.catatan || "",
+      });
+    }
+  }, [vendor]);
 
   // ===== PERIODE AKTIF =====
   const periodeAktif = useMemo(() => {
@@ -97,6 +131,33 @@ export default function VendorDetail({
     if (filterTujuan !== "all" && log.tujuanId !== filterTujuan) return false;
     return true;
   });
+
+  // ===== SIMPAN EDIT PROFIL VENDOR =====
+  const handleSimpanProfil = () => {
+    if (!formProfil.nama.trim()) {
+      alert("Nama vendor tidak boleh kosong.");
+      return;
+    }
+    onUpdateVendor({
+      ...vendor,
+      nama: formProfil.nama,
+      kategoriId: formProfil.kategoriId,
+      kontak: {
+        nama: formProfil.kontakNama,
+        telp: formProfil.kontakTelp,
+        email: formProfil.kontakEmail,
+      },
+      alamat: formProfil.alamat,
+      moq: {
+        nilai: parseInt(formProfil.moqNilai) || 0,
+        satuan: formProfil.moqSatuan,
+      },
+      hpp: parseInt(formProfil.hpp) || 0,
+      catatan: formProfil.catatan,
+      updatedAt: new Date().toISOString(),
+    });
+    setShowEditProfil(false);
+  };
 
   // ===== RESET FORM KUNJUNGAN =====
   const resetFormKunjungan = () => {
@@ -332,6 +393,14 @@ export default function VendorDetail({
               )}
             </div>
             <div className="flex gap-1">
+              {/* TOMBOL EDIT PROFIL BARU */}
+              <button
+                className="btn btn-ghost btn-xs text-blue-500"
+                onClick={() => setShowEditProfil(true)}
+                title="Edit Profil Vendor"
+              >
+                ✏️
+              </button>
               <button
                 className="btn btn-ghost btn-xs text-red-500"
                 onClick={() => setConfirmHapusVendor(true)}
@@ -382,6 +451,142 @@ export default function VendorDetail({
           </div>
         </div>
       </div>
+
+      {/* FORM EDIT PROFIL VENDOR (MUNCUL KALAU KLIK TOMBOL EDIT) */}
+      {showEditProfil && (
+        <div className="card bg-white shadow border border-blue-300">
+          <div className="card-body p-4">
+            <h3 className="text-sm font-bold text-blue-700 mb-3">
+              ✏️ Edit Profil Vendor
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Nama Vendor
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  value={formProfil.nama}
+                  onChange={(e) => setFormProfil({ ...formProfil, nama: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Kategori
+                </label>
+                <select
+                  className="select select-bordered select-sm w-full text-gray-800 bg-white"
+                  value={formProfil.kategoriId}
+                  onChange={(e) => setFormProfil({ ...formProfil, kategoriId: e.target.value })}
+                >
+                  <option value="">-- Pilih Kategori --</option>
+                  {kategoriVendorList.map((k) => (
+                    <option key={k.id} value={k.id}>{k.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Nama Kontak
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  value={formProfil.kontakNama}
+                  onChange={(e) => setFormProfil({ ...formProfil, kontakNama: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  No. Telp / HP
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  value={formProfil.kontakTelp}
+                  onChange={(e) => setFormProfil({ ...formProfil, kontakTelp: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  value={formProfil.kontakEmail}
+                  onChange={(e) => setFormProfil({ ...formProfil, kontakEmail: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Alamat
+                </label>
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  value={formProfil.alamat}
+                  onChange={(e) => setFormProfil({ ...formProfil, alamat: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  MOQ
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                    value={formProfil.moqNilai}
+                    onChange={(e) => setFormProfil({ ...formProfil, moqNilai: e.target.value })}
+                  />
+                  <select
+                    className="select select-bordered select-sm text-gray-800 bg-white"
+                    value={formProfil.moqSatuan}
+                    onChange={(e) => setFormProfil({ ...formProfil, moqSatuan: e.target.value })}
+                  >
+                    {SATUAN_MOQ.map((s) => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  HPP (Rp)
+                </label>
+                <input
+                  type="number"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  value={formProfil.hpp}
+                  onChange={(e) => setFormProfil({ ...formProfil, hpp: e.target.value })}
+                />
+                <p className="text-[10px] text-gray-500 mt-1">Masukkan angka saja, misal 13000.</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Catatan
+                </label>
+                <textarea
+                  className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
+                  rows="2"
+                  value={formProfil.catatan}
+                  onChange={(e) => setFormProfil({ ...formProfil, catatan: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanProfil}>
+                💾 Simpan Perubahan
+              </button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowEditProfil(false)}>
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* INFO CARDS: KONTAK, MOQ, HPP */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -478,7 +683,7 @@ export default function VendorDetail({
         </div>
       )}
 
-      {/* ========== SECTION EVALUASI VENDOR (BARU) ========== */}
+      {/* ========== SECTION EVALUASI VENDOR ========== */}
       <div className="card bg-white shadow border border-purple-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
