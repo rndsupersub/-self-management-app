@@ -9,12 +9,8 @@ import {
   TIPE_FIELD,
   generateId,
   getPeriodeRange,
-  formatTanggalPanjang,
   formatTanggalPendek,
-  tambahHari,
-  clampScore,
   autoGenerateSummaryFromLaporan,
-  autoGenerateVendorSummary,
 } from "@/lib/evaluasiData";
 
 export default function EvaluasiPekerjaan({
@@ -30,14 +26,9 @@ export default function EvaluasiPekerjaan({
   onUpdatePeriodeEvaluasi,
   onUpdateFieldEvaluasiVendor,
 }) {
-  const [activePeriode, setActivePeriode] = useState(
-    periodeEvaluasiList[0]?.id || "bulanan"
-  );
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [formValues, setFormValues] = useState({});
-  const [vendorValues, setVendorValues] = useState({});
   const [showHistory, setShowHistory] = useState(false);
   const [showVendorSection, setShowVendorSection] = useState(true);
   const [savedNotif, setSavedNotif] = useState(false);
@@ -45,31 +36,17 @@ export default function EvaluasiPekerjaan({
   // Kelola Field Kinerja
   const [showKelolaField, setShowKelolaField] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState(null);
-  const [fieldForm, setFieldForm] = useState({
-    label: "",
-    emoji: "📌",
-    tipe: "long",
-  });
+  const [fieldForm, setFieldForm] = useState({ label: "", emoji: "📌", tipe: "long" });
 
   // Kelola Frekuensi
   const [showKelolaFrekuensi, setShowKelolaFrekuensi] = useState(false);
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
-  const [frekuensiForm, setFrekuensiForm] = useState({
-    label: "",
-    emoji: "📅",
-    tipe: "bulanan",
-    customStart: "",
-    customEnd: "",
-  });
+  const [frekuensiForm, setFrekuensiForm] = useState({ label: "", emoji: "📅", tipe: "bulanan", customStart: "", customEnd: "" });
 
   // Kelola Field Vendor
   const [showKelolaFieldVendor, setShowKelolaFieldVendor] = useState(false);
   const [editingFieldVendorId, setEditingFieldVendorId] = useState(null);
-  const [fieldVendorForm, setFieldVendorForm] = useState({
-    label: "",
-    emoji: "📌",
-    tipe: "long",
-  });
+  const [fieldVendorForm, setFieldVendorForm] = useState({ label: "", emoji: "📌", tipe: "long" });
 
   // ========== CARI DATA PERIODE YANG AKTIF ==========
   const periodeAktif = useMemo(() => {
@@ -99,34 +76,18 @@ export default function EvaluasiPekerjaan({
     }
   }, [evaluasiTersimpan, fieldEvaluasiList]);
 
-  useEffect(() => {
-    if (evaluasiTersimpan?.vendorEvaluations) {
-      setVendorValues(evaluasiTersimpan.vendorEvaluations);
-    } else {
-      setVendorValues({});
-    }
-  }, [evaluasiTersimpan]);
-
   // ========== NAVIGASI PERIODE ==========
   const handlePrev = () => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
     if (!def) return;
     if (def.tipe === "bulanan") {
-      const d = new Date(selectedDate);
-      d.setMonth(d.getMonth() - 1);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setMonth(d.getMonth() - 1); setSelectedDate(d.toISOString().split("T")[0]);
     } else if (def.tipe === "triwulan") {
-      const d = new Date(selectedDate);
-      d.setMonth(d.getMonth() - 3);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setMonth(d.getMonth() - 3); setSelectedDate(d.toISOString().split("T")[0]);
     } else if (def.tipe === "semester") {
-      const d = new Date(selectedDate);
-      d.setMonth(d.getMonth() - 6);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setMonth(d.getMonth() - 6); setSelectedDate(d.toISOString().split("T")[0]);
     } else if (def.tipe === "tahunan") {
-      const d = new Date(selectedDate);
-      d.setFullYear(d.getFullYear() - 1);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setFullYear(d.getFullYear() - 1); setSelectedDate(d.toISOString().split("T")[0]);
     }
   };
 
@@ -134,41 +95,22 @@ export default function EvaluasiPekerjaan({
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
     if (!def) return;
     if (def.tipe === "bulanan") {
-      const d = new Date(selectedDate);
-      d.setMonth(d.getMonth() + 1);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setMonth(d.getMonth() + 1); setSelectedDate(d.toISOString().split("T")[0]);
     } else if (def.tipe === "triwulan") {
-      const d = new Date(selectedDate);
-      d.setMonth(d.getMonth() + 3);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setMonth(d.getMonth() + 3); setSelectedDate(d.toISOString().split("T")[0]);
     } else if (def.tipe === "semester") {
-      const d = new Date(selectedDate);
-      d.setMonth(d.getMonth() + 6);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setMonth(d.getMonth() + 6); setSelectedDate(d.toISOString().split("T")[0]);
     } else if (def.tipe === "tahunan") {
-      const d = new Date(selectedDate);
-      d.setFullYear(d.getFullYear() + 1);
-      setSelectedDate(d.toISOString().split("T")[0]);
+      const d = new Date(selectedDate); d.setFullYear(d.getFullYear() + 1); setSelectedDate(d.toISOString().split("T")[0]);
     }
   };
 
-  const handleToday = () =>
-    setSelectedDate(new Date().toISOString().split("T")[0]);
+  const handleToday = () => setSelectedDate(new Date().toISOString().split("T")[0]);
   const handleDateChange = (e) => setSelectedDate(e.target.value);
 
   // ========== UPDATE FIELD ==========
   const handleUpdateValue = (fieldId, value) => {
     setFormValues({ ...formValues, [fieldId]: value });
-  };
-
-  const handleUpdateVendorValue = (vendorId, fieldId, value) => {
-    setVendorValues({
-      ...vendorValues,
-      [vendorId]: {
-        ...(vendorValues[vendorId] || {}),
-        [fieldId]: value,
-      },
-    });
   };
 
   // ========== AUTO-GENERATE SUMMARY ==========
@@ -179,30 +121,9 @@ export default function EvaluasiPekerjaan({
       periodeAktif.periodeMulai,
       periodeAktif.periodeSelesai
     );
-    // Masukkan ke field pertama (efektivitas) atau ke catatanBebas
-    const targetField =
-      fieldEvaluasiList.find((f) => f.id === "efektivitas") ||
-      fieldEvaluasiList[0];
+    const targetField = fieldEvaluasiList.find((f) => f.id === "efektivitas") || fieldEvaluasiList[0];
     if (targetField) {
-      setFormValues({
-        ...formValues,
-        [targetField.id]: summary,
-      });
-    }
-  };
-
-  const handleAutoGenerateVendor = (vendorId) => {
-    if (!periodeAktif) return;
-    const vendor = vendorList.find((v) => v.id === vendorId);
-    if (!vendor) return;
-    const summary = autoGenerateVendorSummary(
-      vendor,
-      periodeAktif.periodeMulai,
-      periodeAktif.periodeSelesai
-    );
-    const targetField = fieldEvaluasiVendorList[0];
-    if (targetField) {
-      handleUpdateVendorValue(vendorId, targetField.id, summary);
+      setFormValues({ ...formValues, [targetField.id]: summary });
     }
   };
 
@@ -211,13 +132,17 @@ export default function EvaluasiPekerjaan({
     if (!onUpdateEvaluasi || !periodeAktif) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
     if (!newData[activePeriode]) newData[activePeriode] = {};
+    
+    // Ambil data vendor lama kalau ada (backward compatibility)
+    const oldVendorEvals = newData[activePeriode][periodeAktif.key]?.vendorEvaluations || {};
+
     newData[activePeriode][periodeAktif.key] = {
       periodeMulai: periodeAktif.periodeMulai,
       periodeSelesai: periodeAktif.periodeSelesai,
       label: periodeAktif.label,
       tipe: periodeAktif.tipe,
       fields: formValues,
-      vendorEvaluations: vendorValues,
+      vendorEvaluations: oldVendorEvals,
       updatedAt: new Date().toISOString(),
     };
     onUpdateEvaluasi(newData);
@@ -249,9 +174,7 @@ export default function EvaluasiPekerjaan({
     };
     let updated;
     if (editingFieldId) {
-      updated = fieldEvaluasiList.map((f) =>
-        f.id === editingFieldId ? newField : f
-      );
+      updated = fieldEvaluasiList.map((f) => (f.id === editingFieldId ? newField : f));
     } else {
       updated = [...fieldEvaluasiList, newField];
     }
@@ -264,24 +187,13 @@ export default function EvaluasiPekerjaan({
   };
 
   const handleHapusField = (id) => {
-    if (
-      !confirm(
-        "Hapus field ini? Data evaluasi yang udah keisi bakal ilang dari tampilan (tetap tersimpan di Firestore)."
-      )
-    )
-      return;
+    if (!confirm("Hapus field ini? Data evaluasi yang udah keisi bakal ilang dari tampilan (tetap tersimpan di Firestore).")) return;
     onUpdateFieldEvaluasi(fieldEvaluasiList.filter((f) => f.id !== id));
   };
 
   // ========== KELOLA FREKUENSI ==========
   const handleBukaTambahFrekuensi = () => {
-    setFrekuensiForm({
-      label: "",
-      emoji: "📅",
-      tipe: "bulanan",
-      customStart: "",
-      customEnd: "",
-    });
+    setFrekuensiForm({ label: "", emoji: "📅", tipe: "bulanan", customStart: "", customEnd: "" });
     setEditingFrekuensiId(null);
   };
 
@@ -289,22 +201,13 @@ export default function EvaluasiPekerjaan({
     const parts = freq.label.trim().split(" ");
     const emoji = parts[0] || "📅";
     const nama = parts.slice(1).join(" ") || "";
-    setFrekuensiForm({
-      label: nama,
-      emoji,
-      tipe: freq.tipe || "bulanan",
-      customStart: freq.customStart || "",
-      customEnd: freq.customEnd || "",
-    });
+    setFrekuensiForm({ label: nama, emoji, tipe: freq.tipe || "bulanan", customStart: freq.customStart || "", customEnd: freq.customEnd || "" });
     setEditingFrekuensiId(freq.id);
   };
 
   const handleSimpanFrekuensi = () => {
     if (!frekuensiForm.label.trim()) return;
-    if (
-      frekuensiForm.tipe === "custom" &&
-      (!frekuensiForm.customStart || !frekuensiForm.customEnd)
-    ) {
+    if (frekuensiForm.tipe === "custom" && (!frekuensiForm.customStart || !frekuensiForm.customEnd)) {
       alert("Isi tanggal mulai & selesai untuk custom.");
       return;
     }
@@ -313,16 +216,12 @@ export default function EvaluasiPekerjaan({
       id: editingFrekuensiId || generateId("freq"),
       label: fullLabel,
       tipe: frekuensiForm.tipe,
-      customStart:
-        frekuensiForm.tipe === "custom" ? frekuensiForm.customStart : "",
-      customEnd:
-        frekuensiForm.tipe === "custom" ? frekuensiForm.customEnd : "",
+      customStart: frekuensiForm.tipe === "custom" ? frekuensiForm.customStart : "",
+      customEnd: frekuensiForm.tipe === "custom" ? frekuensiForm.customEnd : "",
     };
     let updated;
     if (editingFrekuensiId) {
-      updated = periodeEvaluasiList.map((f) =>
-        f.id === editingFrekuensiId ? newFreq : f
-      );
+      updated = periodeEvaluasiList.map((f) => (f.id === editingFrekuensiId ? newFreq : f));
     } else {
       updated = [...periodeEvaluasiList, newFreq];
     }
@@ -367,9 +266,7 @@ export default function EvaluasiPekerjaan({
     };
     let updated;
     if (editingFieldVendorId) {
-      updated = fieldEvaluasiVendorList.map((f) =>
-        f.id === editingFieldVendorId ? newField : f
-      );
+      updated = fieldEvaluasiVendorList.map((f) => (f.id === editingFieldVendorId ? newField : f));
     } else {
       updated = [...fieldEvaluasiVendorList, newField];
     }
@@ -379,9 +276,7 @@ export default function EvaluasiPekerjaan({
 
   const handleHapusFieldVendor = (id) => {
     if (!confirm("Hapus field evaluasi vendor ini?")) return;
-    onUpdateFieldEvaluasiVendor(
-      fieldEvaluasiVendorList.filter((f) => f.id !== id)
-    );
+    onUpdateFieldEvaluasiVendor(fieldEvaluasiVendorList.filter((f) => f.id !== id));
   };
 
   // ========== HISTORY ==========
@@ -398,47 +293,25 @@ export default function EvaluasiPekerjaan({
     if (field.tipe === "score") {
       return (
         <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min="1"
-            max="10"
-            step="1"
-            className="range range-primary range-sm flex-1"
-            value={val || 5}
-            onChange={(e) => onChange(parseInt(e.target.value))}
-          />
-          <span className="badge badge-primary badge-sm font-bold w-10 text-center">
-            {val || 5}
-          </span>
+          <input type="range" min="1" max="10" step="1" className="range range-primary range-sm flex-1" value={val || 5} onChange={(e) => onChange(parseInt(e.target.value))} />
+          <span className="badge badge-primary badge-sm font-bold w-10 text-center">{val || 5}</span>
         </div>
       );
     }
     if (field.tipe === "text") {
       return (
-        <input
-          type="text"
-          className="input input-bordered input-sm w-full text-gray-800 bg-white"
-          placeholder={`Isi ${field.label}...`}
-          value={val}
-          onChange={(e) => onChange(e.target.value)}
-        />
+        <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />
       );
     }
     return (
-      <textarea
-        className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
-        rows="3"
-        placeholder={`Isi ${field.label}...`}
-        value={val}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="3" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />
     );
   };
 
   // ========== RENDER ==========
   if (!periodeAktif) {
     return (
-      <div className="alert alert-warning text-xs">
+      <div className="alert alert-warning text-xs" data-html2canvas-ignore="true">
         ⚠️ Frekuensi evaluasi belum ada. Tambahin dulu di ⚙️ Kelola Frekuensi.
       </div>
     );
@@ -446,293 +319,173 @@ export default function EvaluasiPekerjaan({
 
   return (
     <div className="space-y-4">
-      {/* REMINDER */}
-      <div className="alert alert-info py-2 text-xs">
-        <span>
-          📌 Evaluasi diisi per periode. Bisa auto-generate dari laporan +
-          auto-generate dari log kunjungan vendor.
-        </span>
+      {/* REMINDER - IGNORE */}
+      <div className="alert alert-info py-2 text-xs" data-html2canvas-ignore="true">
+        <span>📌 Evaluasi diisi per periode. Bisa auto-generate dari laporan.</span>
       </div>
 
-      {/* TAB FREKUENSI + KELOLA */}
-      <div className="flex flex-wrap justify-between items-center gap-2">
+      {/* TAB FREKUENSI + KELOLA - IGNORE */}
+      <div className="flex flex-wrap justify-between items-center gap-2" data-html2canvas-ignore="true">
         <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
           {periodeEvaluasiList.map((freq) => (
-            <button
-              key={freq.id}
-              className={`tab ${
-                activePeriode === freq.id
-                  ? "tab-active bg-blue-600 text-white"
-                  : ""
-              }`}
-              onClick={() => setActivePeriode(freq.id)}
-            >
+            <button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActivePeriode(freq.id)}>
               {freq.label}
             </button>
           ))}
         </div>
-        <button
-          className="btn btn-ghost btn-xs text-gray-600"
-          onClick={() => setShowKelolaFrekuensi(true)}
-        >
+        <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaFrekuensi(true)}>
           ⚙️ Kelola Frekuensi
         </button>
       </div>
 
-      {/* NAVIGASI PERIODE */}
-      <div className="card bg-white shadow border border-gray-200">
+      {/* NAVIGASI PERIODE - IGNORE */}
+      <div className="card bg-white shadow border border-gray-200" data-html2canvas-ignore="true">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center gap-2">
             <div className="flex items-center gap-1">
-              <button
-                className="btn btn-ghost btn-sm text-gray-700"
-                onClick={handlePrev}
-              >
-                ‹
-              </button>
-              <h3 className="text-sm font-bold text-gray-800 min-w-[200px] text-center">
-                {periodeAktif.label}
-              </h3>
-              <button
-                className="btn btn-ghost btn-sm text-gray-700"
-                onClick={handleNext}
-              >
-                ›
-              </button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={handlePrev}>‹</button>
+              <h3 className="text-sm font-bold text-gray-800 min-w-[200px] text-center">{periodeAktif.label}</h3>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleNext}>›</button>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="date"
-                className="input input-bordered input-sm text-gray-800 bg-white"
-                value={selectedDate}
-                onChange={handleDateChange}
-              />
-              <button
-                className="btn btn-outline btn-xs text-gray-700"
-                onClick={handleToday}
-              >
-                📅 Periode Ini
-              </button>
+              <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={handleDateChange} />
+              <button className="btn btn-outline btn-xs text-gray-700" onClick={handleToday}>📅 Periode Ini</button>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            📅 {formatTanggalPendek(periodeAktif.periodeMulai)} --{" "}
-            {formatTanggalPendek(periodeAktif.periodeSelesai)}
-          </p>
+          <p className="text-xs text-gray-500 mt-2">📅 {formatTanggalPendek(periodeAktif.periodeMulai)} -- {formatTanggalPendek(periodeAktif.periodeSelesai)}</p>
         </div>
       </div>
 
-      {/* FORM EVALUASI KINERJA */}
+      {/* FORM EVALUASI KINERJA UTAMA */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-            <h3 className="text-sm font-bold text-gray-800">
-              📝 Evaluasi Kinerja ({periodeAktif.label})
-            </h3>
-            <div className="flex gap-1">
-              <button
-                className="btn btn-outline btn-xs text-gray-700"
-                onClick={handleAutoGenerate}
-                title="Isi otomatis dari laporan di periode ini"
-              >
+            <h3 className="text-sm font-bold text-gray-800">📝 Evaluasi Kinerja Pekerjaan ({periodeAktif.label})</h3>
+            <div className="flex gap-1" data-html2canvas-ignore="true">
+              <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari laporan di periode ini">
                 🔄 Auto-generate dari Laporan
               </button>
-              <button
-                className="btn btn-ghost btn-xs text-gray-600"
-                onClick={() => setShowKelolaField(true)}
-              >
+              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaField(true)}>
                 ⚙️ Kelola Field
               </button>
             </div>
           </div>
 
           {fieldEvaluasiList.length === 0 ? (
-            <p className="text-sm text-gray-400 italic text-center py-6">
-              Belum ada field evaluasi. Klik ⚙️ Kelola Field untuk mulai.
-            </p>
+            <p className="text-sm text-gray-400 italic text-center py-6">Belum ada field evaluasi. Klik ⚙️ Kelola Field untuk mulai.</p>
           ) : (
             <div className="space-y-3">
               {fieldEvaluasiList.map((field) => (
                 <div key={field.id}>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                    {field.label}
-                  </label>
-                  {renderFieldInput(
-                    field,
-                    formValues[field.id],
-                    (val) => handleUpdateValue(field.id, val)
-                  )}
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">{field.label}</label>
+                  {renderFieldInput(field, formValues[field.id], (val) => handleUpdateValue(field.id, val))}
                 </div>
               ))}
             </div>
           )}
 
           {evaluasiTersimpan?.updatedAt && (
-            <p className="text-xs text-gray-500 mt-3">
-              📅 Terakhir disimpan:{" "}
-              {new Date(evaluasiTersimpan.updatedAt).toLocaleString("id-ID")}
-            </p>
+            <p className="text-xs text-gray-500 mt-3">📅 Terakhir disimpan: {new Date(evaluasiTersimpan.updatedAt).toLocaleString("id-ID")}</p>
           )}
         </div>
       </div>
 
-      {/* SECTION EVALUASI VENDOR */}
+      {/* SECTION EVALUASI VENDOR - RINGKASAN READ-ONLY */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-            <h3 className="text-sm font-bold text-gray-800">
-              🏭 Evaluasi Kinerja Vendor ({vendorList.length})
-            </h3>
-            <div className="flex gap-1">
-              <button
-                className="btn btn-ghost btn-xs text-gray-600"
-                onClick={() => setShowVendorSection(!showVendorSection)}
-              >
+            <h3 className="text-sm font-bold text-gray-800">🏭 Ringkasan Evaluasi Vendor ({vendorList.length})</h3>
+            <div className="flex gap-1" data-html2canvas-ignore="true">
+              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowVendorSection(!showVendorSection)}>
                 {showVendorSection ? "▲ Sembunyikan" : "▼ Tampilkan"}
               </button>
-              <button
-                className="btn btn-ghost btn-xs text-gray-600"
-                onClick={() => setShowKelolaFieldVendor(true)}
-              >
-                ⚙️ Kelola Field
+              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaFieldVendor(true)}>
+                ⚙️ Kelola Field Vendor
               </button>
             </div>
           </div>
 
-          {showVendorSection &&
-            (vendorList.length === 0 ? (
-              <p className="text-sm text-gray-400 italic text-center py-4">
-                Belum ada vendor. Tambahin dulu di tab 🏭 Vendor.
-              </p>
+          {showVendorSection && (
+            vendorList.length === 0 ? (
+              <p className="text-sm text-gray-400 italic text-center py-4">Belum ada vendor. Tambahin dulu di tab 🏭 Vendor.</p>
             ) : (
               <div className="space-y-4">
-                {vendorList.map((vendor) => (
-                  <div
-                    key={vendor.id}
-                    className="border border-gray-200 rounded p-3 bg-gray-50"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-sm font-bold text-gray-800">
-                        🏭 {vendor.nama}
-                      </h4>
-                      <button
-                        className="btn btn-outline btn-xs text-gray-700"
-                        onClick={() => handleAutoGenerateVendor(vendor.id)}
-                        title="Auto-generate dari log kunjungan vendor"
-                      >
-                        🔄 Auto-generate
-                      </button>
+                {vendorList.map((vendor) => {
+                  // Tarik data evaluasi dari VendorDetail
+                  const vendorEval = vendor.evaluasi?.[activePeriode]?.[key];
+                  return (
+                    <div key={vendor.id} className="border border-gray-200 rounded p-3 bg-gray-50">
+                      <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
+                        <h4 className="text-sm font-bold text-gray-800">🏭 {vendor.nama}</h4>
+                        <span className="text-[10px] text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">
+                          {vendorEval ? `Diisi: ${new Date(vendorEval.updatedAt).toLocaleDateString("id-ID")}` : "Belum Dievaluasi"}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {fieldEvaluasiVendorList.map((field) => {
+                          const val = vendorEval?.fields?.[field.id];
+                          return (
+                            <div key={field.id} className="bg-white p-2 rounded border border-gray-100">
+                              <p className="text-[10px] font-semibold text-gray-500 mb-1">{field.label}</p>
+                              <p className="text-xs text-gray-800 whitespace-pre-wrap">
+                                {val || <span className="italic text-gray-400">- Belum diisi -</span>}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      {fieldEvaluasiVendorList.map((field) => (
-                        <div key={field.id}>
-                          <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                            {field.label}
-                          </label>
-                          {renderFieldInput(
-                            field,
-                            vendorValues[vendor.id]?.[field.id],
-                            (val) =>
-                              handleUpdateVendorValue(
-                                vendor.id,
-                                field.id,
-                                val
-                              )
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            ))}
+            )
+          )}
         </div>
       </div>
 
       {/* SIMPAN */}
-      <div className="flex gap-2">
-        <button
-          className="btn btn-primary btn-sm flex-1"
-          onClick={handleSimpan}
-          disabled={fieldEvaluasiList.length === 0}
-        >
-          💾 Simpan Evaluasi ({periodeAktif.label})
+      <div className="flex gap-2" data-html2canvas-ignore="true">
+        <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={fieldEvaluasiList.length === 0}>
+          💾 Simpan Evaluasi Pekerjaan ({periodeAktif.label})
         </button>
       </div>
 
       {savedNotif && (
-        <div className="alert alert-success py-2 text-xs">
+        <div className="alert alert-success py-2 text-xs" data-html2canvas-ignore="true">
           <span>✅ Evaluasi berhasil disimpan!</span>
         </div>
       )}
 
-      {/* HISTORY */}
+      {/* HISTORY EVALUASI PEKERJAAN */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-bold text-gray-800">
-              📚 History Evaluasi ({historyList.length})
-            </h3>
-            <button
-              className="btn btn-ghost btn-xs text-gray-600"
-              onClick={() => setShowHistory(!showHistory)}
-            >
+          <div className="flex justify-between items-center mb-3" data-html2canvas-ignore="true">
+            <h3 className="text-sm font-bold text-gray-800">📚 History Evaluasi Pekerjaan ({historyList.length})</h3>
+            <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowHistory(!showHistory)}>
               {showHistory ? "▲ Sembunyikan" : "▼ Tampilkan"}
             </button>
           </div>
           {showHistory && (
             <>
               {historyList.length === 0 ? (
-                <p className="text-xs text-gray-400 italic text-center py-4">
-                  Belum ada evaluasi tersimpan.
-                </p>
+                <p className="text-xs text-gray-400 italic text-center py-4">Belum ada evaluasi tersimpan.</p>
               ) : (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2">
                   {historyList.map((ev) => (
-                    <details
-                      key={ev.key}
-                      className="border border-gray-200 rounded p-2 bg-gray-50"
-                    >
-                      <summary className="text-sm font-semibold text-gray-800 cursor-pointer">
-                        📅 {ev.label || ev.key}
-                      </summary>
+                    <details key={ev.key} className="border border-gray-200 rounded p-2 bg-gray-50">
+                      <summary className="text-sm font-semibold text-gray-800 cursor-pointer">📅 {ev.label || ev.key}</summary>
                       <div className="mt-2 space-y-2">
                         {fieldEvaluasiList.map((f) => {
                           const val = ev.fields?.[f.id];
-                          if (val === undefined || val === null || val === "")
-                            return null;
+                          if (val === undefined || val === null || val === "") return null;
                           return (
-                            <div
-                              key={f.id}
-                              className="bg-white p-2 rounded border border-gray-200"
-                            >
-                              <p className="text-xs font-semibold text-gray-600">
-                                {f.label}
-                              </p>
-                              <p className="text-xs text-gray-700 whitespace-pre-wrap">
-                                {val}
-                              </p>
+                            <div key={f.id} className="bg-white p-2 rounded border border-gray-200">
+                              <p className="text-xs font-semibold text-gray-600">{f.label}</p>
+                              <p className="text-xs text-gray-700 whitespace-pre-wrap">{val}</p>
                             </div>
                           );
                         })}
-                        {ev.vendorEvaluations &&
-                          Object.keys(ev.vendorEvaluations).length > 0 && (
-                            <div className="bg-white p-2 rounded border border-gray-200">
-                              <p className="text-xs font-semibold text-gray-600 mb-1">
-                                🏭 Evaluasi Vendor
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {Object.keys(ev.vendorEvaluations).length}{" "}
-                                vendor dievaluasi
-                              </p>
-                            </div>
-                          )}
-                        {ev.updatedAt && (
-                          <p className="text-[10px] text-gray-400">
-                            Disimpan:{" "}
-                            {new Date(ev.updatedAt).toLocaleString("id-ID")}
-                          </p>
-                        )}
                       </div>
                     </details>
                   ))}
@@ -743,105 +496,46 @@ export default function EvaluasiPekerjaan({
         </div>
       </div>
 
-      {/* MODAL KELOLA FIELD KINERJA */}
+      {/* MODAL KELOLA FIELD KINERJA - IGNORE */}
       {showKelolaField && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-base font-bold text-gray-800">
-                  ⚙️ Kelola Field Evaluasi Kinerja
-                </h3>
-                <button
-                  className="btn btn-ghost btn-sm text-gray-700"
-                  onClick={() => setShowKelolaField(false)}
-                >
-                  ✕
-                </button>
+                <h3 className="text-base font-bold text-gray-800">⚙️ Kelola Field Evaluasi Kinerja</h3>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaField(false)}>✕</button>
               </div>
-
               <div className="space-y-1 mb-4">
                 {fieldEvaluasiList.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200"
-                  >
+                  <div key={f.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
                     <div className="flex-1">
                       <p className="text-sm text-gray-700">{f.label}</p>
-                      <span className="text-[10px] text-gray-500">
-                        Tipe: {f.tipe}
-                      </span>
+                      <span className="text-[10px] text-gray-500">Tipe: {f.tipe}</span>
                     </div>
                     <div className="flex gap-1">
-                      <button
-                        className="btn btn-ghost btn-xs text-gray-600"
-                        onClick={() => handleBukaEditField(f)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-xs text-red-500"
-                        onClick={() => handleHapusField(f.id)}
-                      >
-                        🗑️
-                      </button>
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditField(f)}>✏️</button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusField(f.id)}>🗑️</button>
                     </div>
                   </div>
                 ))}
               </div>
-
               <div className="bg-purple-50 rounded p-3 border border-purple-200 space-y-2">
-                <p className="text-xs font-semibold text-purple-700">
-                  {editingFieldId ? "✏️ Edit Field" : "➕ Tambah Field Baru"}
-                </p>
+                <p className="text-xs font-semibold text-purple-700">{editingFieldId ? "✏️ Edit Field" : "➕ Tambah Field Baru"}</p>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white"
-                    placeholder="📌"
-                    value={fieldForm.emoji}
-                    onChange={(e) =>
-                      setFieldForm({ ...fieldForm, emoji: e.target.value })
-                    }
-                  />
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm flex-1 text-gray-800 bg-white"
-                    placeholder="Nama field"
-                    value={fieldForm.label}
-                    onChange={(e) =>
-                      setFieldForm({ ...fieldForm, label: e.target.value })
-                    }
-                  />
+                  <input type="text" className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white" placeholder="📌" value={fieldForm.emoji} onChange={(e) => setFieldForm({ ...fieldForm, emoji: e.target.value })} />
+                  <input type="text" className="input input-bordered input-sm flex-1 text-gray-800 bg-white" placeholder="Nama field" value={fieldForm.label} onChange={(e) => setFieldForm({ ...fieldForm, label: e.target.value })} />
                 </div>
-                <select
-                  className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                  value={fieldForm.tipe}
-                  onChange={(e) =>
-                    setFieldForm({ ...fieldForm, tipe: e.target.value })
-                  }
-                >
+                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={fieldForm.tipe} onChange={(e) => setFieldForm({ ...fieldForm, tipe: e.target.value })}>
                   {TIPE_FIELD.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label}
-                    </option>
+                    <option key={t.id} value={t.id}>{t.label}</option>
                   ))}
                 </select>
                 <div className="flex gap-2">
-                  <button
-                    className="btn btn-primary btn-sm flex-1"
-                    onClick={handleSimpanField}
-                    disabled={!fieldForm.label.trim()}
-                  >
+                  <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanField} disabled={!fieldForm.label.trim()}>
                     {editingFieldId ? "💾 Simpan" : "➕ Tambah"}
                   </button>
                   {editingFieldId && (
-                    <button
-                      className="btn btn-ghost btn-sm text-gray-700"
-                      onClick={handleBukaTambahField}
-                    >
-                      Batal Edit
-                    </button>
+                    <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBukaTambahField}>Batal Edit</button>
                   )}
                 </div>
               </div>
@@ -850,97 +544,36 @@ export default function EvaluasiPekerjaan({
         </div>
       )}
 
-      {/* MODAL KELOLA FREKUENSI */}
+      {/* MODAL KELOLA FREKUENSI - IGNORE */}
       {showKelolaFrekuensi && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-base font-bold text-gray-800">
-                  ⚙️ Kelola Frekuensi Evaluasi
-                </h3>
-                <button
-                  className="btn btn-ghost btn-sm text-gray-700"
-                  onClick={() => setShowKelolaFrekuensi(false)}
-                >
-                  ✕
-                </button>
+                <h3 className="text-base font-bold text-gray-800">⚙️ Kelola Frekuensi Evaluasi</h3>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaFrekuensi(false)}>✕</button>
               </div>
-
               <div className="space-y-1 mb-4">
                 {periodeEvaluasiList.map((freq) => (
-                  <div
-                    key={freq.id}
-                    className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200"
-                  >
+                  <div key={freq.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
                     <div className="flex-1">
                       <p className="text-sm text-gray-700">{freq.label}</p>
-                      <span className="text-[10px] text-gray-500">
-                        Tipe: {freq.tipe}
-                        {freq.tipe === "custom" &&
-                          ` (${freq.customStart} s/d ${freq.customEnd})`}
-                      </span>
+                      <span className="text-[10px] text-gray-500">Tipe: {freq.tipe}{freq.tipe === "custom" && ` (${freq.customStart} s/d ${freq.customEnd})`}</span>
                     </div>
                     <div className="flex gap-1">
-                      <button
-                        className="btn btn-ghost btn-xs text-gray-600"
-                        onClick={() => handleBukaEditFrekuensi(freq)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-xs text-red-500"
-                        onClick={() => handleHapusFrekuensi(freq.id)}
-                      >
-                        🗑️
-                      </button>
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditFrekuensi(freq)}>✏️</button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusFrekuensi(freq.id)}>🗑️</button>
                     </div>
                   </div>
                 ))}
               </div>
-
               <div className="bg-blue-50 rounded p-3 border border-blue-200 space-y-2">
-                <p className="text-xs font-semibold text-blue-700">
-                  {editingFrekuensiId
-                    ? "✏️ Edit Frekuensi"
-                    : "➕ Tambah Frekuensi Baru"}
-                </p>
+                <p className="text-xs font-semibold text-blue-700">{editingFrekuensiId ? "✏️ Edit Frekuensi" : "➕ Tambah Frekuensi Baru"}</p>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white"
-                    placeholder="📅"
-                    value={frekuensiForm.emoji}
-                    onChange={(e) =>
-                      setFrekuensiForm({
-                        ...frekuensiForm,
-                        emoji: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm flex-1 text-gray-800 bg-white"
-                    placeholder="Nama frekuensi"
-                    value={frekuensiForm.label}
-                    onChange={(e) =>
-                      setFrekuensiForm({
-                        ...frekuensiForm,
-                        label: e.target.value,
-                      })
-                    }
-                  />
+                  <input type="text" className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white" placeholder="📅" value={frekuensiForm.emoji} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, emoji: e.target.value })} />
+                  <input type="text" className="input input-bordered input-sm flex-1 text-gray-800 bg-white" placeholder="Nama frekuensi" value={frekuensiForm.label} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, label: e.target.value })} />
                 </div>
-                <select
-                  className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                  value={frekuensiForm.tipe}
-                  onChange={(e) =>
-                    setFrekuensiForm({
-                      ...frekuensiForm,
-                      tipe: e.target.value,
-                    })
-                  }
-                >
+                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={frekuensiForm.tipe} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, tipe: e.target.value })}>
                   <option value="bulanan">📆 Bulanan (1 bulan)</option>
                   <option value="triwulan">📅 Triwulan (3 bulan)</option>
                   <option value="semester">📆 Semester (6 bulan)</option>
@@ -950,54 +583,21 @@ export default function EvaluasiPekerjaan({
                 {frekuensiForm.tipe === "custom" && (
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        Mulai
-                      </label>
-                      <input
-                        type="date"
-                        className="input input-bordered input-sm w-full text-gray-800 bg-white"
-                        value={frekuensiForm.customStart}
-                        onChange={(e) =>
-                          setFrekuensiForm({
-                            ...frekuensiForm,
-                            customStart: e.target.value,
-                          })
-                        }
-                      />
+                      <label className="text-xs text-gray-600 mb-1 block">Mulai</label>
+                      <input type="date" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={frekuensiForm.customStart} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, customStart: e.target.value })} />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-600 mb-1 block">
-                        Selesai
-                      </label>
-                      <input
-                        type="date"
-                        className="input input-bordered input-sm w-full text-gray-800 bg-white"
-                        value={frekuensiForm.customEnd}
-                        onChange={(e) =>
-                          setFrekuensiForm({
-                            ...frekuensiForm,
-                            customEnd: e.target.value,
-                          })
-                        }
-                      />
+                      <label className="text-xs text-gray-600 mb-1 block">Selesai</label>
+                      <input type="date" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={frekuensiForm.customEnd} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, customEnd: e.target.value })} />
                     </div>
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <button
-                    className="btn btn-primary btn-sm flex-1"
-                    onClick={handleSimpanFrekuensi}
-                    disabled={!frekuensiForm.label.trim()}
-                  >
+                  <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanFrekuensi} disabled={!frekuensiForm.label.trim()}>
                     {editingFrekuensiId ? "💾 Simpan" : "➕ Tambah"}
                   </button>
                   {editingFrekuensiId && (
-                    <button
-                      className="btn btn-ghost btn-sm text-gray-700"
-                      onClick={handleBukaTambahFrekuensi}
-                    >
-                      Batal Edit
-                    </button>
+                    <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBukaTambahFrekuensi}>Batal Edit</button>
                   )}
                 </div>
               </div>
@@ -1006,116 +606,46 @@ export default function EvaluasiPekerjaan({
         </div>
       )}
 
-      {/* MODAL KELOLA FIELD VENDOR */}
+      {/* MODAL KELOLA FIELD VENDOR - IGNORE */}
       {showKelolaFieldVendor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-base font-bold text-gray-800">
-                  ⚙️ Kelola Field Evaluasi Vendor
-                </h3>
-                <button
-                  className="btn btn-ghost btn-sm text-gray-700"
-                  onClick={() => setShowKelolaFieldVendor(false)}
-                >
-                  ✕
-                </button>
+                <h3 className="text-base font-bold text-gray-800">⚙️ Kelola Field Evaluasi Vendor</h3>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaFieldVendor(false)}>✕</button>
               </div>
-
               <div className="space-y-1 mb-4">
                 {fieldEvaluasiVendorList.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200"
-                  >
+                  <div key={f.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
                     <div className="flex-1">
                       <p className="text-sm text-gray-700">{f.label}</p>
-                      <span className="text-[10px] text-gray-500">
-                        Tipe: {f.tipe}
-                      </span>
+                      <span className="text-[10px] text-gray-500">Tipe: {f.tipe}</span>
                     </div>
                     <div className="flex gap-1">
-                      <button
-                        className="btn btn-ghost btn-xs text-gray-600"
-                        onClick={() => handleBukaEditFieldVendor(f)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn btn-ghost btn-xs text-red-500"
-                        onClick={() => handleHapusFieldVendor(f.id)}
-                      >
-                        🗑️
-                      </button>
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditFieldVendor(f)}>✏️</button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusFieldVendor(f.id)}>🗑️</button>
                     </div>
                   </div>
                 ))}
               </div>
-
               <div className="bg-orange-50 rounded p-3 border border-orange-200 space-y-2">
-                <p className="text-xs font-semibold text-orange-700">
-                  {editingFieldVendorId
-                    ? "✏️ Edit Field Vendor"
-                    : "➕ Tambah Field Vendor Baru"}
-                </p>
+                <p className="text-xs font-semibold text-orange-700">{editingFieldVendorId ? "✏️ Edit Field Vendor" : "➕ Tambah Field Vendor Baru"}</p>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white"
-                    placeholder="📌"
-                    value={fieldVendorForm.emoji}
-                    onChange={(e) =>
-                      setFieldVendorForm({
-                        ...fieldVendorForm,
-                        emoji: e.target.value,
-                      })
-                    }
-                  />
-                  <input
-                    type="text"
-                    className="input input-bordered input-sm flex-1 text-gray-800 bg-white"
-                    placeholder="Nama field vendor"
-                    value={fieldVendorForm.label}
-                    onChange={(e) =>
-                      setFieldVendorForm({
-                        ...fieldVendorForm,
-                        label: e.target.value,
-                      })
-                    }
-                  />
+                  <input type="text" className="input input-bordered input-sm w-16 text-center text-gray-800 bg-white" placeholder="📌" value={fieldVendorForm.emoji} onChange={(e) => setFieldVendorForm({ ...fieldVendorForm, emoji: e.target.value })} />
+                  <input type="text" className="input input-bordered input-sm flex-1 text-gray-800 bg-white" placeholder="Nama field vendor" value={fieldVendorForm.label} onChange={(e) => setFieldVendorForm({ ...fieldVendorForm, label: e.target.value })} />
                 </div>
-                <select
-                  className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                  value={fieldVendorForm.tipe}
-                  onChange={(e) =>
-                    setFieldVendorForm({
-                      ...fieldVendorForm,
-                      tipe: e.target.value,
-                    })
-                  }
-                >
+                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={fieldVendorForm.tipe} onChange={(e) => setFieldVendorForm({ ...fieldVendorForm, tipe: e.target.value })}>
                   {TIPE_FIELD.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label}
-                    </option>
+                    <option key={t.id} value={t.id}>{t.label}</option>
                   ))}
                 </select>
                 <div className="flex gap-2">
-                  <button
-                    className="btn btn-primary btn-sm flex-1"
-                    onClick={handleSimpanFieldVendor}
-                    disabled={!fieldVendorForm.label.trim()}
-                  >
+                  <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanFieldVendor} disabled={!fieldVendorForm.label.trim()}>
                     {editingFieldVendorId ? "💾 Simpan" : "➕ Tambah"}
                   </button>
                   {editingFieldVendorId && (
-                    <button
-                      className="btn btn-ghost btn-sm text-gray-700"
-                      onClick={handleBukaTambahFieldVendor}
-                    >
-                      Batal Edit
-                    </button>
+                    <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBukaTambahFieldVendor}>Batal Edit</button>
                   )}
                 </div>
               </div>
