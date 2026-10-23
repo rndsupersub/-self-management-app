@@ -33,6 +33,10 @@ export default function EvaluasiPekerjaan({
   const [showVendorSection, setShowVendorSection] = useState(true);
   const [savedNotif, setSavedNotif] = useState(false);
 
+  // ========== STATE BARU UNTUK FINISHING ==========
+  const [showPekerjaanSection, setShowPekerjaanSection] = useState(true);
+  const [hideEmptyVendors, setHideEmptyVendors] = useState(true);
+
   // Kelola Field Kinerja
   const [showKelolaField, setShowKelolaField] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState(null);
@@ -148,6 +152,26 @@ export default function EvaluasiPekerjaan({
     onUpdateEvaluasi(newData);
     setSavedNotif(true);
     setTimeout(() => setSavedNotif(false), 2000);
+  };
+
+  // ========== HAPUS HISTORY EVALUASI PEKERJAAN ==========
+  const handleHapusHistoryPekerjaan = (periodeKey) => {
+    if (!confirm("Hapus history evaluasi pekerjaan periode ini? Tindakan ini tidak bisa dibatalkan.")) return;
+    
+    const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
+    if (newData[activePeriode] && newData[activePeriode][periodeKey]) {
+      delete newData[activePeriode][periodeKey];
+      onUpdateEvaluasi(newData);
+
+      // Reset form kalau yang dihapus adalah periode yang lagi aktif
+      if (periodeKey === key) {
+        const empty = {};
+        fieldEvaluasiList.forEach((f) => {
+          empty[f.id] = f.tipe === "score" ? 5 : "";
+        });
+        setFormValues(empty);
+      }
+    }
   };
 
   // ========== KELOLA FIELD KINERJA ==========
@@ -287,6 +311,16 @@ export default function EvaluasiPekerjaan({
       .sort((a, b) => b.key.localeCompare(a.key));
   }, [evaluasiData, activePeriode]);
 
+  // ========== FILTER VENDOR ==========
+  const filteredVendors = useMemo(() => {
+    return vendorList.filter((vendor) => {
+      if (!hideEmptyVendors) return true;
+      // Kalau hideEmptyVendors aktif, cuma tampilin yang ada evaluasinya
+      const hasEval = vendor.evaluasi?.[activePeriode]?.[key];
+      return !!hasEval;
+    });
+  }, [vendorList, hideEmptyVendors, activePeriode, key]);
+
   // ========== RENDER FIELD INPUT ==========
   const renderFieldInput = (field, value, onChange) => {
     const val = value ?? (field.tipe === "score" ? 5 : "");
@@ -361,31 +395,46 @@ export default function EvaluasiPekerjaan({
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
             <h3 className="text-sm font-bold text-gray-800">📝 Evaluasi Kinerja Pekerjaan ({periodeAktif.label})</h3>
+            
             <div className="flex gap-1" data-html2canvas-ignore="true">
-              <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari laporan di periode ini">
-                🔄 Auto-generate dari Laporan
+              <button
+                className="btn btn-ghost btn-xs text-gray-600"
+                onClick={() => setShowPekerjaanSection(!showPekerjaanSection)}
+              >
+                {showPekerjaanSection ? "▲ Sembunyikan" : "▼ Tampilkan"}
               </button>
-              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaField(true)}>
-                ⚙️ Kelola Field
-              </button>
+              {showPekerjaanSection && (
+                <>
+                  <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari laporan di periode ini">
+                    🔄 Auto-generate
+                  </button>
+                  <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaField(true)}>
+                    ⚙️ Kelola Field
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          {fieldEvaluasiList.length === 0 ? (
-            <p className="text-sm text-gray-400 italic text-center py-6">Belum ada field evaluasi. Klik ⚙️ Kelola Field untuk mulai.</p>
-          ) : (
-            <div className="space-y-3">
-              {fieldEvaluasiList.map((field) => (
-                <div key={field.id}>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">{field.label}</label>
-                  {renderFieldInput(field, formValues[field.id], (val) => handleUpdateValue(field.id, val))}
+          {/* KONTEN EVALUASI PEKERJAAN - DISEMBUNYIIN KALAU FALSE */}
+          {showPekerjaanSection && (
+            <>
+              {fieldEvaluasiList.length === 0 ? (
+                <p className="text-sm text-gray-400 italic text-center py-6">Belum ada field evaluasi. Klik ⚙️ Kelola Field untuk mulai.</p>
+              ) : (
+                <div className="space-y-3">
+                  {fieldEvaluasiList.map((field) => (
+                    <div key={field.id}>
+                      <label className="text-xs font-semibold text-gray-600 mb-1 block">{field.label}</label>
+                      {renderFieldInput(field, formValues[field.id], (val) => handleUpdateValue(field.id, val))}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {evaluasiTersimpan?.updatedAt && (
-            <p className="text-xs text-gray-500 mt-3">📅 Terakhir disimpan: {new Date(evaluasiTersimpan.updatedAt).toLocaleString("id-ID")}</p>
+              )}
+              {evaluasiTersimpan?.updatedAt && (
+                <p className="text-xs text-gray-500 mt-3">📅 Terakhir disimpan: {new Date(evaluasiTersimpan.updatedAt).toLocaleString("id-ID")}</p>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -394,8 +443,14 @@ export default function EvaluasiPekerjaan({
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-            <h3 className="text-sm font-bold text-gray-800">🏭 Ringkasan Evaluasi Vendor ({vendorList.length})</h3>
-            <div className="flex gap-1" data-html2canvas-ignore="true">
+            <h3 className="text-sm font-bold text-gray-800">🏭 Ringkasan Evaluasi Vendor ({filteredVendors.length})</h3>
+            
+            <div className="flex gap-2 items-center" data-html2canvas-ignore="true">
+              <label className="label cursor-pointer gap-2">
+                <span className="label-text text-xs text-gray-600">Sembunyikan vendor kosong</span>
+                <input type="checkbox" className="checkbox checkbox-xs" checked={hideEmptyVendors} onChange={(e) => setHideEmptyVendors(e.target.checked)} />
+              </label>
+              
               <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowVendorSection(!showVendorSection)}>
                 {showVendorSection ? "▲ Sembunyikan" : "▼ Tampilkan"}
               </button>
@@ -406,12 +461,11 @@ export default function EvaluasiPekerjaan({
           </div>
 
           {showVendorSection && (
-            vendorList.length === 0 ? (
-              <p className="text-sm text-gray-400 italic text-center py-4">Belum ada vendor. Tambahin dulu di tab 🏭 Vendor.</p>
+            filteredVendors.length === 0 ? (
+              <p className="text-sm text-gray-400 italic text-center py-4">Belum ada vendor yang dievaluasi di periode ini.</p>
             ) : (
               <div className="space-y-4">
-                {vendorList.map((vendor) => {
-                  // Tarik data evaluasi dari VendorDetail
+                {filteredVendors.map((vendor) => {
                   const vendorEval = vendor.evaluasi?.[activePeriode]?.[key];
                   return (
                     <div key={vendor.id} className="border border-gray-200 rounded p-3 bg-gray-50">
@@ -422,18 +476,22 @@ export default function EvaluasiPekerjaan({
                         </span>
                       </div>
                       
+                      {/* HANYA TAMPILKAN FIELD YANG ADA ISINYA */}
                       <div className="space-y-2">
-                        {fieldEvaluasiVendorList.map((field) => {
-                          const val = vendorEval?.fields?.[field.id];
-                          return (
-                            <div key={field.id} className="bg-white p-2 rounded border border-gray-100">
-                              <p className="text-[10px] font-semibold text-gray-500 mb-1">{field.label}</p>
-                              <p className="text-xs text-gray-800 whitespace-pre-wrap">
-                                {val || <span className="italic text-gray-400">- Belum diisi -</span>}
-                              </p>
-                            </div>
-                          );
-                        })}
+                        {vendorEval ? (
+                          fieldEvaluasiVendorList.map((field) => {
+                            const val = vendorEval.fields?.[field.id];
+                            if (!val) return null; // Skip kalau kosong biar PDF bersih
+                            return (
+                              <div key={field.id} className="bg-white p-2 rounded border border-gray-100">
+                                <p className="text-[10px] font-semibold text-gray-500 mb-1">{field.label}</p>
+                                <p className="text-xs text-gray-800 whitespace-pre-wrap">{val}</p>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">Tidak ada data evaluasi untuk periode ini.</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -474,7 +532,20 @@ export default function EvaluasiPekerjaan({
                 <div className="space-y-2">
                   {historyList.map((ev) => (
                     <details key={ev.key} className="border border-gray-200 rounded p-2 bg-gray-50">
-                      <summary className="text-sm font-semibold text-gray-800 cursor-pointer">📅 {ev.label || ev.key}</summary>
+                      <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex justify-between items-center">
+                        <span>📅 {ev.label || ev.key}</span>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleHapusHistoryPekerjaan(ev.key);
+                          }}
+                          className="btn btn-ghost btn-xs text-red-500"
+                          title="Hapus History"
+                          data-html2canvas-ignore="true"
+                        >
+                          🗑️
+                        </button>
+                      </summary>
                       <div className="mt-2 space-y-2">
                         {fieldEvaluasiList.map((f) => {
                           const val = ev.fields?.[f.id];
