@@ -18,6 +18,7 @@ import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
 import { migrasiStatusVendorPekerjaan, migrasiStatusVendorBisnis } from "@/lib/vendorData";
+import { Menu, LogOut, CalendarDays } from "lucide-react";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -301,18 +302,20 @@ export default function Dashboard() {
 
   return (
     <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-2 md:px-4 flex-wrap gap-2" data-html2canvas-ignore="true">
-        <div className="flex-1 flex items-center gap-1">
+      {/* Navbar yang udah di-rapihin */}
+      <div className="navbar bg-base-100 shadow-sm px-4 md:px-6 flex-wrap gap-2 z-20 relative" data-html2canvas-ignore="true">
+        <div className="flex-1 flex items-center gap-2">
           <button
-            className="btn btn-ghost btn-sm md:hidden"
+            className="btn btn-ghost btn-sm btn-square md:hidden"
             onClick={() => setMobileSidebarOpen(true)}
-            aria-label="Buka menu"
           >
-            ☰
+            <Menu size={20} />
           </button>
-          <h1 className="text-lg md:text-xl font-bold">🌙 Self Management</h1>
+          <h1 className="text-lg md:text-xl font-bold text-gray-800">
+            🌙 Self Management
+          </h1>
         </div>
+        
         <div className="flex gap-2 items-center flex-wrap justify-end">
           <MenuManager
             menus={menus} activities={activities} menusCustom={menusCustom} user={user} onUpdate={handleUpdateMenus} onUpdateCustom={async (newCustom) => { setMenusCustom(newCustom); if (!user) return; await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true }); }}
@@ -320,57 +323,48 @@ export default function Dashboard() {
           <SyncSheetsButton user={user} />
           <ViewerManager user={user} />
           <TelegramSetting user={user} />
-          <span className="text-xs md:text-sm font-mono hidden md:block">{today}</span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>Logout</button>
+          
+          <div className="hidden md:flex items-center gap-2 text-sm font-mono text-gray-500 bg-base-200 px-3 py-1.5 rounded-lg">
+            <CalendarDays size={16} />
+            {today}
+          </div>
+          <button className="btn btn-ghost btn-sm text-error hover:bg-error/10" onClick={handleLogout}>
+            <LogOut size={16} className="md:mr-1" />
+            <span className="hidden md:inline">Logout</span>
+          </button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Mobile Sidebar Drawer */}
-        {mobileSidebarOpen && (
-          <>
-            <div
-              className="fixed inset-0 bg-black/50 z-40 md:hidden"
-              onClick={() => setMobileSidebarOpen(false)}
-            />
-            <div className="fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden overflow-y-auto">
-              <div className="p-4 border-b border-base-200 flex justify-between items-center sticky top-0 bg-base-100 z-10">
-                <h2 className="font-bold text-gray-800">🌙 Menu</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => setMobileSidebarOpen(false)}>
-                  ✕
-                </button>
-              </div>
-              <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} />
-            </div>
-          </>
-        )}
+        {/* Mobile Sidebar Drawer Animasi */}
+        <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity md:hidden ${mobileSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible"}`} onClick={() => setMobileSidebarOpen(false)} />
+        <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden transform transition-transform duration-300 ease-in-out ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} onCloseMobile={() => setMobileSidebarOpen(false)} />
+        </div>
 
         {/* Desktop Sidebar */}
         <div
-          className={`hidden md:block ${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
+          className={`hidden md:block ${sidebarCollapsed ? "w-16" : "w-64"} transition-all duration-300 bg-base-100 z-10`}
           data-html2canvas-ignore="true"
         >
           <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
 
         {/* Main Content */}
-        <div id="export-area" className="flex-1 overflow-y-auto p-3 md:p-6 bg-base-200">
+        <div id="export-area" className="flex-1 overflow-y-auto p-4 md:p-6 bg-base-200">
           <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
             <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />
           </div>
 
-          <Schedule
-            jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData}
-          />
+          <div className="max-w-5xl mx-auto space-y-6">
+            <Schedule
+              jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData}
+            />
 
-          <div className="text-center text-base-content/50 mt-10 mb-6">
-            <p className="text-2xl mb-2">📋</p>
-            <p>Pilih menu dari sidebar</p>
+            <RingkasanKeuangan
+              dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")}
+            />
           </div>
-
-          <RingkasanKeuangan
-            dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")}
-          />
         </div>
       </div>
     </div>
