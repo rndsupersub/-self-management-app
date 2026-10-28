@@ -4,18 +4,25 @@
 import { useState } from "react";
 import { signInWithPopup, signOut } from "firebase/auth";
 import { auth, provider, db } from "@/lib/firebase";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore"; // Tambah setDoc
 import { useRouter } from "next/navigation";
-import { verifyPassword } from "@/lib/authdata";
-import { User, Eye, Lock, ArrowRight, Brain } from "lucide-react";
+import { verifyPassword, hashPassword } from "@/lib/authdata"; // Tambah hashPassword
+import { User, Eye, Lock, ArrowRight, Brain, RefreshCw, Save, CheckCircle2, AlertTriangle } from "lucide-react";
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState(null);
-  const [step, setStep] = useState("choose");
+  const [step, setStep] = useState("choose"); // "choose" | "password" | "reset"
   const [password, setPassword] = useState("");
   const [userData, setUserData] = useState(null);
   const [error, setError] = useState("");
+
+  // State buat Lupa Password
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   const router = useRouter();
 
   const handleGoogleLogin = async (type) => {
@@ -110,6 +117,49 @@ export default function Login() {
     }
   };
 
+  const handleResetPassword = async () => {
+    setResetError("");
+    setResetSuccess(false);
+
+    if (newPassword.length < 6) {
+      setResetError("Password minimal 6 karakter.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError("Password dan konfirmasi nggak sama.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const newHash = await hashPassword(newPassword);
+      
+      if (userData._type === "user") {
+        await setDoc(doc(db, "users", userData._uid), { passwordHash: newHash }, { merge: true });
+      } else {
+        await setDoc(doc(db, "viewers", userData._uid), { passwordHash: newHash }, { merge: true });
+      }
+
+      // Update state lokal biar langsung sinkron
+      setUserData({ ...userData, passwordHash: newHash });
+      setResetSuccess(true);
+      setNewPassword("");
+      setConfirmPassword("");
+      
+      // Balik ke step password setelah 2 detik
+      setTimeout(() => {
+        setStep("password");
+        setResetSuccess(false);
+      }, 2000);
+
+    } catch (err) {
+      console.error("[reset] Error:", err);
+      setResetError("Gagal reset password: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCancel = async () => {
     await signOut(auth);
     setMode(null);
@@ -117,6 +167,8 @@ export default function Login() {
     setPassword("");
     setUserData(null);
     setError("");
+    setResetError("");
+    setResetSuccess(false);
   };
 
   return (
@@ -201,18 +253,98 @@ export default function Login() {
                 {loading ? "Memverifikasi..." : "Masuk"}
               </button>
 
+              <div className="flex justify-between w-full mt-2">
+                <button
+                  className="btn btn-ghost btn-xs text-gray-500"
+                  onClick={handleCancel}
+                  disabled={loading}
+                >
+                  ← Batal
+                </button>
+                <button
+                  className="btn btn-ghost btn-xs text-blue-600 hover:bg-blue-50"
+                  onClick={() => { setStep("reset"); setError(""); }}
+                  disabled={loading}
+                >
+                  Lupa Password?
+                </button>
+              </div>
+            </>
+          )}
+
+          {step === "reset" && userData && (
+            <>
+              <div className="badge badge-warning mb-2 gap-1">
+                <RefreshCw size={12} /> Reset Password
+              </div>
+              <p className="text-sm text-gray-600 mb-1">
+                Bikin password baru buat <b className="text-gray-800">{userData.nama || userData.email}</b>.
+              </p>
+              <p className="text-xs text-gray-400 mb-4">
+                Pastiin lo inget password barunya ya.
+              </p>
+
+              <div className="space-y-2 w-full">
+                <div className="relative w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type="password"
+                    className="input input-bordered w-full pl-10 text-sm"
+                    placeholder="Password Baru (min 6 karakter)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="relative w-full">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={16} />
+                  </div>
+                  <input
+                    type="password"
+                    className="input input-bordered w-full pl-10 text-sm"
+                    placeholder="Konfirmasi Password Baru"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {resetError && (
+                <div className="alert alert-error mt-3 py-2 text-xs text-left w-full flex items-center gap-1">
+                  <AlertTriangle size={14} /> <span>{resetError}</span>
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div className="alert alert-success mt-3 py-2 text-xs text-left w-full flex items-center gap-1">
+                  <CheckCircle2 size={14} /> <span>Password berhasil diubah! Mengalihkan...</span>
+                </div>
+              )}
+
               <button
-                className="btn btn-ghost btn-sm mt-2 text-gray-500"
-                onClick={handleCancel}
-                disabled={loading}
+                className="btn btn-primary btn-block mt-3 gap-2"
+                onClick={handleResetPassword}
+                disabled={loading || !newPassword || !confirmPassword || resetSuccess}
               >
-                ← Batal
+                {loading ? <span className="loading loading-spinner loading-sm" /> : <Save size={18} />}
+                {loading ? "Menyimpan..." : "Simpan Password Baru"}
+              </button>
+
+              <button
+                className="btn btn-ghost btn-sm mt-2 text-gray-500 w-full"
+                onClick={() => { setStep("password"); setNewPassword(""); setConfirmPassword(""); setResetError(""); }}
+                disabled={loading || resetSuccess}
+              >
+                ← Batal Reset
               </button>
             </>
           )}
 
           {error && (
-            <div className="alert alert-error mt-4 py-2 text-xs text-left">
+            <div className="alert alert-error mt-4 py-2 text-xs text-left w-full">
               <span>{error}</span>
             </div>
           )}
