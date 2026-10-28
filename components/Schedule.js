@@ -19,17 +19,14 @@ export default function Schedule({
   const [editMinggu, setEditMinggu] = useState([]);
   const [activeTab, setActiveTab] = useState("kerja");
 
-  // State untuk form tambah item baru
   const [formBaru, setFormBaru] = useState({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
-
-  // State untuk edit item yang udah ada
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     if (showKelolaJadwal) {
       setEditKerja(JSON.parse(JSON.stringify(jadwalUser?.kerja || [])));
       setEditMinggu(JSON.parse(JSON.stringify(jadwalUser?.minggu || [])));
-      setEditingItem(null); // Reset state edit pas modal dibuka
+      setEditingItem(null);
     }
   }, [showKelolaJadwal, jadwalUser]);
 
@@ -78,7 +75,6 @@ export default function Schedule({
     setShowKelolaJadwal(false);
   };
 
-  // --- LOGIC EDIT ITEM YANG UDAH ADA ---
   const handleSaveEdit = () => {
     if (!editingItem) return;
     if (activeTab === "kerja") {
@@ -101,8 +97,8 @@ export default function Schedule({
       id: `jadwal_${Date.now()}`,
       label: formBaru.label,
       unit: formBaru.unit || "",
-      jamMulai: formBaru.jamMulai || "",
-      jamSelesai: formBaru.jamSelesai || "",
+      // Nyimpen format string biar sama kayak data lama
+      jam: formBaru.jamMulai && formBaru.jamSelesai ? `${formBaru.jamMulai} - ${formBaru.jamSelesai}` : "",
     };
     if (activeTab === "kerja") setEditKerja([...editKerja, newItem]);
     else setEditMinggu([...editMinggu, newItem]);
@@ -112,6 +108,29 @@ export default function Schedule({
   const cleanLabel = (text) => {
     if (!text) return "";
     return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+  };
+
+  // FUNGSI SAKTI BUAT BACA JAM DARI BERBAGAI NAMA FIELD
+  const parseJam = (act) => {
+    if (!act) return { mulai: "", selesai: "" };
+    
+    // 1. Cek kalau ada field 'jam' (misal: "05:30 - 06:30")
+    if (act.jam && typeof act.jam === 'string' && act.jam.includes('-')) {
+      const parts = act.jam.split('-');
+      return { mulai: parts[0].trim(), selesai: parts[1].trim() };
+    }
+    
+    // 2. Cek field 'waktu' (misal: "05:30 -- 06:30")
+    if (act.waktu && typeof act.waktu === 'string' && act.waktu.includes('-')) {
+      const parts = act.waktu.split('--');
+      if (parts.length > 1) return { mulai: parts[0].trim(), selesai: parts[1].trim() };
+    }
+
+    // 3. Cek field terpisah
+    const mulai = act.jamMulai || act.waktuMulai || act.start || "";
+    const selesai = act.jamSelesai || act.waktuSelesai || act.end || "";
+
+    return { mulai, selesai };
   };
 
   return (
@@ -168,9 +187,7 @@ export default function Schedule({
             {jadwalHariIni.map((act) => {
               const isSelesai = progressHariIni[act.id]?.selesai || false;
               const labelBersih = cleanLabel(act.label);
-              // READ-ONLY TAMPILAN JAM (Sesuai data asli)
-              const jMulai = act.jamMulai || "";
-              const jSelesai = act.jamSelesai || "";
+              const { mulai, selesai } = parseJam(act);
 
               return (
                 <div
@@ -180,9 +197,9 @@ export default function Schedule({
                   }`}
                 >
                   <div className="flex-1 flex flex-wrap items-center gap-3">
-                    {(jMulai || jSelesai) && (
-                      <span className="text-xs font-mono text-gray-500 w-28 shrink-0 flex items-center gap-1">
-                        <Clock size={12} /> {jMulai} - {jSelesai}
+                    {(mulai || selesai) && (
+                      <span className="text-xs font-mono text-gray-500 w-32 shrink-0 flex items-center gap-1">
+                        <Clock size={12} /> {mulai || "--:--"} -- {selesai || "--:--"}
                       </span>
                     )}
                     <p className={`text-sm font-semibold ${isSelesai ? "text-green-800 line-through opacity-70" : "text-gray-800"}`}>
@@ -228,15 +245,23 @@ export default function Schedule({
               {/* LIST ITEM DENGAN FITUR EDIT & DELETE */}
               <div className="space-y-3 mb-6">
                 {(activeTab === "kerja" ? editKerja : editMinggu).map((item) => {
-                  
+                  const { mulai, selesai } = parseJam(item);
+
                   // JIKA SEDANG EDIT ITEM INI
                   if (editingItem && editingItem.id === item.id) {
+                    const parseEdit = parseJam(editingItem);
                     return (
                       <div key={item.id} className="flex flex-wrap items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-300">
                         <div className="flex items-center gap-1">
-                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={editingItem.jamMulai || ""} onChange={(e) => setEditingItem({...editingItem, jamMulai: e.target.value})} title="Jam Mulai" />
+                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={parseEdit.mulai || ""} onChange={(e) => {
+                            const newJam = `${e.target.value} - ${parseEdit.selesai || "00:00"}`;
+                            setEditingItem({...editingItem, jam: newJam, waktu: newJam, jamMulai: e.target.value});
+                          }} title="Jam Mulai" />
                           <span className="text-gray-500">-</span>
-                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={editingItem.jamSelesai || ""} onChange={(e) => setEditingItem({...editingItem, jamSelesai: e.target.value})} title="Jam Selesai" />
+                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={parseEdit.selesai || ""} onChange={(e) => {
+                            const newJam = `${parseEdit.mulai || "00:00"} - ${e.target.value}`;
+                            setEditingItem({...editingItem, jam: newJam, waktu: newJam, jamSelesai: e.target.value});
+                          }} title="Jam Selesai" />
                         </div>
                         <input type="text" className="input input-bordered input-sm flex-1 min-w-[150px] text-gray-800 bg-white" value={editingItem.label} onChange={(e) => setEditingItem({...editingItem, label: e.target.value})} placeholder="Nama Kegiatan" />
                         <input type="text" className="input input-bordered input-sm w-24 text-gray-800 bg-white" value={editingItem.unit || ""} onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})} placeholder="Unit" />
@@ -253,9 +278,9 @@ export default function Schedule({
                   return (
                     <div key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <div className="flex items-center gap-3">
-                        {(item.jamMulai || item.jamSelesai) && (
+                        {(mulai || selesai) && (
                           <span className="text-xs font-mono text-gray-500 flex items-center gap-1">
-                            <Clock size={12} /> {item.jamMulai} - {item.jamSelesai}
+                            <Clock size={12} /> {mulai} -- {selesai}
                           </span>
                         )}
                         <div>
