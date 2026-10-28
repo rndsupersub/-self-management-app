@@ -262,7 +262,7 @@ export default function KalenderPekerjaan({
           </div>
 
           {selectStart && !selectEnd && (
-            <div className="mt-3 alert alert-info py-2 text-xs">
+            <div className="mt-3 alert alert-info py-2 text-xs flex items-center gap-1">
               <Info size={14} className="mr-1"/> Tanggal mulai: <strong>{selectStart}</strong>. Klik tanggal akhir, atau klik tanggal yang sama buat 1 hari.
             </div>
           )}

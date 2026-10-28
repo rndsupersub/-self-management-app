@@ -135,7 +135,7 @@ export default function KalenderTransaksi({
 
   return (
     <div className="space-y-4">
-      <div className="alert alert-info py-2 text-xs" data-html2canvas-ignore="true">
+      <div className="alert alert-info py-2 text-xs flex items-center gap-2" data-html2canvas-ignore="true">
         <Info size={14} className="mr-1" /> Klik tanggal di kalender buat input / liat transaksi. Dot = ada transaksi.
       </div>
 
@@ -251,7 +251,7 @@ export default function KalenderTransaksi({
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">Catatan</label>
                 <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Catatan (opsional)" value={formData.catatan} onChange={(e) => setFormData({ ...formData, catatan: e.target.value })} />
               </div>
-              {errorMsg && <div className="alert alert-error py-2 text-xs"><AlertTriangle size={14} className="mr-1"/> {errorMsg}</div>}
+              {errorMsg && <div className="alert alert-error py-2 text-xs flex items-center gap-1"><AlertTriangle size={14}/> {errorMsg}</div>}
               <div className="flex gap-2">
                 <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan}>{editingId ? <><Save size={16} className="mr-1"/> Simpan</> : <><Plus size={16} className="mr-1"/> Tambah</>}</button>
                 <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => { setShowForm(false); setEditingId(null); }}>Batal</button>
