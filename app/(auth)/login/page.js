@@ -7,7 +7,7 @@ import { auth, provider, db } from "@/lib/firebase";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { verifyPassword } from "@/lib/authdata";
-import { User, Eye, Lock, ArrowRight, ShieldCheck, Moon } from "lucide-react";
+import { User, Eye, Lock, ArrowRight, Brain } from "lucide-react";
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -124,8 +124,8 @@ export default function Login() {
       <div className="card w-full max-w-md bg-base-100 shadow-xl border border-base-300">
         <div className="card-body items-center text-center">
 
-          <div className="bg-primary/10 p-3 rounded-full mb-2 text-primary">
-            <Moon size={32} className="text-warning" />
+          <div className="bg-primary/10 p-4 rounded-full mb-2 text-primary">
+            <Brain size={40} className="text-primary" />
           </div>
           <h2 className="card-title text-2xl font-bold text-gray-800">Self Management</h2>
 

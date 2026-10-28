@@ -12,7 +12,7 @@ import SyncSheetsButton from "@/components/SyncSheetsButton";
 import TelegramSetting from "@/components/TelegramSetting";
 import ViewerManager from "@/components/ViewerManager";
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
-import { Menu, LogOut, CalendarDays, Moon } from "lucide-react";
+import { Menu, LogOut, CalendarDays, Brain } from "lucide-react";
 
 export default function DashboardLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -84,7 +84,7 @@ export default function DashboardLayout({ children }) {
         <div className="navbar bg-base-100 shadow-sm px-4 md:px-6" data-html2canvas-ignore="true">
           <div className="flex-1">
             <h1 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-              <Moon size={24} className="text-warning" /> Self Management — Viewer
+              <Brain size={24} className="text-primary" /> Self Management — Viewer
             </h1>
           </div>
           <button className="btn btn-ghost btn-sm text-error hover:bg-error/10" onClick={handleLogout}>
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }) {
             <Menu size={20} />
           </button>
           <h1 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Moon size={24} className="text-warning" /> Self Management
+            <Brain size={24} className="text-primary" /> Self Management
           </h1>
         </div>
 
@@ -127,18 +127,15 @@ export default function DashboardLayout({ children }) {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* MOBILE SIDEBAR */}
         <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity md:hidden ${mobileSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible"}`} onClick={() => setMobileSidebarOpen(false)} />
         <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden transform transition-transform duration-300 ease-in-out ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} onCloseMobile={() => setMobileSidebarOpen(false)} />
         </div>
 
-        {/* DESKTOP SIDEBAR - TAMBAH SHRINK-0 */}
         <div className={`hidden md:block shrink-0 ${sidebarCollapsed ? "w-16" : "w-64"} transition-all duration-300 bg-base-100 z-10`} data-html2canvas-ignore="true">
           <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         </div>
 
-        {/* PAGE CONTENT - TAMBAH MIN-W-0 */}
         <main id="export-area" className="flex-1 min-w-0 overflow-y-auto p-4 md:p-6 bg-base-200">
           {children}
         </main>
