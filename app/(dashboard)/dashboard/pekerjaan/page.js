@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { DEFAULT_PT, generateId } from "@/lib/pekerjaanData";
+import { Building2, Briefcase, Pencil, Trash2, ArrowRight, Home } from "lucide-react";
 
 export default function PekerjaanPage() {
   const [user, setUser] = useState(null);
@@ -65,25 +66,27 @@ export default function PekerjaanPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="text-sm breadcrumbs mb-4" data-html2canvas-ignore="true">
+      <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
-          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer">🏠 Dashboard</a></li>
-          <li>💼 Pekerjaan</li>
+          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
+          <li className="flex items-center gap-1"><Briefcase size={14} /> Pekerjaan</li>
         </ul>
       </div>
 
-      <div className="flex justify-between items-center mb-4" data-html2canvas-ignore="true">
-        <h1 className="text-2xl font-bold text-gray-800">💼 Pekerjaan</h1>
+      <div className="flex justify-between items-center mb-6" data-html2canvas-ignore="true">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <Briefcase className="text-primary" size={24} /> Pekerjaan
+        </h1>
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah PT</button>
       </div>
 
       {showForm && (
         <div className="card bg-white shadow border border-gray-200 mb-4" data-html2canvas-ignore="true">
           <div className="card-body p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">✏️ Tambah PT baru</p>
+            <p className="text-xs font-semibold text-blue-700 mb-2">Tambah PT baru</p>
             <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Nama PT (misal: PT Elfiqa)" value={formData.nama} onChange={(e) => setFormData({ nama: e.target.value })} autoFocus />
             <div className="flex gap-2 mt-3">
-              <button className="btn btn-primary btn-sm flex-1" onClick={handleTambahPT}>➕ Tambah</button>
+              <button className="btn btn-primary btn-sm flex-1" onClick={handleTambahPT}>Simpan</button>
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowForm(false)}>Batal</button>
             </div>
           </div>
@@ -93,7 +96,7 @@ export default function PekerjaanPage() {
       {pekerjaan.length === 0 ? (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
-            <p className="text-3xl mb-2">🏢</p>
+            <Building2 size={40} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">Belum ada PT. Klik "+ Tambah PT" untuk mulai.</p>
           </div>
         </div>
@@ -103,14 +106,18 @@ export default function PekerjaanPage() {
             <div key={pt.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/pekerjaan/${pt.id}`)}>
               <div className="card-body p-4">
                 <div className="flex justify-between items-start gap-2">
-                  <h2 className="card-title text-base text-gray-800 flex-1">🏢 {pt.nama}</h2>
+                  <h2 className="card-title text-base text-gray-800 flex items-center gap-2 flex-1">
+                    <Building2 size={18} className="text-gray-500" /> {pt.nama}
+                  </h2>
                   <div className="flex gap-1 shrink-0" data-html2canvas-ignore="true">
-                    <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenamePT(pt.id, pt.nama, e)}>✏️</button>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusPT(pt.id, e)}>🗑️</button>
+                    <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenamePT(pt.id, pt.nama, e)} title="Edit"><Pencil size={14} /></button>
+                    <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusPT(pt.id, e)} title="Hapus"><Trash2 size={14} /></button>
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">{pt.brands?.length || 0} Brand • {pt.brands?.reduce((sum, b) => sum + (b.kegiatan?.length || 0), 0) || 0} Kegiatan</p>
-                <div className="card-actions justify-end mt-2"><span className="text-gray-400 text-sm">Buka →</span></div>
+                <div className="card-actions justify-end mt-2">
+                  <span className="text-gray-400 text-xs flex items-center gap-1 group-hover:text-primary transition">Buka <ArrowRight size={12} /></span>
+                </div>
               </div>
             </div>
           ))}

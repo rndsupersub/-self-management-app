@@ -15,6 +15,7 @@ import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, ClipboardList } from "lucide-react";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -22,7 +23,6 @@ export default function BrandPage() {
   const [today, setToday] = useState("");
   const [pekerjaan, setPekerjaan] = useState([]);
   
-  // State setting
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_SUMBER);
   const [kategoriPekerjaanList, setKategoriPekerjaanList] = useState(DEFAULT_KATEGORI_KEGIATAN);
@@ -34,7 +34,6 @@ export default function BrandPage() {
   const [fieldEvaluasiVendorList, setFieldEvaluasiVendorList] = useState(DEFAULT_FIELD_EVALUASI_VENDOR);
   const [periodeEvaluasiPekerjaanList, setPeriodeEvaluasiPekerjaanList] = useState(DEFAULT_PERIODE_EVALUASI);
 
-  // State UI & Modal
   const [editMode, setEditMode] = useState(false);
   const [editNama, setEditNama] = useState("");
   const [confirmHapusBrand, setConfirmHapusBrand] = useState(false);
@@ -89,7 +88,6 @@ export default function BrandPage() {
     await setDoc(doc(db, "users", user.uid), updates, { merge: true });
   };
 
-  // --- Handlers Brand & Kegiatan ---
   const handleTambahKegiatan = async (newKegiatan) => {
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: [...(b.kegiatan || []), newKegiatan] } : b) } : p);
     await simpanKeFirestore(updated);
@@ -122,7 +120,6 @@ export default function BrandPage() {
     router.push(`/dashboard/pekerjaan/${ptId}`);
   };
 
-  // --- Handlers Vendor ---
   const handleAddVendor = async (newVendor) => {
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, vendorList: [...(b.vendorList || []), newVendor] } : b) } : p);
     await simpanKeFirestore(updated);
@@ -139,7 +136,6 @@ export default function BrandPage() {
     setSelectedVendorId(null);
   };
 
-  // --- Handlers Laporan & Evaluasi ---
   const handleUpdateLaporan = async (newLaporanData) => {
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, laporanData: newLaporanData } : b) } : p);
     await simpanKeFirestore(updated);
@@ -156,7 +152,7 @@ export default function BrandPage() {
     return (
       <div className="card bg-white shadow border border-gray-200 max-w-md mx-auto mt-10">
         <div className="card-body p-8 text-center text-gray-400">
-          <p className="text-3xl mb-2">🏷️</p>
+          <Tag size={40} className="mx-auto mb-2 opacity-50" />
           <p className="text-sm mb-4">Brand tidak ditemukan.</p>
           <button className="btn btn-primary btn-sm" onClick={() => router.push("/dashboard/pekerjaan")}>← Balik ke Pekerjaan</button>
         </div>
@@ -169,12 +165,12 @@ export default function BrandPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="text-sm breadcrumbs mb-4" data-html2canvas-ignore="true">
+      <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
-          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer">🏠 Dashboard</a></li>
-          <li><a onClick={() => router.push("/dashboard/pekerjaan")} className="cursor-pointer">💼 Pekerjaan</a></li>
-          <li><a onClick={() => router.push(`/dashboard/pekerjaan/${ptId}`)} className="cursor-pointer">🏢 {pt.nama}</a></li>
-          <li>🏷️ {brand.nama}</li>
+          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
+          <li><a onClick={() => router.push("/dashboard/pekerjaan")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Briefcase size={14} /> Pekerjaan</a></li>
+          <li><a onClick={() => router.push(`/dashboard/pekerjaan/${ptId}`)} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Building2 size={14} /> {pt.nama}</a></li>
+          <li className="flex items-center gap-1"><Tag size={14} /> {brand.nama}</li>
         </ul>
       </div>
 
@@ -182,14 +178,16 @@ export default function BrandPage() {
         {editMode ? (
           <div className="flex gap-2 items-center flex-1">
             <input type="text" className="input input-bordered text-gray-800 bg-white flex-1 max-w-md" value={editNama} onChange={(e) => setEditNama(e.target.value)} autoFocus />
-            <button className="btn btn-primary btn-sm" onClick={handleSimpanNamaBrand}>💾 Simpan</button>
+            <button className="btn btn-primary btn-sm" onClick={handleSimpanNamaBrand}>Simpan</button>
             <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => { setEditMode(false); setEditNama(brand.nama); }}>Batal</button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-800">🏷️ {brand.nama}</h1>
-            <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setEditMode(true)}>✏️</button>
-            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusBrand(true)}>🗑️</button>
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Tag className="text-primary" size={24} /> {brand.nama}
+            </h1>
+            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditMode(true)} title="Edit Nama"><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusBrand(true)} title="Hapus Brand"><Trash2 size={16} /></button>
           </div>
         )}
       </div>
@@ -205,10 +203,18 @@ export default function BrandPage() {
       )}
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => { setActiveTab("kalender"); setSelectedVendorId(null); }}>📅 Kalender</button>
-        <button className={`tab ${activeTab === "vendor" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("vendor")}>🏭 Vendor ({vendorList.length})</button>
-        <button className={`tab ${activeTab === "laporan" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("laporan")}>📋 Laporan</button>
-        <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("evaluasi")}>📊 Evaluasi</button>
+        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("kalender"); setSelectedVendorId(null); }}>
+          <Calendar size={16} className="mr-2" /> Kalender
+        </button>
+        <button className={`tab ${activeTab === "vendor" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("vendor")}>
+          <Factory size={16} className="mr-2" /> Vendor ({vendorList.length})
+        </button>
+        <button className={`tab ${activeTab === "laporan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("laporan")}>
+          <FileText size={16} className="mr-2" /> Laporan
+        </button>
+        <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}>
+          <BarChart3 size={16} className="mr-2" /> Evaluasi
+        </button>
       </div>
 
       <div id="export-area">
@@ -222,17 +228,17 @@ export default function BrandPage() {
             {brand.kegiatan && brand.kegiatan.length > 0 && (
               <div className="card bg-white shadow border border-gray-200 mt-4">
                 <div className="card-body p-4">
-                  <h3 className="text-base font-bold text-gray-800 mb-3">📋 Semua Kegiatan ({brand.kegiatan.length})</h3>
+                  <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><ClipboardList size={18} /> Semua Kegiatan ({brand.kegiatan.length})</h3>
                   <div className="space-y-2">
                     {brand.kegiatan.slice().sort((a, b) => a.tanggal.localeCompare(b.tanggal)).map((keg) => (
                       <div key={keg.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200">
                         <div className="flex-1 cursor-pointer" onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${keg.id}`)}>
                           <p className={`text-sm font-semibold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>{keg.judul}</p>
-                          <p className="text-xs text-gray-500">📅 {keg.tanggal} • {keg.status === "selesai" ? "✅ Selesai" : "⏳ Belum"}</p>
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-1"><Calendar size={12} /> {keg.tanggal} • {keg.status === "selesai" ? "Selesai" : "Belum"}</p>
                         </div>
                         <div className="flex gap-1" data-html2canvas-ignore="true">
-                          <button className="btn btn-ghost btn-xs" onClick={() => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}>✏️</button>
-                          <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKegiatan(keg.id)}>🗑️</button>
+                          <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}><Pencil size={14} /></button>
+                          <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKegiatan(keg.id)}><Trash2 size={14} /></button>
                         </div>
                       </div>
                     ))}
@@ -264,7 +270,7 @@ export default function BrandPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-md">
             <div className="card-body p-4">
-              <h3 className="text-base font-bold text-gray-800 mb-3">✏️ Edit Kegiatan</h3>
+              <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><Pencil size={18} /> Edit Kegiatan</h3>
               <div className="space-y-2">
                 <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Judul kegiatan" value={editForm.judul} onChange={(e) => setEditForm({ ...editForm, judul: e.target.value })} />
                 <div className="flex gap-2">
@@ -279,7 +285,7 @@ export default function BrandPage() {
                 <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="2" placeholder="Catatan" value={editForm.catatan} onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })} />
               </div>
               <div className="flex gap-2 mt-3">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanEditKegiatan}>💾 Simpan</button>
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanEditKegiatan}>Simpan</button>
                 <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setEditingKegiatan(null)}>Batal</button>
               </div>
             </div>

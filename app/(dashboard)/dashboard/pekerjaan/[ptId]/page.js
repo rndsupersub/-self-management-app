@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { generateId } from "@/lib/pekerjaanData";
+import { Building2, Tag, Pencil, Trash2, ArrowRight, Home, Briefcase } from "lucide-react";
 
 export default function PTDetailPage() {
   const [user, setUser] = useState(null);
@@ -85,7 +86,7 @@ export default function PTDetailPage() {
     return (
       <div className="card bg-white shadow border border-gray-200 max-w-md mx-auto mt-10">
         <div className="card-body p-8 text-center text-gray-400">
-          <p className="text-3xl mb-2">🏢</p>
+          <Building2 size={40} className="mx-auto mb-2 opacity-50" />
           <p className="text-sm mb-4">PT tidak ditemukan.</p>
           <button className="btn btn-primary btn-sm" onClick={() => router.push("/dashboard/pekerjaan")}>← Balik ke Pekerjaan</button>
         </div>
@@ -95,11 +96,11 @@ export default function PTDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="text-sm breadcrumbs mb-4" data-html2canvas-ignore="true">
+      <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
-          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer">🏠 Dashboard</a></li>
-          <li><a onClick={() => router.push("/dashboard/pekerjaan")} className="cursor-pointer">💼 Pekerjaan</a></li>
-          <li>🏢 {pt.nama}</li>
+          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
+          <li><a onClick={() => router.push("/dashboard/pekerjaan")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Briefcase size={14} /> Pekerjaan</a></li>
+          <li className="flex items-center gap-1"><Building2 size={14} /> {pt.nama}</li>
         </ul>
       </div>
 
@@ -107,14 +108,16 @@ export default function PTDetailPage() {
         {editMode ? (
           <div className="flex gap-2 items-center flex-1">
             <input type="text" className="input input-bordered text-gray-800 bg-white flex-1 max-w-md" value={editNama} onChange={(e) => setEditNama(e.target.value)} autoFocus />
-            <button className="btn btn-primary btn-sm" onClick={handleSimpanNamaPT}>💾 Simpan</button>
+            <button className="btn btn-primary btn-sm" onClick={handleSimpanNamaPT}>Simpan</button>
             <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => { setEditMode(false); setEditNama(pt.nama); }}>Batal</button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-800">🏢 {pt.nama}</h1>
-            <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setEditMode(true)}>✏️</button>
-            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusPT(true)}>🗑️</button>
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Building2 className="text-primary" size={24} /> {pt.nama}
+            </h1>
+            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditMode(true)} title="Edit Nama"><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusPT(true)} title="Hapus PT"><Trash2 size={16} /></button>
           </div>
         )}
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Brand</button>
@@ -133,10 +136,10 @@ export default function PTDetailPage() {
       {showForm && (
         <div className="card bg-white shadow border border-gray-200 mb-4" data-html2canvas-ignore="true">
           <div className="card-body p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">✏️ Tambah brand baru</p>
+            <p className="text-xs font-semibold text-blue-700 mb-2">Tambah brand baru</p>
             <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Nama Brand" value={formData.nama} onChange={(e) => setFormData({ nama: e.target.value })} autoFocus />
             <div className="flex gap-2 mt-3">
-              <button className="btn btn-primary btn-sm flex-1" onClick={handleTambahBrand}>➕ Tambah</button>
+              <button className="btn btn-primary btn-sm flex-1" onClick={handleTambahBrand}>Simpan</button>
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowForm(false)}>Batal</button>
             </div>
           </div>
@@ -146,7 +149,7 @@ export default function PTDetailPage() {
       {!pt.brands || pt.brands.length === 0 ? (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
-            <p className="text-3xl mb-2">🏷️</p>
+            <Tag size={40} className="mx-auto mb-2 opacity-50" />
             <p className="text-sm">Belum ada brand di PT ini. Klik "+ Tambah Brand" untuk mulai.</p>
           </div>
         </div>
@@ -156,11 +159,15 @@ export default function PTDetailPage() {
             <div key={brand.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brand.id}`)}>
               <div className="card-body p-4">
                 <div className="flex justify-between items-start">
-                  <h2 className="card-title text-base text-gray-800">🏷️ {brand.nama}</h2>
-                  <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusBrand(brand.id, e)}>🗑️</button>
+                  <h2 className="card-title text-base text-gray-800 flex items-center gap-2">
+                    <Tag size={18} className="text-gray-500" /> {brand.nama}
+                  </h2>
+                  <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusBrand(brand.id, e)} title="Hapus"><Trash2 size={14} /></button>
                 </div>
                 <p className="text-sm text-gray-500">{brand.kegiatan?.length || 0} Kegiatan</p>
-                <div className="card-actions justify-end mt-2"><span className="text-gray-400 text-sm">Buka →</span></div>
+                <div className="card-actions justify-end mt-2">
+                  <span className="text-gray-400 text-xs flex items-center gap-1 hover:text-primary transition">Buka <ArrowRight size={12} /></span>
+                </div>
               </div>
             </div>
           ))}
