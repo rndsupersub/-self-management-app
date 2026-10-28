@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2, Clock, Pencil } from "lucide-react";
 
 export default function Schedule({
   jadwalUser = { kerja: [], minggu: [] },
@@ -18,12 +18,18 @@ export default function Schedule({
   const [editKerja, setEditKerja] = useState([]);
   const [editMinggu, setEditMinggu] = useState([]);
   const [activeTab, setActiveTab] = useState("kerja");
+
+  // State untuk form tambah item baru
   const [formBaru, setFormBaru] = useState({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
+
+  // State untuk edit item yang udah ada
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     if (showKelolaJadwal) {
-      setEditKerja([...(jadwalUser?.kerja || [])]);
-      setEditMinggu([...(jadwalUser?.minggu || [])]);
+      setEditKerja(JSON.parse(JSON.stringify(jadwalUser?.kerja || [])));
+      setEditMinggu(JSON.parse(JSON.stringify(jadwalUser?.minggu || [])));
+      setEditingItem(null); // Reset state edit pas modal dibuka
     }
   }, [showKelolaJadwal, jadwalUser]);
 
@@ -72,6 +78,23 @@ export default function Schedule({
     setShowKelolaJadwal(false);
   };
 
+  // --- LOGIC EDIT ITEM YANG UDAH ADA ---
+  const handleSaveEdit = () => {
+    if (!editingItem) return;
+    if (activeTab === "kerja") {
+      setEditKerja(editKerja.map(item => item.id === editingItem.id ? editingItem : item));
+    } else {
+      setEditMinggu(editMinggu.map(item => item.id === editingItem.id ? editingItem : item));
+    }
+    setEditingItem(null);
+  };
+
+  const handleHapusItem = (id) => {
+    if (!confirm("Hapus jadwal ini?")) return;
+    if (activeTab === "kerja") setEditKerja(editKerja.filter((item) => item.id !== id));
+    else setEditMinggu(editMinggu.filter((item) => item.id !== id));
+  };
+
   const handleTambahItem = () => {
     if (!formBaru.label.trim()) return;
     const newItem = {
@@ -84,11 +107,6 @@ export default function Schedule({
     if (activeTab === "kerja") setEditKerja([...editKerja, newItem]);
     else setEditMinggu([...editMinggu, newItem]);
     setFormBaru({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
-  };
-
-  const handleHapusItem = (id) => {
-    if (activeTab === "kerja") setEditKerja(editKerja.filter((item) => item.id !== id));
-    else setEditMinggu(editMinggu.filter((item) => item.id !== id));
   };
 
   const cleanLabel = (text) => {
@@ -140,7 +158,7 @@ export default function Schedule({
           </button>
         </div>
 
-        {/* LIST JADWAL */}
+        {/* LIST JADWAL DI DASHBOARD */}
         {jadwalHariIni.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
             <p className="text-sm">Belum ada jadwal untuk hari ini.</p>
@@ -150,9 +168,9 @@ export default function Schedule({
             {jadwalHariIni.map((act) => {
               const isSelesai = progressHariIni[act.id]?.selesai || false;
               const labelBersih = cleanLabel(act.label);
-              // Ambil jam dari berbagai kemungkinan nama field
-              const jMulai = act.jamMulai || act.mulai || act.jam || "";
-              const jSelesai = act.jamSelesai || act.selesai || "";
+              // READ-ONLY TAMPILAN JAM (Sesuai data asli)
+              const jMulai = act.jamMulai || "";
+              const jSelesai = act.jamSelesai || "";
 
               return (
                 <div
@@ -164,7 +182,7 @@ export default function Schedule({
                   <div className="flex-1 flex flex-wrap items-center gap-3">
                     {(jMulai || jSelesai) && (
                       <span className="text-xs font-mono text-gray-500 w-28 shrink-0 flex items-center gap-1">
-                        <Clock size={12} /> {jMulai || "--:--"} - {jSelesai || "--:--"}
+                        <Clock size={12} /> {jMulai} - {jSelesai}
                       </span>
                     )}
                     <p className={`text-sm font-semibold ${isSelesai ? "text-green-800 line-through opacity-70" : "text-gray-800"}`}>
@@ -194,50 +212,93 @@ export default function Schedule({
       {/* MODAL KELOLA JADWAL */}
       {showKelolaJadwal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
-          <div className="card bg-white shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto">
+          <div className="card bg-white shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="card-body p-4">
+              
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-base font-bold text-gray-800">Kelola Jadwal</h3>
                 <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaJadwal(false)}><X size={18} /></button>
               </div>
 
-              <div className="tabs tabs-boxed bg-gray-50 border border-gray-200 p-1 w-fit mb-3">
-                <button className={`tab ${activeTab === "kerja" ? "tab-active bg-primary text-white" : ""}`} onClick={() => setActiveTab("kerja")}>Hari Kerja</button>
-                <button className={`tab ${activeTab === "minggu" ? "tab-active bg-primary text-white" : ""}`} onClick={() => setActiveTab("minggu")}>Hari Minggu</button>
+              <div className="tabs tabs-boxed bg-gray-50 border border-gray-200 p-1 w-fit mb-4">
+                <button className={`tab ${activeTab === "kerja" ? "tab-active bg-primary text-white" : ""}`} onClick={() => {setActiveTab("kerja"); setEditingItem(null);}}>Hari Kerja</button>
+                <button className={`tab ${activeTab === "minggu" ? "tab-active bg-primary text-white" : ""}`} onClick={() => {setActiveTab("minggu"); setEditingItem(null);}}>Hari Minggu</button>
               </div>
 
-              <div className="space-y-2 mb-4">
-                {(activeTab === "kerja" ? editKerja : editMinggu).map((item) => (
-                  <div key={item.id} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">
-                        {item.jamMulai ? `${item.jamMulai} - ${item.jamSelesai} ` : ""}
-                        {cleanLabel(item.label)}
-                      </p>
-                      {item.unit && <p className="text-xs text-gray-500">({item.unit})</p>}
+              {/* LIST ITEM DENGAN FITUR EDIT & DELETE */}
+              <div className="space-y-3 mb-6">
+                {(activeTab === "kerja" ? editKerja : editMinggu).map((item) => {
+                  
+                  // JIKA SEDANG EDIT ITEM INI
+                  if (editingItem && editingItem.id === item.id) {
+                    return (
+                      <div key={item.id} className="flex flex-wrap items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-300">
+                        <div className="flex items-center gap-1">
+                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={editingItem.jamMulai || ""} onChange={(e) => setEditingItem({...editingItem, jamMulai: e.target.value})} title="Jam Mulai" />
+                          <span className="text-gray-500">-</span>
+                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={editingItem.jamSelesai || ""} onChange={(e) => setEditingItem({...editingItem, jamSelesai: e.target.value})} title="Jam Selesai" />
+                        </div>
+                        <input type="text" className="input input-bordered input-sm flex-1 min-w-[150px] text-gray-800 bg-white" value={editingItem.label} onChange={(e) => setEditingItem({...editingItem, label: e.target.value})} placeholder="Nama Kegiatan" />
+                        <input type="text" className="input input-bordered input-sm w-24 text-gray-800 bg-white" value={editingItem.unit || ""} onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})} placeholder="Unit" />
+                        
+                        <div className="flex gap-1">
+                          <button className="btn btn-success btn-sm text-white" onClick={handleSaveEdit}><Save size={16} /></button>
+                          <button className="btn btn-ghost btn-sm text-gray-600" onClick={() => setEditingItem(null)}><X size={16} /></button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // TAMPILAN NORMAL (READ ONLY DENGAN TOMBOL EDIT/HAPUS)
+                  return (
+                    <div key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-3">
+                        {(item.jamMulai || item.jamSelesai) && (
+                          <span className="text-xs font-mono text-gray-500 flex items-center gap-1">
+                            <Clock size={12} /> {item.jamMulai} - {item.jamSelesai}
+                          </span>
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{cleanLabel(item.label)}</p>
+                          {item.unit && <p className="text-xs text-gray-500">({item.unit})</p>}
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-1">
+                        <button className="btn btn-ghost btn-sm btn-square text-blue-500" onClick={() => setEditingItem(JSON.parse(JSON.stringify(item)))} title="Edit">
+                          <Pencil size={16} />
+                        </button>
+                        <button className="btn btn-ghost btn-sm btn-square text-red-500" onClick={() => handleHapusItem(item.id)} title="Hapus">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusItem(item.id)}><Trash2 size={14} /></button>
-                  </div>
-                ))}
+                  );
+                })}
+                {(activeTab === "kerja" ? editKerja : editMinggu).length === 0 && (
+                  <p className="text-sm text-center text-gray-500 italic py-4">Belum ada jadwal.</p>
+                )}
               </div>
 
-              <div className="bg-blue-50 p-3 rounded border border-blue-200 space-y-2">
-                <p className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Plus size={14} /> Tambah Item Baru</p>
+              {/* FORM TAMBAH BARU */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
+                <p className="text-sm font-bold text-blue-700 flex items-center gap-2"><Plus size={16} /> Tambah Item Baru</p>
                 
-                <div className="flex gap-2">
-                  <input type="time" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formBaru.jamMulai} onChange={(e) => setFormBaru({ ...formBaru, jamMulai: e.target.value })} title="Jam Mulai" />
-                  <input type="time" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formBaru.jamSelesai} onChange={(e) => setFormBaru({ ...formBaru, jamSelesai: e.target.value })} title="Jam Selesai" />
+                <div className="flex flex-wrap gap-2">
+                  <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={formBaru.jamMulai} onChange={(e) => setFormBaru({ ...formBaru, jamMulai: e.target.value })} title="Jam Mulai" />
+                  <span className="text-gray-500 self-center">-</span>
+                  <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={formBaru.jamSelesai} onChange={(e) => setFormBaru({ ...formBaru, jamSelesai: e.target.value })} title="Jam Selesai" />
+                  <input type="text" className="input input-bordered input-sm flex-1 min-w-[150px] text-gray-800 bg-white" placeholder="Nama Kegiatan (misal: Olahraga)" value={formBaru.label} onChange={(e) => setFormBaru({ ...formBaru, label: e.target.value })} />
+                  <input type="text" className="input input-bordered input-sm w-24 text-gray-800 bg-white" placeholder="Unit (misal: 60 menit)" value={formBaru.unit} onChange={(e) => setFormBaru({ ...formBaru, unit: e.target.value })} />
                 </div>
-
-                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama kegiatan (misal: Olahraga)" value={formBaru.label} onChange={(e) => setFormBaru({ ...formBaru, label: e.target.value })} />
-                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Keterangan (misal: 60 menit)" value={formBaru.unit} onChange={(e) => setFormBaru({ ...formBaru, unit: e.target.value })} />
                 
-                <button className="btn btn-primary btn-sm w-full" onClick={handleTambahItem} disabled={!formBaru.label.trim()}>Tambah</button>
+                <button className="btn btn-outline btn-sm w-full border-blue-400 text-blue-700 hover:bg-blue-100" onClick={handleTambahItem} disabled={!formBaru.label.trim()}>Tambah ke Daftar</button>
               </div>
 
-              <div className="mt-4 flex gap-2">
-                <button className="btn btn-success btn-sm flex-1 text-white" onClick={handleSimpanJadwal}><Save size={16} className="mr-1" /> Simpan Perubahan</button>
+              <div className="mt-6 flex justify-end">
+                <button className="btn btn-primary btn-block md:w-auto" onClick={handleSimpanJadwal}><Save size={18} className="mr-2" /> Simpan Semua Perubahan</button>
               </div>
+
             </div>
           </div>
         </div>
