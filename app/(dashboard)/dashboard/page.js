@@ -3,22 +3,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import Sidebar from "@/components/Sidebar";
 import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
-import MenuManager from "@/components/MenuManager";
-import SyncSheetsButton from "@/components/SyncSheetsButton";
-import TelegramSetting from "@/components/TelegramSetting";
-import ViewerManager from "@/components/ViewerManager";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
 import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
 import { migrasiStatusVendorPekerjaan, migrasiStatusVendorBisnis } from "@/lib/vendorData";
-import { Menu, LogOut, CalendarDays } from "lucide-react";
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -31,8 +25,6 @@ export default function Dashboard() {
   const [menusCustomLogHarian, setMenusCustomLogHarian] = useState({});
   const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [userData, setUserData] = useState(null);
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
@@ -253,18 +245,37 @@ export default function Dashboard() {
         }
       } else {
         const initialData = {
-          activities: DEFAULT_ACTIVITIES, menus: DEFAULT_MENUS, menusArsip: [], menusCustom: {}, menusCustomLogHarian: {}, menusCustomTargetHarian: {}, jadwalUser: DEFAULT_JADWAL, dailyProgress: {}, keuanganDompet: DEFAULT_DOMPET, keuanganGoals: DEFAULT_GOALS, keuanganTransaksi: {}, keuanganSetting: DEFAULT_SETTING,
+          activities: DEFAULT_ACTIVITIES,
+          menus: DEFAULT_MENUS,
+          menusArsip: [],
+          menusCustom: {},
+          menusCustomLogHarian: {},
+          menusCustomTargetHarian: {},
+          jadwalUser: DEFAULT_JADWAL,
+          dailyProgress: {},
+          keuanganDompet: DEFAULT_DOMPET,
+          keuanganGoals: DEFAULT_GOALS,
+          keuanganTransaksi: {},
+          keuanganSetting: DEFAULT_SETTING,
         };
         await setDoc(docRef, initialData);
         setUserData({ ...initialData, _uid: user.uid });
-        setActivities(DEFAULT_ACTIVITIES); setMenus(DEFAULT_MENUS); setMenusCustom({}); setMenusCustomLogHarian({}); setMenusCustomTargetHarian({}); setJadwalUser(DEFAULT_JADWAL); setProgress({});
+        setActivities(DEFAULT_ACTIVITIES);
+        setMenus(DEFAULT_MENUS);
+        setMenusCustom({});
+        setMenusCustomLogHarian({});
+        setMenusCustomTargetHarian({});
+        setJadwalUser(DEFAULT_JADWAL);
+        setProgress({});
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => { setToday(new Date().toISOString().split("T")[0]); }, []);
+  useEffect(() => {
+    setToday(new Date().toISOString().split("T")[0]);
+  }, []);
 
   const updateProgress = async (date, field, value) => {
     if (!user) return;
@@ -284,89 +295,43 @@ export default function Dashboard() {
     await setDoc(docRef, { jadwalUser: newJadwal }, { merge: true });
   };
 
-  const handleUpdateMenus = async (newMenus, newArsip) => {
-    setMenus(newMenus);
-    if (!user) return;
-    const docRef = doc(db, "users", user.uid);
-    const updates = { menus: newMenus };
-    if (newArsip) updates.menusArsip = newArsip;
-    await setDoc(docRef, updates, { merge: true });
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/login");
-  };
-
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
+  }
 
   return (
-    <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar yang udah di-rapihin */}
-      <div className="navbar bg-base-100 shadow-sm px-4 md:px-6 flex-wrap gap-2 z-20 relative" data-html2canvas-ignore="true">
-        <div className="flex-1 flex items-center gap-2">
-          <button
-            className="btn btn-ghost btn-sm btn-square md:hidden"
-            onClick={() => setMobileSidebarOpen(true)}
-          >
-            <Menu size={20} />
-          </button>
-          <h1 className="text-lg md:text-xl font-bold text-gray-800">
-            🌙 Self Management
-          </h1>
-        </div>
-        
-        <div className="flex gap-2 items-center flex-wrap justify-end">
-          <MenuManager
-            menus={menus} activities={activities} menusCustom={menusCustom} user={user} onUpdate={handleUpdateMenus} onUpdateCustom={async (newCustom) => { setMenusCustom(newCustom); if (!user) return; await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true }); }}
-          />
-          <SyncSheetsButton user={user} />
-          <ViewerManager user={user} />
-          <TelegramSetting user={user} />
-          
-          <div className="hidden md:flex items-center gap-2 text-sm font-mono text-gray-500 bg-base-200 px-3 py-1.5 rounded-lg">
-            <CalendarDays size={16} />
-            {today}
-          </div>
-          <button className="btn btn-ghost btn-sm text-error hover:bg-error/10" onClick={handleLogout}>
-            <LogOut size={16} className="md:mr-1" />
-            <span className="hidden md:inline">Logout</span>
-          </button>
-        </div>
+    <>
+      <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+        <ExportPDFButton
+          targetId="export-area"
+          fileName={`Dashboard_${today}.pdf`}
+          title="Dashboard Self Management"
+        />
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Mobile Sidebar Drawer Animasi */}
-        <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity md:hidden ${mobileSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible"}`} onClick={() => setMobileSidebarOpen(false)} />
-        <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden transform transition-transform duration-300 ease-in-out ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} onCloseMobile={() => setMobileSidebarOpen(false)} />
-        </div>
+      <div className="max-w-5xl mx-auto space-y-6">
+        <Schedule
+          jadwalUser={jadwalUser}
+          onUpdateJadwal={updateJadwal}
+          progress={progress}
+          onUpdateProgress={updateProgress}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          userData={userData}
+        />
 
-        {/* Desktop Sidebar */}
-        <div
-          className={`hidden md:block ${sidebarCollapsed ? "w-16" : "w-64"} transition-all duration-300 bg-base-100 z-10`}
-          data-html2canvas-ignore="true"
-        >
-          <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
-        </div>
-
-        {/* Main Content */}
-        <div id="export-area" className="flex-1 overflow-y-auto p-4 md:p-6 bg-base-200">
-          <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-            <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />
-          </div>
-
-          <div className="max-w-5xl mx-auto space-y-6">
-            <Schedule
-              jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData}
-            />
-
-            <RingkasanKeuangan
-              dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")}
-            />
-          </div>
-        </div>
+        <RingkasanKeuangan
+          dompetList={dompetList}
+          goalsList={goalsList}
+          keuanganTransaksi={keuanganTransaksi}
+          setting={keuanganSetting}
+          onClickDetail={() => router.push("/dashboard/keuangan")}
+        />
       </div>
-    </div>
+    </>
   );
 }
