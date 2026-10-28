@@ -8,7 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import { DEFAULT_JENIS_KESALAHAN, formatTanggal, formatTanggalPendek, getTotalKesalahan, formatKesalahan } from "@/lib/hafalanData";
-import { BookOpen, Home, Library, FileText, Play, Square, Mic, Trash2, CheckCircle2, Clock, Pencil, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpen, Home, Library, FileText, Play, Square, Mic, Trash2, CheckCircle2, Clock, Pencil, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"; // <-- RefreshCw UDAH DITAMBAHIN
 
 export default function HafalanSuratPage() {
   const [user, setUser] = useState(null);
