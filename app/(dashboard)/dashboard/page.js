@@ -38,14 +38,7 @@ export default function Dashboard() {
     const menusBaru = DEFAULT_MENUS.map((m) => ({ ...m }));
     (activitiesLama || []).forEach((act) => {
       if (!menusBaru.find((m) => m.id === act.id)) {
-        menusBaru.push({
-          id: act.id,
-          label: act.label,
-          type: "standard",
-          required: false,
-          visible: true,
-          order: menusBaru.length,
-        });
+        menusBaru.push({ id: act.id, label: act.label, type: "standard", required: false, visible: true, order: menusBaru.length });
       }
     });
     return menusBaru;
@@ -70,14 +63,7 @@ export default function Dashboard() {
     if (jadwalBaru?.kerja && Array.isArray(jadwalBaru.kerja)) {
       const adaNpdJadwal = jadwalBaru.kerja.some((item) => item.id === "npd");
       if (adaNpdJadwal) {
-        jadwalBaru = {
-          ...jadwalBaru,
-          kerja: jadwalBaru.kerja.map((item) =>
-            item.id === "npd"
-              ? { ...item, id: "bedah-buku", label: "📚 Bedah Buku", unit: "10 halaman" }
-              : item
-          ),
-        };
+        jadwalBaru = { ...jadwalBaru, kerja: jadwalBaru.kerja.map((item) => item.id === "npd" ? { ...item, id: "bedah-buku", label: "📚 Bedah Buku", unit: "10 halaman" } : item) };
         updates.jadwalUser = jadwalBaru;
         perluSimpan = true;
       }
@@ -97,66 +83,34 @@ export default function Dashboard() {
           progressUpdated[tanggal] = newDayData;
         }
       });
-      if (adaNpdProgress) {
-        updates.dailyProgress = progressUpdated;
-        progressBaru = progressUpdated;
-        perluSimpan = true;
-      }
+      if (adaNpdProgress) { updates.dailyProgress = progressUpdated; progressBaru = progressUpdated; perluSimpan = true; }
     }
 
     let menusBaru = data.menus;
-    if (!Array.isArray(menusBaru) || menusBaru.length === 0) {
-      menusBaru = buildMenusFromOldData(activitiesBaru);
-      updates.menus = menusBaru;
-      perluSimpan = true;
-    }
+    if (!Array.isArray(menusBaru) || menusBaru.length === 0) { menusBaru = buildMenusFromOldData(activitiesBaru); updates.menus = menusBaru; perluSimpan = true; }
 
     let menusArsip = data.menusArsip;
-    if (!Array.isArray(menusArsip)) {
-      menusArsip = [];
-      updates.menusArsip = menusArsip;
-      perluSimpan = true;
-    }
+    if (!Array.isArray(menusArsip)) { menusArsip = []; updates.menusArsip = menusArsip; perluSimpan = true; }
 
     let menusCustomBaru = data.menusCustom;
-    if (!menusCustomBaru || typeof menusCustomBaru !== "object" || Array.isArray(menusCustomBaru)) {
-      menusCustomBaru = {};
-      updates.menusCustom = menusCustomBaru;
-      perluSimpan = true;
-    }
+    if (!menusCustomBaru || typeof menusCustomBaru !== "object" || Array.isArray(menusCustomBaru)) { menusCustomBaru = {}; updates.menusCustom = menusCustomBaru; perluSimpan = true; }
 
     let logCustomBaru = data.menusCustomLogHarian;
-    if (!logCustomBaru || typeof logCustomBaru !== "object" || Array.isArray(logCustomBaru)) {
-      logCustomBaru = {};
-      updates.menusCustomLogHarian = logCustomBaru;
-      perluSimpan = true;
-    }
+    if (!logCustomBaru || typeof logCustomBaru !== "object" || Array.isArray(logCustomBaru)) { logCustomBaru = {}; updates.menusCustomLogHarian = logCustomBaru; perluSimpan = true; }
 
     let targetCustomBaru = data.menusCustomTargetHarian;
-    if (!targetCustomBaru || typeof targetCustomBaru !== "object" || Array.isArray(targetCustomBaru)) {
-      targetCustomBaru = {};
-      updates.menusCustomTargetHarian = targetCustomBaru;
-      perluSimpan = true;
-    }
+    if (!targetCustomBaru || typeof targetCustomBaru !== "object" || Array.isArray(targetCustomBaru)) { targetCustomBaru = {}; updates.menusCustomTargetHarian = targetCustomBaru; perluSimpan = true; }
 
     let pekerjaanBaru = data.pekerjaan;
     if (Array.isArray(pekerjaanBaru)) {
       const migrated = migrasiStatusVendorPekerjaan(pekerjaanBaru);
-      if (migrated !== pekerjaanBaru) {
-        pekerjaanBaru = migrated;
-        updates.pekerjaan = pekerjaanBaru;
-        perluSimpan = true;
-      }
+      if (migrated !== pekerjaanBaru) { pekerjaanBaru = migrated; updates.pekerjaan = pekerjaanBaru; perluSimpan = true; }
     }
 
     let bisnisBrandsBaru = data.bisnisBrands;
     if (Array.isArray(bisnisBrandsBaru)) {
       const migrated = migrasiStatusVendorBisnis(bisnisBrandsBaru);
-      if (migrated !== bisnisBrandsBaru) {
-        bisnisBrandsBaru = migrated;
-        updates.bisnisBrands = bisnisBrandsBaru;
-        perluSimpan = true;
-      }
+      if (migrated !== bisnisBrandsBaru) { bisnisBrandsBaru = migrated; updates.bisnisBrands = bisnisBrandsBaru; perluSimpan = true; }
     }
 
     return { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru, menusBaru, menusCustomBaru, logCustomBaru, targetCustomBaru };
@@ -164,22 +118,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      if (!user) { router.push("/login"); return; }
       setUser(user);
 
       try {
         const viewerRef = doc(db, "viewers", user.uid);
         const viewerSnap = await getDoc(viewerRef);
-        if (viewerSnap.exists() && viewerSnap.data().passwordHash) {
-          router.push("/viewer");
-          return;
-        }
-      } catch (err) {
-        console.error("[dashboard] Cek viewer error:", err);
-      }
+        if (viewerSnap.exists() && viewerSnap.data().passwordHash) { router.push("/viewer"); return; }
+      } catch (err) {}
 
       const docRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(docRef);
@@ -189,93 +135,35 @@ export default function Dashboard() {
         setUserData({ ...data, _uid: user.uid });
 
         const { perluSimpan, updates, activitiesBaru, jadwalBaru, progressBaru, menusBaru, menusCustomBaru, logCustomBaru, targetCustomBaru } = runMigrasi(data);
-
         if (perluSimpan) await setDoc(docRef, updates, { merge: true });
 
-        if (Array.isArray(activitiesBaru)) setActivities(activitiesBaru);
-        else {
-          await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
-          setActivities(DEFAULT_ACTIVITIES);
-        }
-
-        if (Array.isArray(menusBaru)) setMenus(menusBaru);
-        else {
-          await setDoc(docRef, { menus: DEFAULT_MENUS }, { merge: true });
-          setMenus(DEFAULT_MENUS);
-        }
+        if (Array.isArray(activitiesBaru)) setActivities(activitiesBaru); else { await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true }); setActivities(DEFAULT_ACTIVITIES); }
+        if (Array.isArray(menusBaru)) setMenus(menusBaru); else { await setDoc(docRef, { menus: DEFAULT_MENUS }, { merge: true }); setMenus(DEFAULT_MENUS); }
 
         setMenusCustom(menusCustomBaru || {});
         setMenusCustomLogHarian(logCustomBaru || {});
         setMenusCustomTargetHarian(targetCustomBaru || {});
 
-        if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru);
-        else {
-          await setDoc(docRef, { jadwalUser: DEFAULT_JADWAL }, { merge: true });
-          setJadwalUser(DEFAULT_JADWAL);
-        }
+        if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru); else { await setDoc(docRef, { jadwalUser: DEFAULT_JADWAL }, { merge: true }); setJadwalUser(DEFAULT_JADWAL); }
+        if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru)) setProgress(progressBaru || {}); else { await setDoc(docRef, { dailyProgress: {} }, { merge: true }); setProgress({}); }
 
-        if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru)) setProgress(progressBaru || {});
-        else {
-          await setDoc(docRef, { dailyProgress: {} }, { merge: true });
-          setProgress({});
-        }
+        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet); else { await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true }); setDompetList(DEFAULT_DOMPET); }
+        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) setGoalsList(data.keuanganGoals); else { await setDoc(docRef, { keuanganGoals: DEFAULT_GOALS }, { merge: true }); setGoalsList(DEFAULT_GOALS); }
+        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi)) setKeuanganTransaksi(data.keuanganTransaksi); else { await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true }); setKeuanganTransaksi({}); }
+        if (data.keuanganSetting && typeof data.keuanganSetting === "object") setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting }); else { await setDoc(docRef, { keuanganSetting: DEFAULT_SETTING }, { merge: true }); setKeuanganSetting(DEFAULT_SETTING); }
 
-        if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet);
-        else {
-          await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true });
-          setDompetList(DEFAULT_DOMPET);
-        }
-
-        if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) setGoalsList(data.keuanganGoals);
-        else {
-          await setDoc(docRef, { keuanganGoals: DEFAULT_GOALS }, { merge: true });
-          setGoalsList(DEFAULT_GOALS);
-        }
-
-        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi)) setKeuanganTransaksi(data.keuanganTransaksi);
-        else {
-          await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true });
-          setKeuanganTransaksi({});
-        }
-
-        if (data.keuanganSetting && typeof data.keuanganSetting === "object") setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting });
-        else {
-          await setDoc(docRef, { keuanganSetting: DEFAULT_SETTING }, { merge: true });
-          setKeuanganSetting(DEFAULT_SETTING);
-        }
       } else {
-        const initialData = {
-          activities: DEFAULT_ACTIVITIES,
-          menus: DEFAULT_MENUS,
-          menusArsip: [],
-          menusCustom: {},
-          menusCustomLogHarian: {},
-          menusCustomTargetHarian: {},
-          jadwalUser: DEFAULT_JADWAL,
-          dailyProgress: {},
-          keuanganDompet: DEFAULT_DOMPET,
-          keuanganGoals: DEFAULT_GOALS,
-          keuanganTransaksi: {},
-          keuanganSetting: DEFAULT_SETTING,
-        };
+        const initialData = { activities: DEFAULT_ACTIVITIES, menus: DEFAULT_MENUS, menusArsip: [], menusCustom: {}, menusCustomLogHarian: {}, menusCustomTargetHarian: {}, jadwalUser: DEFAULT_JADWAL, dailyProgress: {}, keuanganDompet: DEFAULT_DOMPET, keuanganGoals: DEFAULT_GOALS, keuanganTransaksi: {}, keuanganSetting: DEFAULT_SETTING };
         await setDoc(docRef, initialData);
         setUserData({ ...initialData, _uid: user.uid });
-        setActivities(DEFAULT_ACTIVITIES);
-        setMenus(DEFAULT_MENUS);
-        setMenusCustom({});
-        setMenusCustomLogHarian({});
-        setMenusCustomTargetHarian({});
-        setJadwalUser(DEFAULT_JADWAL);
-        setProgress({});
+        setActivities(DEFAULT_ACTIVITIES); setMenus(DEFAULT_MENUS); setMenusCustom({}); setMenusCustomLogHarian({}); setMenusCustomTargetHarian({}); setJadwalUser(DEFAULT_JADWAL); setProgress({});
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
-  }, []);
+  useEffect(() => { setToday(new Date().toISOString().split("T")[0]); }, []);
 
   const updateProgress = async (date, field, value) => {
     if (!user) return;
@@ -284,8 +172,7 @@ export default function Dashboard() {
     dayData[field] = { ...dayData[field], ...value };
     const newProgress = { ...progress, [date]: dayData };
     await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
-    setProgress(newProgress);
-    setUserData((prev) => ({ ...prev, dailyProgress: newProgress }));
+    setProgress(newProgress); setUserData((prev) => ({ ...prev, dailyProgress: newProgress }));
   };
 
   const updateJadwal = async (newJadwal) => {
@@ -295,42 +182,18 @@ export default function Dashboard() {
     await setDoc(docRef, { jadwalUser: newJadwal }, { merge: true });
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        Loading...
-      </div>
-    );
-  }
+  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
   return (
     <>
       <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-        <ExportPDFButton
-          targetId="export-area"
-          fileName={`Dashboard_${today}.pdf`}
-          title="Dashboard Self Management"
-        />
+        <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />
       </div>
 
-      <div className="max-w-5xl mx-auto space-y-6">
-        <Schedule
-          jadwalUser={jadwalUser}
-          onUpdateJadwal={updateJadwal}
-          progress={progress}
-          onUpdateProgress={updateProgress}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          userData={userData}
-        />
-
-        <RingkasanKeuangan
-          dompetList={dompetList}
-          goalsList={goalsList}
-          keuanganTransaksi={keuanganTransaksi}
-          setting={keuanganSetting}
-          onClickDetail={() => router.push("/dashboard/keuangan")}
-        />
+      {/* TAMBAHIN W-FULL BIAR GAK GEPENG */}
+      <div className="w-full max-w-5xl mx-auto space-y-6">
+        <Schedule jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData} />
+        <RingkasanKeuangan dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")} />
       </div>
     </>
   );
