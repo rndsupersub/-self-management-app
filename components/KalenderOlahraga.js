@@ -4,7 +4,7 @@
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { formatTanggal } from "@/lib/olahragaData";
-import { Activity, Calendar, Pencil, Save, Trash2, Info, MessageSquare, Dumbbell, Timer, Footprints, X } from "lucide-react";
+import { Activity, Calendar, Pencil, Save, Trash2, Info, MessageSquare, Dumbbell, Timer, Footprints, X, Plus } from "lucide-react";
 
 export default function KalenderOlahraga({ harian = {}, onUpdateHarian }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());

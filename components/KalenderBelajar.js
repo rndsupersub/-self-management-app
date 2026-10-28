@@ -4,7 +4,7 @@
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { getLabelKategoriById, getDefaultTargetByKategori, formatTanggal, getWarnaStyle, getWarnaToolByPath } from "@/lib/belajarData";
-import { Target, CheckCircle2, Pencil, Save, X, Link as LinkIcon, Calendar, FileText, ArrowRight, Info, MessageSquare, FolderOpen, AlertTriangle } from "lucide-react";
+import { Target, CheckCircle2, Pencil, Save, X, Link as LinkIcon, Calendar, FileText, ArrowRight, Info, MessageSquare, FolderOpen, AlertTriangle, Plus } from "lucide-react";
 
 export default function KalenderBelajar({
   kategoriId = "design",
@@ -85,21 +85,9 @@ export default function KalenderBelajar({
     const parts = [];
     const sub = subKategoriList.find((s) => s.id === log.subKategoriId);
     if (sub) parts.push(sub.nama);
-    if (sub && log.toolId) {
-      const tool = (sub.tools || []).find((t) => t.id === log.toolId);
-      if (tool) parts.push(tool.nama);
-    }
-    if (sub && log.toolId && log.fiturId) {
-      const tool = (sub.tools || []).find((t) => t.id === log.toolId);
-      const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId);
-      if (fitur) parts.push(fitur.nama);
-    }
-    if (log.partId) {
-      const tool = (sub?.tools || []).find((t) => t.id === log.toolId);
-      const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId);
-      const part = (fitur?.parts || []).find((p) => p.id === log.partId);
-      if (part) parts.push(part.nama);
-    }
+    if (sub && log.toolId) { const tool = (sub.tools || []).find((t) => t.id === log.toolId); if (tool) parts.push(tool.nama); }
+    if (sub && log.toolId && log.fiturId) { const tool = (sub.tools || []).find((t) => t.id === log.toolId); const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId); if (fitur) parts.push(fitur.nama); }
+    if (log.partId) { const tool = (sub?.tools || []).find((t) => t.id === log.toolId); const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId); const part = (fitur?.parts || []).find((p) => p.id === log.partId); if (part) parts.push(part.nama); }
     return parts.join(" → ") || "-";
   };
 
@@ -389,7 +377,7 @@ export default function KalenderBelajar({
                             <p className="text-sm font-semibold text-gray-800">{getLabelByLog(log)}</p>
                           </div>
                           {log.catatan && <p className="text-xs text-gray-700 whitespace-pre-wrap mt-1 bg-white p-2 rounded border border-gray-200 flex items-start gap-1"><MessageSquare size={12} className="mt-0.5 shrink-0"/> {log.catatan}</p>}
-                          {log.gdriveUrl && <a href={log.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary mt-1 inline-flex items-center gap-1"><LinkIcon size={12}/> GDrive</a>}
+                          {log.gdriveUrl && <a href={log.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary mt-1 inline-flex items-center gap-1"><FolderOpen size={12}/> GDrive</a>}
                         </div>
                         <div className="flex gap-1" data-html2canvas-ignore="true">
                           <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(log)} title="Edit"><Pencil size={14} /></button>
