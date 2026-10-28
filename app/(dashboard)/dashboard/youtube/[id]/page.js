@@ -9,7 +9,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import KalenderYouTube from "@/components/KalenderYouTube";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { YOUTUBE_CHANNELS, KONTEN_STATUS } from "@/lib/youtubeData";
-import { Video, Home, Calendar, List, Smartphone, Monitor } from "lucide-react"; // Youtube diganti Video
+import { Video, Home, Calendar, List, Smartphone, Monitor } from "lucide-react";
 
 export default function YouTubeDetailPage() {
   const [user, setUser] = useState(null);
@@ -45,6 +45,11 @@ export default function YouTubeDetailPage() {
     if (!user) return;
     setLogs(newLogs);
     await updateDoc(doc(db, "users", user.uid), { youtube_logs: newLogs });
+  };
+
+  const cleanText = (text) => {
+    if (!text) return "";
+    return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -107,7 +112,7 @@ export default function YouTubeDetailPage() {
                           </p>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded text-white ${statusObj?.color}`}>
-                          {statusObj?.nama}
+                          {cleanText(statusObj?.nama)}
                         </span>
                       </div>
                     );

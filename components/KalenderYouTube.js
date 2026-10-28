@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { formatTanggal } from "@/lib/belajarData";
 import { KONTEN_STATUS, TIPE_KONTEN, getTargetHarian, generateYoutubeId } from "@/lib/youtubeData";
-import { Calendar, ChevronLeft, ChevronRight, Pin, Pencil, List, Smartphone, Monitor, Link as LinkIcon, FolderOpen, MessageSquare, AlertTriangle, Save, Plus, Inbox, Target } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Pin, Pencil, List, Smartphone, Monitor, Link as LinkIcon, FolderOpen, MessageSquare, AlertTriangle, Save, Plus, Inbox, Target, Trash2 } from "lucide-react"; // Trash2 UDAH ADA
 
 export default function KalenderYouTube({
   channelId,
@@ -108,6 +108,12 @@ export default function KalenderYouTube({
 
   const getLogsByDate = (date) => channelLogs.filter((l) => l.tanggal === date);
   const getStatusStyle = (statusId) => KONTEN_STATUS.find((x) => x.id === statusId) || KONTEN_STATUS[0];
+
+  // Helper Filter Emoji
+  const cleanText = (text) => {
+    if (!text) return "";
+    return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+  };
 
   return (
     <div className="space-y-4">
@@ -212,7 +218,7 @@ export default function KalenderYouTube({
                   <div>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Status</label>
                     <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                      {KONTEN_STATUS.map((s) => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                      {KONTEN_STATUS.map((s) => <option key={s.id} value={s.id}>{cleanText(s.nama)}</option>)}
                     </select>
                   </div>
                 </div>
@@ -256,7 +262,7 @@ export default function KalenderYouTube({
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className={`w-2 h-2 rounded-full ${statusStyle.color}`} />
                             <p className="text-sm font-semibold text-gray-800">{log.judul}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded text-white ${statusStyle.color}`}>{statusStyle.nama}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded text-white ${statusStyle.color}`}>{cleanText(statusStyle.nama)}</span>
                           </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1">
                             {log.tipe === "short" ? <><Smartphone size={12}/> Short</> : <><Monitor size={12}/> Video</>}
@@ -298,7 +304,7 @@ export default function KalenderYouTube({
                           <span className="text-xs text-gray-500 flex-shrink-0 flex items-center gap-1"><Calendar size={12}/> {formatTanggal(log.tanggal, "pendek")}</span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                          {log.tipe === "short" ? <><Smartphone size={12}/> Short</> : <><Monitor size={12}/> Video</>} • {statusStyle.nama}
+                          {log.tipe === "short" ? <><Smartphone size={12}/> Short</> : <><Monitor size={12}/> Video</>} • {cleanText(statusStyle.nama)}
                         </p>
                         {log.catatan && <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{log.catatan.length > 150 ? log.catatan.substring(0, 150) + "..." : log.catatan}</p>}
                       </div>
