@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { formatTanggal, getHalamanRange, validasiRange, getHalamanBerikutnya } from "@/lib/bedahBukuData";
-import { Calendar, ChevronLeft, ChevronRight, Pin, Pencil, BookOpen, Target, FileText, MessageSquare, FolderOpen, Video, Save, AlertTriangle, CheckCircle2, Trash2, Info } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Pin, Pencil, BookOpen, Target, FileText, MessageSquare, FolderOpen, Video, Save, AlertTriangle, CheckCircle2, Trash2, Info, Plus } from "lucide-react";
 
 export default function KalenderBedahBuku({ bukuList = [], onUpdateBuku }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
