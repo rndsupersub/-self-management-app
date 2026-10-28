@@ -1,5 +1,8 @@
+// components/ActivityManager.js
 "use client";
+
 import { useState } from "react";
+import { Settings, X, Plus, Pencil, Trash2, Save, Info } from "lucide-react";
 
 export default function ActivityManager({ activities, onUpdate }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,97 +66,37 @@ export default function ActivityManager({ activities, onUpdate }) {
 
   return (
     <>
-      {/* Tombol Buka Modal */}
-      <button
-        className="btn btn-ghost btn-sm gap-1"
-        onClick={() => setIsOpen(true)}
-      >
-        ⚙️ Kelola Aktivitas
+      <button className="btn btn-ghost btn-sm gap-1" onClick={() => setIsOpen(true)}>
+        <Settings size={16} className="mr-1"/> Kelola Aktivitas
       </button>
 
-      {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="card bg-base-100 w-full max-w-lg max-h-[80vh] overflow-y-auto mx-4">
             <div className="card-body">
               <div className="flex justify-between items-center">
-                <h2 className="card-title">⚙️ Kelola Aktivitas</h2>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setIsOpen(false)}
-                >
-                  ✕
-                </button>
+                <h2 className="card-title flex items-center gap-1"><Settings size={20}/> Kelola Aktivitas</h2>
+                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)}><X size={18}/></button>
               </div>
 
-              {/* Daftar Aktivitas */}
               <div className="space-y-2 mt-2">
                 {activities.map((act) => (
-                  <div
-                    key={act.id}
-                    className="flex items-center justify-between bg-base-200 p-2 rounded"
-                  >
+                  <div key={act.id} className="flex items-center justify-between bg-base-200 p-2 rounded">
                     {editingId === act.id ? (
                       <div className="flex-1 flex flex-wrap gap-1">
-                        <input
-                          type="text"
-                          className="input input-bordered input-xs w-12"
-                          value={editIcon}
-                          onChange={(e) => setEditIcon(e.target.value)}
-                          placeholder="Ikon"
-                        />
-                        <input
-                          type="text"
-                          className="input input-bordered input-xs flex-1 min-w-[80px]"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          placeholder="Nama"
-                        />
-                        <input
-                          type="number"
-                          className="input input-bordered input-xs w-16"
-                          value={editTarget}
-                          onChange={(e) => setEditTarget(e.target.value)}
-                          placeholder="Target"
-                        />
-                        <input
-                          type="text"
-                          className="input input-bordered input-xs w-20"
-                          value={editUnit}
-                          onChange={(e) => setEditUnit(e.target.value)}
-                          placeholder="Unit"
-                        />
-                        <button
-                          className="btn btn-success btn-xs"
-                          onClick={() => handleSaveEdit(act.id)}
-                        >
-                          💾
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-xs"
-                          onClick={() => setEditingId(null)}
-                        >
-                          ✕
-                        </button>
+                        <input type="text" className="input input-bordered input-xs w-12" value={editIcon} onChange={(e) => setEditIcon(e.target.value)} placeholder="Ikon" />
+                        <input type="text" className="input input-bordered input-xs flex-1 min-w-[80px]" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nama" />
+                        <input type="number" className="input input-bordered input-xs w-16" value={editTarget} onChange={(e) => setEditTarget(e.target.value)} placeholder="Target" />
+                        <input type="text" className="input input-bordered input-xs w-20" value={editUnit} onChange={(e) => setEditUnit(e.target.value)} placeholder="Unit" />
+                        <button className="btn btn-success btn-xs" onClick={() => handleSaveEdit(act.id)}><Save size={14}/></button>
+                        <button className="btn btn-ghost btn-xs" onClick={() => setEditingId(null)}><X size={14}/></button>
                       </div>
                     ) : (
                       <>
-                        <span className="text-sm">
-                          {act.label} ({act.target} {act.unit})
-                        </span>
+                        <span className="text-sm">{act.label} ({act.target} {act.unit})</span>
                         <div className="flex gap-1">
-                          <button
-                            className="btn btn-ghost btn-xs"
-                            onClick={() => handleEdit(act)}
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            className="btn btn-ghost btn-xs text-error"
-                            onClick={() => handleDelete(act.id)}
-                          >
-                            🗑️
-                          </button>
+                          <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(act)}><Pencil size={14}/></button>
+                          <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDelete(act.id)}><Trash2 size={14}/></button>
                         </div>
                       </>
                     )}
@@ -161,48 +104,15 @@ export default function ActivityManager({ activities, onUpdate }) {
                 ))}
               </div>
 
-              {/* Form Tambah */}
               <div className="flex flex-wrap gap-1 mt-4 border-t border-base-200 pt-4">
-                <input
-                  type="text"
-                  className="input input-bordered input-sm w-12"
-                  value={newIcon}
-                  onChange={(e) => setNewIcon(e.target.value)}
-                  placeholder="Ikon"
-                />
-                <input
-                  type="text"
-                  className="input input-bordered input-sm flex-1 min-w-[80px]"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Nama aktivitas"
-                />
-                <input
-                  type="number"
-                  className="input input-bordered input-sm w-16"
-                  value={newTarget}
-                  onChange={(e) => setNewTarget(e.target.value)}
-                  placeholder="Target"
-                />
-                <input
-                  type="text"
-                  className="input input-bordered input-sm w-20"
-                  value={newUnit}
-                  onChange={(e) => setNewUnit(e.target.value)}
-                  placeholder="Unit"
-                />
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleAdd}
-                  disabled={!newName.trim() || !newTarget}
-                >
-                  ➕ Tambah
-                </button>
+                <input type="text" className="input input-bordered input-sm w-12" value={newIcon} onChange={(e) => setNewIcon(e.target.value)} placeholder="Ikon" />
+                <input type="text" className="input input-bordered input-sm flex-1 min-w-[80px]" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nama aktivitas" />
+                <input type="number" className="input input-bordered input-sm w-16" value={newTarget} onChange={(e) => setNewTarget(e.target.value)} placeholder="Target" />
+                <input type="text" className="input input-bordered input-sm w-20" value={newUnit} onChange={(e) => setNewUnit(e.target.value)} placeholder="Unit" />
+                <button className="btn btn-primary btn-sm" onClick={handleAdd} disabled={!newName.trim() || !newTarget}><Plus size={16} className="mr-1"/> Tambah</button>
               </div>
 
-              <p className="text-xs text-base-content/50 mt-2">
-                💡 Aktivitas yang dihapus hanya untuk akun ini. Data progress tetap tersimpan di history.
-              </p>
+              <p className="text-xs text-base-content/50 mt-2 flex items-center gap-1"><Info size={12}/> Aktivitas yang dihapus hanya untuk akun ini. Data progress tetap tersimpan di history.</p>
             </div>
           </div>
         </div>

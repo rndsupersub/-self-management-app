@@ -4,6 +4,7 @@
 import { useState } from "react";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
+import { FileDown } from "lucide-react";
 
 export default function ExportPDFButton({ targetId = "export-area", fileName = "laporan.pdf", title = "Laporan" }) {
   const [isExporting, setIsExporting] = useState(false);
@@ -27,16 +28,12 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.getElementById(targetId);
           if (clonedElement) {
-            // 1. Lepas semua batasan tinggi/scroll
             clonedElement.style.height = "auto";
             clonedElement.style.maxHeight = "none";
             clonedElement.style.minHeight = "auto";
             clonedElement.style.overflow = "visible";
-            
-            // 2. Kasih padding bawah biar footer nggak nabrak konten
             clonedElement.style.paddingBottom = "20mm";
             
-            // 3. Lepas batasan dari parent container (flex-1) biar nggak nyisa space kosong
             let parent = clonedElement.parentElement;
             while (parent && parent.tagName !== "BODY") {
               parent.style.height = "auto";
@@ -58,11 +55,9 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
       let heightLeft = imgHeight;
       let position = 0;
 
-      // Halaman pertama
       pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Halaman berikutnya
       while (heightLeft > 1) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -70,17 +65,11 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
         heightLeft -= pageHeight;
       }
 
-      // Footer & Penutup Bawah
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        
-        // Gambar kotak putih di area paling bawah (setinggi 10mm)
-        // Biar tulisan footer nggak nabrak gambar konten
         pdf.setFillColor(255, 255, 255);
         pdf.rect(0, pageHeight - 10, pdfWidth, 10, 'F');
-        
-        // Tulis teks footer
         pdf.setFontSize(8);
         pdf.setTextColor(150);
         pdf.text(`${title} — Halaman ${i} dari ${totalPages}`, 10, pageHeight - 3);
@@ -99,16 +88,16 @@ export default function ExportPDFButton({ targetId = "export-area", fileName = "
     <button
       onClick={handleExport}
       disabled={isExporting}
-      className="btn btn-ghost btn-sm gap-1"
+      className="btn btn-outline btn-sm gap-1 text-gray-700 hover:bg-gray-100"
       title="Export halaman ini ke PDF"
       data-html2canvas-ignore="true"
     >
       {isExporting ? (
         <span className="loading loading-spinner loading-xs" />
       ) : (
-        "📄"
+        <FileDown size={16} />
       )}
-      {isExporting ? "Exporting..." : "Export PDF"}
+      <span className="hidden md:inline">{isExporting ? "Exporting..." : "Export PDF"}</span>
     </button>
   );
 }
