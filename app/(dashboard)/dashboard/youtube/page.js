@@ -8,7 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { YOUTUBE_CHANNELS } from "@/lib/youtubeData";
-import { Youtube, Pencil, Trash2, ArrowRight, Home } from "lucide-react";
+import { Video, Pencil, Trash2, ArrowRight, Home } from "lucide-react"; // Youtube diganti Video
 
 const generateId = (prefix = "ch") => `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
 
@@ -79,13 +79,13 @@ export default function YouTubePage() {
       <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
           <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
-          <li className="flex items-center gap-1"><Youtube size={14} /> YouTube</li>
+          <li className="flex items-center gap-1"><Video size={14} /> YouTube</li>
         </ul>
       </div>
 
       <div className="flex justify-between items-center mb-6" data-html2canvas-ignore="true">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Youtube className="text-primary" size={24} /> YouTube
+          <Video className="text-primary" size={24} /> YouTube
         </h1>
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Channel</button>
       </div>
@@ -111,7 +111,7 @@ export default function YouTubePage() {
         {channels.length === 0 ? (
           <div className="card bg-white shadow border border-gray-200">
             <div className="card-body p-8 text-center text-gray-400">
-              <Youtube size={40} className="mx-auto mb-2 opacity-50" />
+              <Video size={40} className="mx-auto mb-2 opacity-50" />
               <p className="text-sm">Belum ada channel. Klik "+ Tambah Channel" untuk mulai.</p>
             </div>
           </div>
@@ -122,7 +122,7 @@ export default function YouTubePage() {
                 <div className="card-body p-4">
                   <div className="flex justify-between items-start">
                     <h2 className="card-title text-base text-gray-800 flex items-center gap-2">
-                      <Youtube size={18} className="text-red-500" /> {ch.nama}
+                      <Video size={18} className="text-red-500" /> {ch.nama}
                     </h2>
                     <div className="flex gap-1" data-html2canvas-ignore="true">
                       <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenameChannel(ch.id, ch.nama, e)}><Pencil size={14} /></button>

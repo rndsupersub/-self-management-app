@@ -9,7 +9,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import KalenderYouTube from "@/components/KalenderYouTube";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { YOUTUBE_CHANNELS, KONTEN_STATUS } from "@/lib/youtubeData";
-import { Youtube, Home, Calendar, List, Smartphone, Monitor } from "lucide-react";
+import { Video, Home, Calendar, List, Smartphone, Monitor } from "lucide-react"; // Youtube diganti Video
 
 export default function YouTubeDetailPage() {
   const [user, setUser] = useState(null);
@@ -59,14 +59,14 @@ export default function YouTubeDetailPage() {
       <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
           <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
-          <li><a onClick={() => router.push("/dashboard/youtube")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Youtube size={14} /> YouTube</a></li>
-          <li className="flex items-center gap-1"><Youtube size={14} /> {currentChannel.nama}</li>
+          <li><a onClick={() => router.push("/dashboard/youtube")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Video size={14} /> YouTube</a></li>
+          <li className="flex items-center gap-1"><Video size={14} /> {currentChannel.nama}</li>
         </ul>
       </div>
       
       <div className="mb-6 flex justify-between items-center" data-html2canvas-ignore="true">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Youtube className="text-red-500" size={24} /> {currentChannel.nama}
+          <Video className="text-red-500" size={24} /> {currentChannel.nama}
         </h1>
       </div>
 
