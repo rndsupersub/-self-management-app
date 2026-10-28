@@ -115,12 +115,15 @@ export default function BelajarPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {kategori.map((kat) => {
             const { totalSub, totalTool } = hitungStat(kat);
+            // Bersihin emoji dari nama database
+            const cleanName = kat.nama.replace(/^[^\w\s]+\s/, '');
+            
             return (
               <div key={kat.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/belajar/${kat.id}`)}>
                 <div className="card-body p-4">
                   <div className="flex justify-between items-start gap-2">
                     <h2 className="card-title text-base text-gray-800 flex items-center gap-2 flex-1">
-                      <BookOpen size={18} className="text-blue-500" /> {kat.nama}
+                      <BookOpen size={18} className="text-blue-500" /> {cleanName}
                     </h2>
                     <div className="flex gap-1 shrink-0" data-html2canvas-ignore="true">
                       <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenameKategori(kat.id, kat.nama, e)} title="Rename"><Pencil size={14} /></button>
