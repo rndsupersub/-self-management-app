@@ -7,6 +7,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import Link from "next/link";
+import { Eye, LogOut, ChevronRight, User } from "lucide-react";
 
 export default function ViewerDashboard() {
   const [user, setUser] = useState(null);
@@ -17,30 +18,20 @@ export default function ViewerDashboard() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        router.push("/login");
-        return;
-      }
+      if (!user) { router.push("/login"); return; }
       setUser(user);
 
       try {
         const viewerRef = doc(db, "viewers", user.uid);
         const viewerSnap = await getDoc(viewerRef);
 
-        if (!viewerSnap.exists()) {
-          router.push("/dashboard");
-          return;
-        }
+        if (!viewerSnap.exists()) { router.push("/dashboard"); return; }
 
         const data = viewerSnap.data();
-        if (!data.passwordHash) {
-          router.push("/login");
-          return;
-        }
+        if (!data.passwordHash) { router.push("/login"); return; }
 
         setViewerData({ ...data, _uid: user.uid });
 
-        // Fetch SEMUA users (owner) — realtime
         const usersSnap = await getDocs(collection(db, "users"));
         const owners = usersSnap.docs
           .map((d) => ({ uid: d.id, ...d.data() }))
@@ -66,73 +57,59 @@ export default function ViewerDashboard() {
     router.push("/login");
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-base-200">
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="p-6">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-base-200">
-      <div className="navbar bg-base-100 shadow px-4">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">👁️ Viewer Mode</h1>
-        </div>
-        <div className="flex gap-2 items-center">
-          <span className="text-sm opacity-70">
+    <div className="max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <Eye className="text-secondary" size={28} /> Viewer Mode
+        </h1>
+        <div className="flex gap-3 items-center">
+          <span className="text-sm font-semibold text-gray-600">
             {viewerData?.nama || user?.email}
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            Logout
+          <button className="btn btn-ghost btn-sm text-error hover:bg-error/10" onClick={handleLogout}>
+            <LogOut size={16} className="mr-1" /> Logout
           </button>
         </div>
       </div>
 
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="card bg-base-100 shadow">
-          <div className="card-body">
-            <h2 className="card-title mb-2">📋 Pilih Owner</h2>
-            <p className="text-sm opacity-70 mb-4">
-              Pilih owner yang mau lo liat progress-nya. Viewer cuma bisa liat (read-only).
-            </p>
+      <div className="card bg-white shadow border border-gray-200">
+        <div className="card-body p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
+            <User size={18} /> Pilih Owner
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Pilih owner yang mau lo liat progress-nya. Viewer cuma bisa liat (read-only).
+          </p>
 
-            {ownerList.length === 0 ? (
-              <div className="alert alert-info">
-                <span>Belum ada user yang terdaftar di website.</span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {ownerList.map((owner) => (
-                  <Link
-                    key={owner.uid}
-                    href={`/viewer/${owner.uid}`}
-                    className="card bg-base-200 hover:bg-base-300 transition cursor-pointer"
-                  >
-                    <div className="card-body p-4 flex-row items-center gap-3">
-                      {owner.photoURL ? (
-                        <img
-                          src={owner.photoURL}
-                          alt="avatar"
-                          className="w-12 h-12 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-content font-bold">
-                          {(owner.nama || "?").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <p className="font-bold">{owner.nama}</p>
-                        <p className="text-xs opacity-60">{owner.email}</p>
+          {ownerList.length === 0 ? (
+            <div className="alert alert-info">
+              <span>Belum ada user yang terdaftar di website.</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {ownerList.map((owner) => (
+                <Link key={owner.uid} href={`/viewer/${owner.uid}`} className="card bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:shadow-md transition cursor-pointer">
+                  <div className="card-body p-4 flex-row items-center gap-3">
+                    {owner.photoURL ? (
+                      <img src={owner.photoURL} alt="avatar" className="w-12 h-12 rounded-full border border-gray-300" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-content font-bold text-lg">
+                        {(owner.nama || "?").charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-2xl">→</span>
+                    )}
+                    <div className="flex-1">
+                      <p className="font-bold text-gray-800">{owner.nama}</p>
+                      <p className="text-xs text-gray-500">{owner.email}</p>
                     </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
+                    <ChevronRight className="text-gray-400" size={20} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
