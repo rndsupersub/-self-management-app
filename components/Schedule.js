@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2, Clock } from "lucide-react";
 
 export default function Schedule({
   jadwalUser = { kerja: [], minggu: [] },
@@ -15,13 +15,11 @@ export default function Schedule({
 }) {
   const [showKelolaJadwal, setShowKelolaJadwal] = useState(false);
   
-  // State buat Edit Jadwal
   const [editKerja, setEditKerja] = useState([]);
   const [editMinggu, setEditMinggu] = useState([]);
   const [activeTab, setActiveTab] = useState("kerja");
-  const [formBaru, setFormBaru] = useState({ label: "", unit: "" });
+  const [formBaru, setFormBaru] = useState({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
 
-  // Load data ke state edit pas modal kebuka
   useEffect(() => {
     if (showKelolaJadwal) {
       setEditKerja([...(jadwalUser?.kerja || [])]);
@@ -67,7 +65,6 @@ export default function Schedule({
     onUpdateProgress(selectedDate, actId, { selesai: !current });
   };
 
-  // Fungsi Simpan Kelola Jadwal
   const handleSimpanJadwal = async () => {
     if (onUpdateJadwal) {
       await onUpdateJadwal({ kerja: editKerja, minggu: editMinggu });
@@ -80,11 +77,13 @@ export default function Schedule({
     const newItem = {
       id: `jadwal_${Date.now()}`,
       label: formBaru.label,
-      unit: formBaru.unit || ""
+      unit: formBaru.unit || "",
+      jamMulai: formBaru.jamMulai || "",
+      jamSelesai: formBaru.jamSelesai || "",
     };
     if (activeTab === "kerja") setEditKerja([...editKerja, newItem]);
     else setEditMinggu([...editMinggu, newItem]);
-    setFormBaru({ label: "", unit: "" });
+    setFormBaru({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
   };
 
   const handleHapusItem = (id) => {
@@ -92,7 +91,6 @@ export default function Schedule({
     else setEditMinggu(editMinggu.filter((item) => item.id !== id));
   };
 
-  // REGEX SAKTI PENGHAPUS EMOJI (Nangkep emoji di manapun)
   const cleanLabel = (text) => {
     if (!text) return "";
     return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
@@ -152,6 +150,9 @@ export default function Schedule({
             {jadwalHariIni.map((act) => {
               const isSelesai = progressHariIni[act.id]?.selesai || false;
               const labelBersih = cleanLabel(act.label);
+              // Ambil jam dari berbagai kemungkinan nama field
+              const jMulai = act.jamMulai || act.mulai || act.jam || "";
+              const jSelesai = act.jamSelesai || act.selesai || "";
 
               return (
                 <div
@@ -161,6 +162,11 @@ export default function Schedule({
                   }`}
                 >
                   <div className="flex-1 flex flex-wrap items-center gap-3">
+                    {(jMulai || jSelesai) && (
+                      <span className="text-xs font-mono text-gray-500 w-28 shrink-0 flex items-center gap-1">
+                        <Clock size={12} /> {jMulai || "--:--"} - {jSelesai || "--:--"}
+                      </span>
+                    )}
                     <p className={`text-sm font-semibold ${isSelesai ? "text-green-800 line-through opacity-70" : "text-gray-800"}`}>
                       {labelBersih}
                     </p>
@@ -168,20 +174,6 @@ export default function Schedule({
                   </div>
 
                   <div className="flex items-center gap-2" data-html2canvas-ignore="true">
-                    {act.tipe === "pilihan" && act.pilihanList && (
-                      <div className="flex flex-wrap gap-1 mr-2">
-                        {act.pilihanList.map((pil) => (
-                          <button
-                            key={pil.id}
-                            className="btn btn-xs btn-outline border-gray-300 text-gray-700 hover:bg-gray-200"
-                            onClick={() => alert(`Masuk ke fitur ${pil.label}`)}
-                          >
-                            {pil.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
                     <button
                       className={`btn btn-xs flex items-center gap-1 ${
                         isSelesai ? "btn-success text-white" : "btn-outline text-gray-700"
@@ -218,7 +210,10 @@ export default function Schedule({
                 {(activeTab === "kerja" ? editKerja : editMinggu).map((item) => (
                   <div key={item.id} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200">
                     <div>
-                      <p className="text-sm font-semibold text-gray-800">{cleanLabel(item.label)}</p>
+                      <p className="text-sm font-semibold text-gray-800">
+                        {item.jamMulai ? `${item.jamMulai} - ${item.jamSelesai} ` : ""}
+                        {cleanLabel(item.label)}
+                      </p>
                       {item.unit && <p className="text-xs text-gray-500">({item.unit})</p>}
                     </div>
                     <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusItem(item.id)}><Trash2 size={14} /></button>
@@ -228,8 +223,15 @@ export default function Schedule({
 
               <div className="bg-blue-50 p-3 rounded border border-blue-200 space-y-2">
                 <p className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Plus size={14} /> Tambah Item Baru</p>
+                
+                <div className="flex gap-2">
+                  <input type="time" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formBaru.jamMulai} onChange={(e) => setFormBaru({ ...formBaru, jamMulai: e.target.value })} title="Jam Mulai" />
+                  <input type="time" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formBaru.jamSelesai} onChange={(e) => setFormBaru({ ...formBaru, jamSelesai: e.target.value })} title="Jam Selesai" />
+                </div>
+
                 <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama kegiatan (misal: Olahraga)" value={formBaru.label} onChange={(e) => setFormBaru({ ...formBaru, label: e.target.value })} />
                 <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Keterangan (misal: 60 menit)" value={formBaru.unit} onChange={(e) => setFormBaru({ ...formBaru, unit: e.target.value })} />
+                
                 <button className="btn btn-primary btn-sm w-full" onClick={handleTambahItem} disabled={!formBaru.label.trim()}>Tambah</button>
               </div>
 
