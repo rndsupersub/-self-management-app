@@ -113,7 +113,7 @@ export default function BelajarDetailPage() {
 
   const handleRename = async (itemId, currentNama, e) => {
     e.stopPropagation();
-    const newNama = window.prompt("Ganti nama jadi:", currentNama);
+    const newNama = window.prompt("Ganti nama jadi:", currentNama.replace(/^[^\w\s]+\s/, ''));
     if (!newNama || !newNama.trim() || newNama.trim() === currentNama) return;
     await simpanKategori(updateItem(kategori, [...path, itemId], { nama: newNama.trim() }));
   };
@@ -147,7 +147,10 @@ export default function BelajarDetailPage() {
     path.forEach((id, idx) => {
       currentPath += `/${id}`;
       const subResult = findItem(kategori, path.slice(0, idx + 1));
-      if (subResult?.item) items.push({ id, nama: subResult.item.nama, path: currentPath, icon: <Folder size={14} /> });
+      if (subResult?.item) {
+        const cleanName = subResult.item.nama.replace(/^[^\w\s]+\s/, '');
+        items.push({ id, nama: cleanName, path: currentPath, icon: <Folder size={14} /> });
+      }
     });
     return (
       <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
@@ -177,11 +180,12 @@ export default function BelajarDetailPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((sub) => {
           const subPath = [...path, sub.id].join("/");
+          const cleanSubName = sub.nama.replace(/^[^\w\s]+\s/, '');
           return (
             <div key={sub.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/belajar/${subPath}`)}>
               <div className="card-body p-4">
                 <div className="flex justify-between items-start gap-2">
-                  <h2 className="card-title text-base text-gray-800 flex-1 flex items-center gap-2"><Folder size={18} className="text-blue-500"/> {sub.nama}</h2>
+                  <h2 className="card-title text-base text-gray-800 flex-1 flex items-center gap-2"><Folder size={18} className="text-blue-500"/> {cleanSubName}</h2>
                   <div className="flex gap-1 shrink-0" data-html2canvas-ignore="true">
                     <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRename(sub.id, sub.nama, e)} title="Rename"><Pencil size={14} /></button>
                     <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapus(sub.id, e)} title="Hapus"><Trash2 size={14} /></button>
@@ -227,18 +231,124 @@ export default function BelajarDetailPage() {
         </>
       );
     }
-    // ... (Logika level 2, 3, 4, 5+ tetap sama persis seperti aslinya, gua potong karena batas karakter, tapi di file asli lo tinggal ganti ikon emoji jadi Lucide) ...
+
+    if (level === 2) {
+      return (
+        <>
+          {renderTabs([{ id: "materi", label: "Materi", icon: <BookOpen size={16}/> }, { id: "kalender", label: "Kalender", icon: <FileText size={16}/> }])}
+          {activeTab === "materi" && (
+            <>
+              <div className="flex justify-between items-center mb-4" data-html2canvas-ignore="true">
+                <h2 className="text-lg font-bold text-gray-800">Tools</h2>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Tool</button>
+              </div>
+              {renderList(item.tools || [])}
+            </>
+          )}
+          {activeTab === "kalender" && (
+            <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={(id) => router.push(`/dashboard/belajar/${kategoriUtama}/${id}`)} />
+          )}
+        </>
+      );
+    }
+
+    if (level === 3) {
+      const warnaTool = item.warna || "gray";
+      const style = getWarnaStyle(warnaTool);
+      return (
+        <>
+          {renderTabs([{ id: "materi", label: "Materi", icon: <BookOpen size={16}/> }, { id: "kalender", label: "Kalender", icon: <FileText size={16}/> }])}
+          {activeTab === "materi" && (
+            <>
+              <div className="flex justify-between items-center mb-4 flex-wrap gap-2" data-html2canvas-ignore="true">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-gray-800">Fitur</h2>
+                  <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                    <span className={`w-3 h-3 rounded-full ${style.bg}`} />
+                    <span className="text-xs text-gray-500">Warna bar</span>
+                    <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowColorPicker(!showColorPicker)} title="Ubah warna tool"><Palette size={14} /></button>
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Fitur</button>
+              </div>
+              {showColorPicker && (
+                <div className="card bg-white shadow border border-blue-300 mb-4">
+                  <div className="card-body p-4">
+                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool "{item.nama.replace(/^[^\w\s]+\s/, '')}"</p>
+                    <div className="flex flex-wrap gap-2">
+                      {WARNA_OPTIONS.map((w) => (
+                        <button key={w.id} className={`w-8 h-8 rounded ${w.bg} border-2 ${warnaTool === w.id ? "border-gray-800 ring-2 ring-gray-400" : "border-white"}`} onClick={() => handleUpdateWarnaTool(w.id)} title={w.label} />
+                      ))}
+                    </div>
+                    <div className="flex justify-end mt-3"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowColorPicker(false)}>Tutup</button></div>
+                  </div>
+                </div>
+              )}
+              {renderList(item.fitur || [])}
+              {punyaKaryaMingguan && (
+                <div className="mt-6"><KaryaMingguan karyaMingguan={item.karyaMingguan || []} onUpdate={(newKarya) => { handleUpdateItem({ karyaMingguan: newKarya }); }} /></div>
+              )}
+            </>
+          )}
+          {activeTab === "kalender" && (
+            <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={(id) => router.push(`/dashboard/belajar/${kategoriUtama}/${id}`)} />
+          )}
+        </>
+      );
+    }
+
+    if (level >= 4) {
+      const hasParts = item.parts && item.parts.length > 0;
+      const hasFitur = item.fitur && item.fitur.length > 0;
+      const isGroup = hasParts || hasFitur;
+
+      if (isGroup) {
+        const isParts = hasParts;
+        const childrenList = isParts ? item.parts : item.fitur;
+        return (
+          <>
+            {renderTabs([{ id: "materi", label: "Materi", icon: <BookOpen size={16}/> }, { id: "kalender", label: "Kalender", icon: <FileText size={16}/> }])}
+            {activeTab === "materi" && (
+              <>
+                <div className="flex justify-between items-center mb-4" data-html2canvas-ignore="true">
+                  <h2 className="text-lg font-bold text-gray-800">{isParts ? "Part" : "Fitur"}</h2>
+                  <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>{isParts ? "+ Tambah Part" : "+ Tambah Fitur"}</button>
+                </div>
+                {renderList(childrenList)}
+              </>
+            )}
+            {activeTab === "kalender" && (
+              <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={(id) => router.push(`/dashboard/belajar/${kategoriUtama}/${id}`)} />
+            )}
+          </>
+        );
+      }
+
+      return (
+        <>
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2" data-html2canvas-ignore="true">
+            <p className="text-xs text-gray-500 italic">Ini halaman leaf. Mau tambah sub-fitur di sini? Klik tombol →</p>
+            <button className="btn btn-outline btn-xs" onClick={() => setShowForm(!showForm)}>+ Tambah Fitur</button>
+          </div>
+          {renderTabs([{ id: "hasil-belajar", label: "Hasil Belajar", icon: <CheckCircle2 size={16}/> }, { id: "kalender", label: "Kalender", icon: <FileText size={16}/> }])}
+          {activeTab === "hasil-belajar" && (
+            <BelajarUpload item={item} onUpdate={handleUpdateItem} path={path} kategoriId={kategoriUtama} kategoriData={kategori} logHarian={logHarian} onUpdateLog={handleUpdateLog} today={new Date().toISOString().split("T")[0]} mode="hasil-belajar" />
+          )}
+          {activeTab === "kalender" && (
+            <KalenderBelajar kategoriId={kategoriUtama} subKategoriId={subKategoriUtama} kategoriData={kategori} logHarian={logHarian} targetHarian={targetHarian} onUpdateLog={handleUpdateLog} onUpdateTarget={handleUpdateTarget} subKategoriSiblings={subKategoriSiblings} onPindahSubKategori={(id) => router.push(`/dashboard/belajar/${kategoriUtama}/${id}`)} />
+          )}
+        </>
+      );
+    }
   };
 
-  // Karena file [...slug] ini panjang banget dan gua nggak mau lo nge-scroll ke atas terus,
-  // gua kasih bagian bawah file yang udah dibersihin dan sisanya sama persis kayak aslinya.
-  // Lo tinggal copy full file dari history chat lo, lalu ganti <div> Sidebar/Navbar-nya dengan return di bawah.
+  const cleanItemName = item.nama.replace(/^[^\w\s]+\s/, '');
 
   return (
     <div className="max-w-6xl mx-auto">
       {renderBreadcrumb()}
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-primary" size={24}/> {item.nama}</h1>
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-primary" size={24}/> {cleanItemName}</h1>
         {level === 3 && (
            <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded px-2 py-1">
              <span className={`w-3 h-3 rounded-full ${getWarnaStyle(item.warna || "gray").bg}`} />
