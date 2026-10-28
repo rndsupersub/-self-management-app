@@ -13,6 +13,7 @@ import GoalsManager from "@/components/GoalsManager";
 import SettingKeuangan from "@/components/SettingKeuangan";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_SUMBER_PEMASUKAN, DEFAULT_KATEGORI } from "@/lib/keuanganData";
+import { Home, Wallet, BarChart3, Pencil, Target, Settings, Inbox } from "lucide-react";
 
 export default function KeuanganPage() {
   const [user, setUser] = useState(null);
@@ -60,23 +61,23 @@ export default function KeuanganPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="text-sm breadcrumbs mb-4" data-html2canvas-ignore="true">
+      <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
-          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer">🏠 Dashboard</a></li>
-          <li>💰 Keuangan</li>
+          <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
+          <li className="flex items-center gap-1"><Wallet size={14} /> Keuangan</li>
         </ul>
       </div>
 
       <div className="flex flex-wrap justify-between items-center mb-4 gap-2" data-html2canvas-ignore="true">
-        <h1 className="text-2xl font-bold text-gray-800">💰 Keuangan</h1>
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Wallet className="text-primary" size={24}/> Keuangan</h1>
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit flex-wrap" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "dashboard" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("dashboard")}>📊 Dashboard</button>
-        <button className={`tab ${activeTab === "transaksi" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("transaksi")}>📝 Input Transaksi</button>
-        <button className={`tab ${activeTab === "dompet" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("dompet")}>👛 Kelola Dompet</button>
-        <button className={`tab ${activeTab === "goals" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("goals")}>🎯 Kelola Goals</button>
-        <button className={`tab ${activeTab === "setting" ? "tab-active bg-blue-600 text-white" : ""}`} onClick={() => setActiveTab("setting")}>⚙️ Setting</button>
+        <button className={`tab ${activeTab === "dashboard" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dashboard")}><BarChart3 size={14} className="mr-1"/> Dashboard</button>
+        <button className={`tab ${activeTab === "transaksi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("transaksi")}><Pencil size={14} className="mr-1"/> Input Transaksi</button>
+        <button className={`tab ${activeTab === "dompet" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dompet")}><Wallet size={14} className="mr-1"/> Kelola Dompet</button>
+        <button className={`tab ${activeTab === "goals" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("goals")}><Target size={14} className="mr-1"/> Kelola Goals</button>
+        <button className={`tab ${activeTab === "setting" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("setting")}><Settings size={14} className="mr-1"/> Setting</button>
       </div>
 
       <div id="export-area">
