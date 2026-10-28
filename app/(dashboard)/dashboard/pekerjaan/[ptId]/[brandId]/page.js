@@ -15,7 +15,7 @@ import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, ClipboardList } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, ClipboardList, Plus, X } from "lucide-react";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);

@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { METODE_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getLabelHasil, getWarnaHasil } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
-import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, Check, FolderOpen } from "lucide-react";
+import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, Check, FolderOpen, Plus } from "lucide-react"; // <-- Plus Udah Ditambahin
 
 export default function VendorDetail({
   vendor, kategoriVendorList = [], tujuanKunjunganList = [], fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
