@@ -1,57 +1,34 @@
 // components/MenuManager.js
 "use client";
 import { useState, useEffect } from "react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { WARNA_OPTIONS } from "@/lib/belajarData";
+import { Settings, List, Eye, Archive, RotateCcw, GripVertical, Lock, Pencil, Trash2, Undo2, Plus, X } from "lucide-react";
 
 function SortableRow({ menu, onRename, onHide, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: menu.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 bg-base-200 p-2 rounded">
-      <span {...attributes} {...listeners} className="cursor-grab select-none px-1" title="Geser untuk reorder">☰</span>
-      <span className="flex-1 text-sm truncate">{menu.label}</span>
-      {menu.required && <span className="text-xs badge badge-ghost">🔒</span>}
+      <span {...attributes} {...listeners} className="cursor-grab select-none px-1" title="Geser untuk reorder"><GripVertical size={16} /></span>
+      <span className="flex-1 text-sm truncate">{menu.label.replace(/^[^\w\s]+\s/, '')}</span>
+      {menu.required && <span className="text-xs badge badge-ghost"><Lock size={12} /></span>}
       {menu.type === "custom" && <span className="text-xs badge badge-ghost badge-xs">custom</span>}
-      <button className="btn btn-ghost btn-xs" onClick={() => onRename(menu)} title="Rename">✏️</button>
+      <button className="btn btn-ghost btn-xs" onClick={() => onRename(menu)} title="Rename"><Pencil size={14} /></button>
       {!menu.required && (
         <>
-          <button className="btn btn-ghost btn-xs" onClick={() => onHide(menu)} title="Sembunyikan">👁️</button>
-          <button className="btn btn-ghost btn-xs text-error" onClick={() => onDelete(menu)} title="Hapus">🗑️</button>
+          <button className="btn btn-ghost btn-xs" onClick={() => onHide(menu)} title="Sembunyikan"><Eye size={14} /></button>
+          <button className="btn btn-ghost btn-xs text-error" onClick={() => onDelete(menu)} title="Hapus"><Trash2 size={14} /></button>
         </>
       )}
     </div>
   );
 }
 
-export default function MenuManager({
-  menus = [],
-  activities = [],
-  menusCustom = {},
-  user,
-  onUpdate,
-  onUpdateCustom,
-}) {
+export default function MenuManager({ menus = [], activities = [], menusCustom = {}, user, onUpdate, onUpdateCustom }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState("aktif");
   const [localMenus, setLocalMenus] = useState(menus);
@@ -92,10 +69,7 @@ export default function MenuManager({
     if (onUpdateCustom) onUpdateCustom(newMenusCustom);
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   const handleDragEnd = (e) => {
     const { active, over } = e;
@@ -110,98 +84,58 @@ export default function MenuManager({
   };
 
   const handleRename = (menu) => {
-    const newName = window.prompt("Ganti nama menu jadi:", menu.label);
-    if (!newName || !newName.trim() || newName.trim() === menu.label) return;
+    const newName = window.prompt("Ganti nama menu jadi:", menu.label.replace(/^[^\w\s]+\s/, ''));
+    if (!newName || !newName.trim()) return;
     const before = [...localMenus];
     const updated = localMenus.map((m) => m.id === menu.id ? { ...m, label: newName.trim() } : m);
     setLocalMenus(updated);
     onUpdate(updated, arsip);
     if (menu.type === "custom" && menusCustom[menu.id]) {
-      saveMenusCustom({
-        ...menusCustom,
-        [menu.id]: { ...menusCustom[menu.id], nama: newName.trim() },
-      });
+      saveMenusCustom({ ...menusCustom, [menu.id]: { ...menusCustom[menu.id], nama: newName.trim() } });
     }
-    setToast({ msg: `"${menu.label}" → "${newName.trim()}"`, undoFn: () => { setLocalMenus(before); onUpdate(before, arsip); } });
+    setToast({ msg: `Menu diganti ke "${newName.trim()}"`, undoFn: () => { setLocalMenus(before); onUpdate(before, arsip); } });
   };
 
   const handleHide = (menu) => {
     const before = [...localMenus];
     const updated = localMenus.map((m) => m.id === menu.id ? { ...m, visible: false } : m);
-    setLocalMenus(updated);
-    onUpdate(updated, arsip);
-    setToast({ msg: `"${menu.label}" disembunyikan`, undoFn: () => { setLocalMenus(before); onUpdate(before, arsip); } });
+    setLocalMenus(updated); onUpdate(updated, arsip);
+    setToast({ msg: `Menu disembunyikan`, undoFn: () => { setLocalMenus(before); onUpdate(before, arsip); } });
   };
 
   const handleShow = (menu) => {
     const updated = localMenus.map((m) => m.id === menu.id ? { ...m, visible: true } : m);
-    setLocalMenus(updated);
-    onUpdate(updated, arsip);
+    setLocalMenus(updated); onUpdate(updated, arsip);
   };
 
   const handleDelete = (menu) => {
     if (!confirm(`Hapus menu "${menu.label}"? Bisa di-restore dari tab Arsip.`)) return;
-    const before = [...localMenus];
-    const beforeArsip = [...arsip];
-    const beforeCustom = { ...menusCustom };
-
+    const before = [...localMenus]; const beforeArsip = [...arsip]; const beforeCustom = { ...menusCustom };
     const updated = localMenus.filter((m) => m.id !== menu.id);
     const newArsip = [...arsip, { ...menu, deletedAt: new Date().toISOString() }];
-
-    setLocalMenus(updated);
-    saveArsip(newArsip);
-    onUpdate(updated, newArsip);
-
+    setLocalMenus(updated); saveArsip(newArsip); onUpdate(updated, newArsip);
     if (menu.type === "custom" && menusCustom[menu.id]) {
-      const newCustom = { ...menusCustom };
-      delete newCustom[menu.id];
-      saveMenusCustom(newCustom);
+      const newCustom = { ...menusCustom }; delete newCustom[menu.id]; saveMenusCustom(newCustom);
     }
-
-    setToast({
-      msg: `"${menu.label}" dipindah ke Arsip`,
-      undoFn: () => {
-        setLocalMenus(before);
-        saveArsip(beforeArsip);
-        onUpdate(before, beforeArsip);
-        if (menu.type === "custom") saveMenusCustom(beforeCustom);
-      },
-    });
+    setToast({ msg: `Menu dipindah ke Arsip`, undoFn: () => { setLocalMenus(before); saveArsip(beforeArsip); onUpdate(before, beforeArsip); if (menu.type === "custom") saveMenusCustom(beforeCustom); } });
   };
 
   const handleRestore = (menu) => {
     const newArsip = arsip.filter((m) => m.id !== menu.id);
-    const restored = { ...menu, visible: true, order: localMenus.length };
-    delete restored.deletedAt;
+    const restored = { ...menu, visible: true, order: localMenus.length }; delete restored.deletedAt;
     const updated = [...localMenus, restored];
-    setLocalMenus(updated);
-    saveArsip(newArsip);
-    onUpdate(updated, newArsip);
-
+    setLocalMenus(updated); saveArsip(newArsip); onUpdate(updated, newArsip);
     if (menu.type === "custom" && !menusCustom[menu.id]) {
-      saveMenusCustom({
-        ...menusCustom,
-        [menu.id]: {
-          id: menu.id,
-          nama: menu.label,
-          warna: menu.warna || "gray",
-          subKategori: [],
-          fiturKaryaMingguan: menu.fiturKaryaMingguan || false,
-          createdAt: new Date().toISOString(),
-        },
-      });
+      saveMenusCustom({ ...menusCustom, [menu.id]: { id: menu.id, nama: menu.label, warna: menu.warna || "gray", subKategori: [], fiturKaryaMingguan: menu.fiturKaryaMingguan || false, createdAt: new Date().toISOString() } });
     }
-
-    setToast({ msg: `"${menu.label}" dipulihkan` });
+    setToast({ msg: `Menu dipulihkan` });
   };
 
   const handleReset = async () => {
-    if (!confirm("Reset semua menu ke default?\n\nPerubahan (rename, hide, hapus, reorder) akan hilang. Menu custom juga hilang.")) return;
+    if (!confirm("Reset semua menu ke default?")) return;
     const { DEFAULT_MENUS } = await import("@/lib/defaultData");
     const fresh = DEFAULT_MENUS.map((m) => ({ ...m }));
-    setLocalMenus(fresh);
-    onUpdate(fresh, arsip);
-    saveMenusCustom({});
+    setLocalMenus(fresh); onUpdate(fresh, arsip); saveMenusCustom({});
     setToast({ msg: "Menu di-reset ke default" });
   };
 
@@ -209,38 +143,12 @@ export default function MenuManager({
     if (!customName.trim()) return;
     const id = `custom_${Date.now()}`;
     const label = `${customIcon} ${customName.trim()}`;
-
-    const newMenu = {
-      id,
-      label,
-      type: "custom",
-      required: false,
-      visible: true,
-      order: localMenus.length,
-      warna: customWarna,
-      fiturKaryaMingguan: customKaryaMingguan,
-    };
+    const newMenu = { id, label, type: "custom", required: false, visible: true, order: localMenus.length, warna: customWarna, fiturKaryaMingguan: customKaryaMingguan };
     const updated = [...localMenus, newMenu];
-    setLocalMenus(updated);
-    onUpdate(updated, arsip);
-
-    saveMenusCustom({
-      ...menusCustom,
-      [id]: {
-        id,
-        nama: label,
-        warna: customWarna,
-        subKategori: [],
-        fiturKaryaMingguan: customKaryaMingguan,
-        createdAt: new Date().toISOString(),
-      },
-    });
-
-    setCustomName("");
-    setCustomIcon("📌");
-    setCustomWarna("gray");
-    setCustomKaryaMingguan(false);
-    setToast({ msg: `Menu "${customName.trim()}" ditambahkan` });
+    setLocalMenus(updated); onUpdate(updated, arsip);
+    saveMenusCustom({ ...menusCustom, [id]: { id, nama: label, warna: customWarna, subKategori: [], fiturKaryaMingguan: customKaryaMingguan, createdAt: new Date().toISOString() } });
+    setCustomName(""); setCustomIcon("📌"); setCustomWarna("gray"); setCustomKaryaMingguan(false);
+    setToast({ msg: `Menu ditambahkan` });
   };
 
   const aktifMenus = localMenus.filter((m) => m.visible !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -249,7 +157,7 @@ export default function MenuManager({
   return (
     <>
       <button className="btn btn-ghost btn-sm gap-1" onClick={() => setIsOpen(true)}>
-        ⚙️ Kelola Menu
+        <Settings size={16} className="mr-1" /> Kelola Menu
       </button>
 
       {isOpen && (
@@ -257,15 +165,15 @@ export default function MenuManager({
           <div className="card bg-base-100 w-full max-w-2xl max-h-[85vh] mx-4 flex flex-col">
             <div className="card-body p-4 flex flex-col h-full overflow-hidden">
               <div className="flex justify-between items-center mb-2">
-                <h2 className="card-title">⚙️ Kelola Menu</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)}>✕</button>
+                <h2 className="card-title flex items-center gap-2"><Settings size={20} /> Kelola Menu</h2>
+                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)}><X size={18} /></button>
               </div>
 
               <div className="tabs tabs-boxed mb-3 w-fit flex-wrap">
-                <button className={`tab ${tab === "aktif" ? "tab-active" : ""}`} onClick={() => setTab("aktif")}>📋 Aktif ({aktifMenus.length})</button>
-                <button className={`tab ${tab === "hidden" ? "tab-active" : ""}`} onClick={() => setTab("hidden")}>👁️ Disembunyikan ({hiddenMenus.length})</button>
-                <button className={`tab ${tab === "arsip" ? "tab-active" : ""}`} onClick={() => setTab("arsip")}>📦 Arsip ({arsip.length})</button>
-                <button className={`tab ${tab === "reset" ? "tab-active" : ""}`} onClick={() => setTab("reset")}>🔄 Reset</button>
+                <button className={`tab ${tab === "aktif" ? "tab-active" : ""}`} onClick={() => setTab("aktif")}><List size={14} className="mr-1"/> Aktif ({aktifMenus.length})</button>
+                <button className={`tab ${tab === "hidden" ? "tab-active" : ""}`} onClick={() => setTab("hidden")}><Eye size={14} className="mr-1"/> Disembunyikan ({hiddenMenus.length})</button>
+                <button className={`tab ${tab === "arsip" ? "tab-active" : ""}`} onClick={() => setTab("arsip")}><Archive size={14} className="mr-1"/> Arsip ({arsip.length})</button>
+                <button className={`tab ${tab === "reset" ? "tab-active" : ""}`} onClick={() => setTab("reset")}><RotateCcw size={14} className="mr-1"/> Reset</button>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -273,104 +181,58 @@ export default function MenuManager({
                   <>
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                       <SortableContext items={aktifMenus.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                        {aktifMenus.map((m) => (
-                          <SortableRow key={m.id} menu={m} onRename={handleRename} onHide={handleHide} onDelete={handleDelete} />
-                        ))}
+                        {aktifMenus.map((m) => <SortableRow key={m.id} menu={m} onRename={handleRename} onHide={handleHide} onDelete={handleDelete} />)}
                       </SortableContext>
                     </DndContext>
 
                     <div className="border-t border-base-300 pt-3 mt-3">
-                      <p className="text-xs font-semibold mb-2">➕ Tambah Menu Custom</p>
+                      <p className="text-xs font-semibold mb-2 flex items-center gap-1"><Plus size={14}/> Tambah Menu Custom</p>
                       <div className="space-y-2">
                         <div className="flex gap-1">
                           <input type="text" className="input input-bordered input-sm w-14" value={customIcon} onChange={(e) => setCustomIcon(e.target.value)} placeholder="📌" />
-                          <input type="text" className="input input-bordered input-sm flex-1" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Nama menu (misal: Belajar Musik)" />
+                          <input type="text" className="input input-bordered input-sm flex-1" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="Nama menu..." />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-600 mb-1 block">Warna bar (untuk kalender)</label>
+                          <label className="text-xs text-gray-600 mb-1 block">Warna bar</label>
                           <div className="flex flex-wrap gap-1">
                             {WARNA_OPTIONS.map((w) => (
-                              <button
-                                key={w.id}
-                                className={`w-6 h-6 rounded ${w.bg} border-2 ${
-                                  customWarna === w.id ? "border-gray-800 ring-2 ring-gray-400" : "border-white"
-                                }`}
-                                onClick={() => setCustomWarna(w.id)}
-                                title={w.label}
-                              />
+                              <button key={w.id} className={`w-6 h-6 rounded ${w.bg} border-2 ${customWarna === w.id ? "border-gray-800 ring-2 ring-gray-400" : "border-white"}`} onClick={() => setCustomWarna(w.id)} title={w.label} />
                             ))}
                           </div>
                         </div>
                         <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="checkbox checkbox-sm checkbox-primary"
-                            checked={customKaryaMingguan}
-                            onChange={(e) => setCustomKaryaMingguan(e.target.checked)}
-                          />
+                          <input type="checkbox" className="checkbox checkbox-sm checkbox-primary" checked={customKaryaMingguan} onChange={(e) => setCustomKaryaMingguan(e.target.checked)} />
                           <span className="text-xs text-gray-700">Aktifkan Karya Mingguan</span>
                         </label>
-                        <button className="btn btn-primary btn-sm w-full" onClick={handleAddCustom} disabled={!customName.trim()}>
-                          ➕ Tambah Menu Custom
-                        </button>
+                        <button className="btn btn-primary btn-sm w-full" onClick={handleAddCustom} disabled={!customName.trim()}><Plus size={14} className="mr-1"/> Tambah</button>
                       </div>
                     </div>
                   </>
                 )}
 
-                {tab === "hidden" && (
-                  hiddenMenus.length === 0 ? (
-                    <p className="text-xs text-base-content/50 italic text-center py-4">Belum ada menu yang disembunyikan.</p>
-                  ) : (
-                    hiddenMenus.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
-                        <span className="flex-1 text-sm truncate">{m.label}</span>
-                        <button className="btn btn-ghost btn-xs" onClick={() => handleShow(m)}>↩️ Tampilkan</button>
-                      </div>
-                    ))
-                  )
-                )}
+                {tab === "hidden" && (hiddenMenus.length === 0 ? <p className="text-xs text-center py-4 text-gray-400">Kosong.</p> : hiddenMenus.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
+                    <span className="flex-1 text-sm truncate">{m.label.replace(/^[^\w\s]+\s/, '')}</span>
+                    <button className="btn btn-ghost btn-xs" onClick={() => handleShow(m)}><Undo2 size={14} className="mr-1"/> Tampilkan</button>
+                  </div>
+                )))}
 
-                {tab === "arsip" && (
-                  arsip.length === 0 ? (
-                    <p className="text-xs text-base-content/50 italic text-center py-4">Arsip kosong.</p>
-                  ) : (
-                    arsip.map((m) => (
-                      <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
-                        <span className="flex-1 text-sm truncate">{m.label}</span>
-                        {m.type === "custom" && <span className="text-xs badge badge-ghost badge-xs">custom</span>}
-                        <button className="btn btn-ghost btn-xs" onClick={() => handleRestore(m)}>↩️ Restore</button>
-                      </div>
-                    ))
-                  )
-                )}
+                {tab === "arsip" && (arsip.length === 0 ? <p className="text-xs text-center py-4 text-gray-400">Kosong.</p> : arsip.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2 bg-base-200 p-2 rounded">
+                    <span className="flex-1 text-sm truncate">{m.label.replace(/^[^\w\s]+\s/, '')}</span>
+                    <button className="btn btn-ghost btn-xs" onClick={() => handleRestore(m)}><Undo2 size={14} className="mr-1"/> Restore</button>
+                  </div>
+                )))}
 
                 {tab === "reset" && (
                   <div className="text-center py-4">
-                    <p className="text-sm mb-2 font-semibold">Reset semua menu ke default?</p>
-                    <p className="text-xs text-base-content/50 mb-4">
-                      Semua perubahan (rename, hide, hapus, reorder) akan hilang. Menu custom juga hilang.
-                    </p>
-                    <button className="btn btn-error btn-sm" onClick={handleReset}>🔄 Reset ke Default</button>
+                    <p className="text-sm mb-2 font-semibold">Reset semua menu?</p>
+                    <button className="btn btn-error btn-sm" onClick={handleReset}><RotateCcw size={14} className="mr-1"/> Reset ke Default</button>
                   </div>
                 )}
               </div>
-
-              <p className="text-xs text-base-content/50 mt-3 pt-3 border-t border-base-300">
-                💡 Menu yang dihapus pindah ke Arsip. Data aktivitas tidak hilang. Undo muncul 5 detik setelah aksi.
-              </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-[100] bg-base-100 shadow-lg rounded-lg p-3 flex items-center gap-3 max-w-md border border-base-300">
-          <span className="text-sm flex-1">{toast.msg}</span>
-          {toast.undoFn && (
-            <button className="btn btn-sm btn-primary" onClick={() => { toast.undoFn(); setToast(null); }}>↩️ Undo</button>
-          )}
-          <button className="btn btn-ghost btn-xs" onClick={() => setToast(null)}>✕</button>
         </div>
       )}
     </>
