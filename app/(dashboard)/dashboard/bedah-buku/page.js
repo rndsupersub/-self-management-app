@@ -8,7 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import KalenderBedahBuku from "@/components/KalenderBedahBuku";
 import { DEFAULT_BEDAH_BUKU, DEFAULT_KATEGORI, generateId, getProgressBuku, getStreak, getTotalHalamanBuku, cekBukuSelesai } from "@/lib/bedahBukuData";
-import { BookOpen, Library, Home, Pencil, Trash2, Calendar, Plus, FileText, Target, Flame, CheckCircle2, User } from "lucide-react";
+import { BookOpen, Library, Home, Pencil, Trash2, Calendar, Plus, FileText, Target, Flame, CheckCircle2, User, X, Save } from "lucide-react";
 
 export default function BedahBukuPage() {
   const [user, setUser] = useState(null);
@@ -16,7 +16,15 @@ export default function BedahBukuPage() {
   const [activeTab, setActiveTab] = useState("kalender");
   const [bedahBuku, setBedahBuku] = useState(DEFAULT_BEDAH_BUKU);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ judul: "", penulis: "", kategoriId: "belajar", totalHalaman: "", targetPerHari: 10, tanggalMulai: "" });
+  
+  const [formData, setFormData] = useState({
+    judul: "",
+    penulis: "",
+    kategoriId: "belajar",
+    totalHalaman: "",
+    targetPerHari: 10,
+    tanggalMulai: new Date().toISOString().split("T")[0],
+  });
 
   const router = useRouter();
 
@@ -45,9 +53,20 @@ export default function BedahBukuPage() {
 
   const handleTambahBuku = async () => {
     if (!formData.judul.trim() || !formData.totalHalaman) return;
-    const newBuku = { id: generateId("buku"), ...formData, totalHalaman: parseInt(formData.totalHalaman) || 0, targetPerHari: parseInt(formData.targetPerHari) || 10, halamanSelesai: [], progressHarian: {}, createdAt: new Date().toISOString() };
+    
+    const newBuku = { 
+      id: generateId("buku"), 
+      ...formData, 
+      totalHalaman: parseInt(formData.totalHalaman) || 0, 
+      targetPerHari: parseInt(formData.targetPerHari) || 10, 
+      halamanSelesai: [], 
+      progressHarian: {}, 
+      createdAt: new Date().toISOString() 
+    };
+    
     await simpanBedahBuku({ ...bedahBuku, buku: [...bedahBuku.buku, newBuku] });
     setShowForm(false);
+    setFormData({ judul: "", penulis: "", kategoriId: "belajar", totalHalaman: "", targetPerHari: 10, tanggalMulai: new Date().toISOString().split("T")[0] });
   };
 
   const handleHapusBuku = async (bukuId, e) => {
@@ -74,6 +93,56 @@ export default function BedahBukuPage() {
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}><Plus size={16} className="mr-1" /> Tambah Buku</button>
       </div>
 
+      {/* FORM TAMBAH BUKU */}
+      {showForm && (
+        <div className="card bg-white shadow border border-blue-300 mb-4" data-html2canvas-ignore="true">
+          <div className="card-body p-4 space-y-3">
+            <div className="flex justify-between items-center mb-2">
+              <p className="text-sm font-bold text-blue-700">Tambah Buku Baru</p>
+              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setShowForm(false)}><X size={16} /></button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Judul Buku *</label>
+                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Judul buku" value={formData.judul} onChange={(e) => setFormData({ ...formData, judul: e.target.value })} autoFocus />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Penulis</label>
+                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama penulis" value={formData.penulis} onChange={(e) => setFormData({ ...formData, penulis: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Kategori</label>
+                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.kategoriId} onChange={(e) => setFormData({ ...formData, kategoriId: e.target.value })}>
+                  {bedahBuku.kategori.map((k) => <option key={k.id} value={k.id}>{k.nama.replace(/^[^\w\s]+\s/, '')}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Total Halaman *</label>
+                <input type="number" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Misal: 292" value={formData.totalHalaman} onChange={(e) => setFormData({ ...formData, totalHalaman: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Target / Hari</label>
+                <input type="number" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formData.targetPerHari} onChange={(e) => setFormData({ ...formData, targetPerHari: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Tanggal Mulai</label>
+              <input type="date" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formData.tanggalMulai} onChange={(e) => setFormData({ ...formData, tanggalMulai: e.target.value })} />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-1" onClick={handleTambahBuku} disabled={!formData.judul.trim() || !formData.totalHalaman}><Save size={16}/> Simpan Buku</button>
+              <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowForm(false)}>Batal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
         <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}><Calendar size={16} className="mr-2" /> Kalender</button>
         <button className={`tab ${activeTab === "daftar" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("daftar")}><Library size={16} className="mr-2" /> Daftar Buku</button>
@@ -85,7 +154,7 @@ export default function BedahBukuPage() {
         <div className="space-y-6">
           {bedahBuku.kategori.map((kategori) => {
             const bukuKategori = bedahBuku.buku.filter((b) => b.kategoriId === kategori.id);
-            const cleanName = kategori.nama.replace(/^[^\w\s]+\s/, ''); // FILTER EMOJI DARI DB
+            const cleanName = kategori.nama.replace(/^[^\w\s]+\s/, ''); 
             return (
               <div key={kategori.id}>
                 <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2"><Library size={18} /> {cleanName} ({bukuKategori.length})</h2>
