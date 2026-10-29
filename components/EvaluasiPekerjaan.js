@@ -3,14 +3,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { getPeriodeRange, formatTanggalPendek } from "@/lib/evaluasiData";
-import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor } from "lucide-react";
+import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor, FolderOpen } from "lucide-react";
 import { getLabelHasil, getBadgeClass, getWarnaHasil, formatTanggal } from "@/lib/vendorData"; 
-
-const DEFAULT_FIELDS = [
-  { id: "ringkasan", label: "Ringkasan Pekerjaan", tipe: "long" },
-  { id: "kendala", label: "Kendala", tipe: "long" },
-  { id: "solusi", label: "Solusi", tipe: "long" },
-];
 
 const getTodayLocalDate = () => {
   const d = new Date();
@@ -22,7 +16,7 @@ const getTodayLocalDate = () => {
 
 const adjustDate = (dateStr, type, amount) => {
   const [y, m, d] = dateStr.split("-").map(Number);
-  const dateObj = new Date(y, m - 1, d); 
+  const dateObj = new Date(y, m - 1, d);
   
   if (type === "days") dateObj.setDate(dateObj.getDate() + amount);
   else if (type === "months") dateObj.setMonth(dateObj.getMonth() + amount);
@@ -47,7 +41,10 @@ export default function EvaluasiPekerjaan({
 
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
-  const [formValues, setFormValues] = useState({});
+  
+  // State buat nampung kotak-kotak (array of objects) per tanggal
+  const [evaluationReports, setEvaluationReports] = useState([]); 
+  
   const [showHistory, setShowHistory] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
 
@@ -60,8 +57,6 @@ export default function EvaluasiPekerjaan({
   const [showKelolaFrekuensi, setShowKelolaFrekuensi] = useState(false);
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
   const [frekuensiForm, setFrekuensiForm] = useState({ label: "", tipe: "bulanan", customStart: "", customEnd: "" });
-
-  const fields = useMemo(() => laporanData?.fields || DEFAULT_FIELDS, [laporanData]);
 
   const periodeAktif = useMemo(() => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
@@ -76,15 +71,23 @@ export default function EvaluasiPekerjaan({
     return evaluasiData?.[activePeriode]?.[key] || null;
   }, [evaluasiData, activePeriode, key]);
 
+  // Load data & Migrasi data lama
   useEffect(() => {
-    if (evaluasiTersimpan?.fields) {
-      setFormValues(evaluasiTersimpan.fields);
+    if (evaluasiTersimpan?.reports) {
+      // Format baru: Array of objects
+      setEvaluationReports(evaluasiTersimpan.reports);
+    } else if (evaluasiTersimpan?.fields) {
+      // Migrasi format lama (textarea panjang) ke array 1 kotak
+      setEvaluationReports([{
+        tanggal: "Data Lama",
+        ringkasan: evaluasiTersimpan.fields.ringkasan || "",
+        kendala: evaluasiTersimpan.fields.kendala || "",
+        solusi: evaluasiTersimpan.fields.solusi || ""
+      }]);
     } else {
-      const empty = {};
-      fields.forEach((f) => { empty[f.id] = ""; });
-      setFormValues(empty);
+      setEvaluationReports([]);
     }
-  }, [evaluasiTersimpan, fields]);
+  }, [evaluasiTersimpan]);
 
   const handlePrev = () => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
@@ -106,8 +109,8 @@ export default function EvaluasiPekerjaan({
 
   const handleToday = () => setSelectedDate(getTodayLocalDate());
   const handleDateChange = (e) => setSelectedDate(e.target.value);
-  const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
+  // AUTO-GENERATE: Munculin Kotak-kotak per tanggal
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
     const start = periodeAktif.periodeMulai;
@@ -122,37 +125,49 @@ export default function EvaluasiPekerjaan({
 
     if (laporanHarian.length === 0) { alert("Tidak ada laporan harian di periode ini."); return; }
 
-    let aggregatedData = {};
+    const newReports = laporanHarian.map(lap => ({
+      tanggal: lap.tanggal,
+      ringkasan: lap.fields?.ringkasan || lap.konten || "",
+      kendala: lap.fields?.kendala || "",
+      solusi: lap.fields?.solusi || ""
+    }));
 
-    laporanHarian.forEach(lap => {
-      const tgl = lap.tanggal;
-      if (lap.fields) {
-        Object.entries(lap.fields).forEach(([fId, val]) => {
-          if (val?.trim()) {
-            if (!aggregatedData[fId]) aggregatedData[fId] = [];
-            aggregatedData[fId].push(`[📅 ${tgl}]\n${val.trim()}`);
-          }
-        });
-      } else if (lap.konten?.trim()) {
-        if (!aggregatedData["ringkasan"]) aggregatedData["ringkasan"] = [];
-        aggregatedData["ringkasan"].push(`[📅 ${tgl}]\n${lap.konten.trim()}`);
-      }
-    });
+    setEvaluationReports(newReports);
+  };
 
-    const newValues = { ...formValues };
-    fields.forEach((field) => {
-      if (aggregatedData[field.id]?.length) {
-        newValues[field.id] = aggregatedData[field.id].join("\n\n");
-      }
-    });
-    setFormValues(newValues);
+  // HANDLER EDIT KOTAK
+  const handleUpdateReport = (index, field, value) => {
+    const updated = [...evaluationReports];
+    updated[index][field] = value;
+    setEvaluationReports(updated);
+  };
+
+  const handleDeleteReport = (index) => {
+    if (!confirm("Hapus kotak evaluasi tanggal ini?")) return;
+    const updated = evaluationReports.filter((_, i) => i !== index);
+    setEvaluationReports(updated);
+  };
+
+  const handleTambahKotakManual = () => {
+    const today = getTodayLocalDate();
+    setEvaluationReports([...evaluationReports, { tanggal: today, ringkasan: "", kendala: "", solusi: "" }]);
   };
 
   const handleSimpan = () => {
     if (!onUpdateEvaluasi || !periodeAktif) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
     if (!newData[activePeriode]) newData[activePeriode] = {};
-    newData[activePeriode][periodeAktif.key] = { periodeMulai: periodeAktif.periodeMulai, periodeSelesai: periodeAktif.periodeSelesai, label: periodeAktif.label, tipe: periodeAktif.tipe, fields: formValues, updatedAt: new Date().toISOString() };
+    
+    // Simpan dalam bentuk array of objects (reports)
+    newData[activePeriode][periodeAktif.key] = { 
+      periodeMulai: periodeAktif.periodeMulai, 
+      periodeSelesai: periodeAktif.periodeSelesai, 
+      label: periodeAktif.label, 
+      tipe: periodeAktif.tipe, 
+      reports: evaluationReports, 
+      updatedAt: new Date().toISOString() 
+    };
+    
     onUpdateEvaluasi(newData);
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
   };
@@ -160,7 +175,11 @@ export default function EvaluasiPekerjaan({
   const handleEditHistory = (ev) => {
     const dateToSet = ev.tanggal || ev.tanggalMulai || (ev.key.length === 7 ? `${ev.key}-01` : ev.key);
     if (dateToSet) setSelectedDate(dateToSet);
-    setFormValues(ev.fields || {});
+    if (ev.reports) {
+      setEvaluationReports(ev.reports);
+    } else if (ev.fields) {
+      setEvaluationReports([{ tanggal: "Data Lama", ...ev.fields }]);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -171,8 +190,7 @@ export default function EvaluasiPekerjaan({
       delete newData[activePeriode][periodeKey];
       onUpdateEvaluasi(newData);
       if (periodeKey === key) {
-        const empty = {}; fields.forEach((f) => { empty[f.id] = ""; });
-        setFormValues(empty);
+        setEvaluationReports([]);
       }
     }
   };
@@ -226,12 +244,6 @@ export default function EvaluasiPekerjaan({
     setExpandedVendors(prev => ({ ...prev, [vendorId]: !prev[vendorId] }));
   };
 
-  const renderFieldInput = (field, value, onChange) => {
-    const val = value ?? "";
-    if (field.tipe === "text") return (<input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />);
-    return (<textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="5" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />);
-  };
-
   if (!periodeAktif) {
     return (<div className="alert alert-warning text-xs flex items-center gap-2" data-html2canvas-ignore="true"><AlertTriangle size={16} /> Frekuensi evaluasi belum ada. Tambahin dulu di <Settings size={14}/> Kelola Frekuensi.</div>);
   }
@@ -266,47 +278,75 @@ export default function EvaluasiPekerjaan({
 
       {/* TAB UTAMA: EVALUASI vs VENDOR INSIGHT */}
       <div className="flex gap-2 border-b border-gray-200 pb-2" data-html2canvas-ignore="true">
-        <button 
-          className={`btn btn-sm ${mainTab === 'evaluasi' ? 'btn-primary' : 'btn-ghost text-gray-600'}`} 
-          onClick={() => setMainTab('evaluasi')}
-        >
+        <button className={`btn btn-sm ${mainTab === 'evaluasi' ? 'btn-primary' : 'btn-ghost text-gray-600'}`} onClick={() => setMainTab('evaluasi')}>
           <FileText size={16} className="mr-1"/> Evaluasi Kinerja
         </button>
-        <button 
-          className={`btn btn-sm ${mainTab === 'vendor' ? 'btn-primary' : 'btn-ghost text-gray-600'}`} 
-          onClick={() => setMainTab('vendor')}
-        >
+        <button className={`btn btn-sm ${mainTab === 'vendor' ? 'btn-primary' : 'btn-ghost text-gray-600'}`} onClick={() => setMainTab('vendor')}>
           <Factory size={16} className="mr-1"/> Insight Vendor
         </button>
       </div>
 
-      {/* ======================= KONTEN TAB EVALUASI ======================= */}
+      {/* ======================= KONTEN TAB EVALUASI (KOTAK-KOTAK) ======================= */}
       {mainTab === 'evaluasi' && (
         <div className="card bg-white shadow border border-gray-200 animate-fade-in">
           <div className="card-body p-4">
-            <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+            <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
               <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><FileText size={16}/> Evaluasi Kinerja Pekerjaan ({periodeAktif.label})</h3>
               <div className="flex gap-1" data-html2canvas-ignore="true">
-                <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowPekerjaanSection(!showPekerjaanSection)}>{showPekerjaanSection ? <><EyeOff size={14}/> Sembunyikan</> : <><Eye size={14}/> Tampilkan</>}</button>
-                {showPekerjaanSection && (<><button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Tarik data dari laporan"><RefreshCw size={14}/> Auto-generate</button></>)}
+                <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleTambahKotakManual}><Plus size={14}/> Tambah Kotak</button>
+                <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Tarik data dari laporan"><RefreshCw size={14}/> Auto-generate</button>
               </div>
             </div>
 
-            {showPekerjaanSection && (
-              <>
-                {fields.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-6 flex flex-col items-center gap-2"><FileText size={32} className="opacity-50"/> Belum ada field evaluasi.</p>) : (
-                  <div className="space-y-3">
-                    {fields.map((field) => (<div key={field.id}><label className="text-xs font-semibold text-gray-600 mb-1 block">{field.label}</label>{renderFieldInput(field, formValues[field.id], (val) => handleUpdateValue(field.id, val))}</div>))}
+            {evaluationReports.length === 0 ? (
+              <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-lg">
+                <FileText size={40} className="mx-auto mb-2 text-gray-300"/>
+                <p className="text-sm text-gray-500">Belum ada data evaluasi. Klik "Auto-generate" untuk narik dari laporan.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {evaluationReports.map((report, index) => (
+                  <div key={index} className="card bg-gray-50 border border-gray-200 shadow-sm">
+                    <div className="card-body p-4 space-y-3">
+                      
+                      {/* HEADER KOTAK */}
+                      <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Calendar size={16} className="text-primary"/>
+                          <input 
+                            type="date" 
+                            className="input input-ghost input-sm font-bold text-gray-800 p-0 h-auto min-h-0 focus:bg-white focus:border focus:px-2" 
+                            value={report.tanggal} 
+                            onChange={(e) => handleUpdateReport(index, 'tanggal', e.target.value)} 
+                          />
+                        </div>
+                        <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
+                      </div>
+
+                      {/* ISI KOTAK */}
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Ringkasan Pekerjaan</label>
+                        <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.ringkasan} onChange={(e) => handleUpdateReport(index, 'ringkasan', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Kendala</label>
+                        <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.kendala} onChange={(e) => handleUpdateReport(index, 'kendala', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Solusi</label>
+                        <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.solusi} onChange={(e) => handleUpdateReport(index, 'solusi', e.target.value)} />
+                      </div>
+
+                    </div>
                   </div>
-                )}
-                {evaluasiTersimpan?.updatedAt && (<p className="text-xs text-gray-500 mt-3 flex items-center gap-1"><Calendar size={12}/> Terakhir disimpan: {new Date(evaluasiTersimpan.updatedAt).toLocaleString("id-ID")}</p>)}
-                
-                <div className="flex gap-2 mt-4" data-html2canvas-ignore="true">
-                  <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-2" onClick={handleSimpan} disabled={fields.length === 0}><Save size={16}/> Simpan Evaluasi Pekerjaan</button>
-                </div>
-                {savedNotif && (<div className="alert alert-success py-2 text-xs flex items-center gap-1 mt-2" data-html2canvas-ignore="true"><CheckCircle2 size={14}/> Evaluasi berhasil disimpan!</div>)}
-              </>
+                ))}
+              </div>
             )}
+            
+            <div className="flex gap-2 mt-6" data-html2canvas-ignore="true">
+              <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-2" onClick={handleSimpan} disabled={evaluationReports.length === 0}><Save size={16}/> Simpan Evaluasi Pekerjaan</button>
+            </div>
+            {savedNotif && (<div className="alert alert-success py-2 text-xs flex items-center gap-1 mt-2" data-html2canvas-ignore="true"><CheckCircle2 size={14}/> Evaluasi berhasil disimpan!</div>)}
           </div>
 
           {/* HISTORY EVALUASI PEKERJAAN */}
@@ -328,10 +368,23 @@ export default function EvaluasiPekerjaan({
                         </div>
                       </summary>
                       <div className="mt-2 space-y-2">
-                        {fields.map((f) => {
-                          const val = ev.fields?.[f.id]; if (val === undefined || val === null || val === "") return null;
-                          return (<div key={f.id} className="bg-white p-2 rounded border border-gray-200"><p className="text-xs font-semibold text-gray-600">{f.label}</p><p className="text-xs text-gray-700 whitespace-pre-wrap">{val}</p></div>);
-                        })}
+                        {/* Render history reports */}
+                        {ev.reports && ev.reports.map((rep, i) => (
+                          <div key={i} className="bg-white p-2 rounded border border-gray-200 mb-2">
+                            <p className="text-xs font-bold text-gray-700 flex items-center gap-1 mb-1"><Calendar size={12}/> {rep.tanggal}</p>
+                            {rep.ringkasan && <div className="mb-1"><span className="text-[10px] font-semibold text-gray-500">Ringkasan:</span> <p className="text-xs text-gray-700 whitespace-pre-wrap">{rep.ringkasan}</p></div>}
+                            {rep.kendala && <div className="mb-1"><span className="text-[10px] font-semibold text-gray-500">Kendala:</span> <p className="text-xs text-gray-700 whitespace-pre-wrap">{rep.kendala}</p></div>}
+                            {rep.solusi && <div><span className="text-[10px] font-semibold text-gray-500">Solusi:</span> <p className="text-xs text-gray-700 whitespace-pre-wrap">{rep.solusi}</p></div>}
+                          </div>
+                        ))}
+                        {ev.fields && (
+                          <div className="bg-white p-2 rounded border border-gray-200">
+                            <p className="text-xs font-bold text-gray-700 mb-1">Data Lama</p>
+                            {ev.fields.ringkasan && <p className="text-xs text-gray-700 whitespace-pre-wrap">{ev.fields.ringkasan}</p>}
+                            {ev.fields.kendala && <p className="text-xs text-gray-700 whitespace-pre-wrap">{ev.fields.kendala}</p>}
+                            {ev.fields.solusi && <p className="text-xs text-gray-700 whitespace-pre-wrap">{ev.fields.solusi}</p>}
+                          </div>
+                        )}
                       </div>
                     </details>
                   ))}
