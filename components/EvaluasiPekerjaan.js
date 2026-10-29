@@ -417,10 +417,8 @@ export default function EvaluasiPekerjaan({
             
             {/* TOMBOL SIMPAN & BATAL (GLOBAL) */}
             <div className="flex gap-2 mt-6" data-html2canvas-ignore="true">
-              <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-2" onClick={handleSimpan} disabled={evaluationReports.length === 0}><Save size={16}/> Simpan Evaluasi Pekerjaan</button>
-              {(editingIndex !== null) && (
-                <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEdit}>Batal</button>
-              )}
+              <button className="btn btn-primary btn-sm flex-[2] flex items-center justify-center gap-2" onClick={handleSimpan} disabled={evaluationReports.length === 0}><Save size={16}/> Simpan Evaluasi Pekerjaan</button>
+              <button className="btn btn-ghost btn-sm flex-1 text-gray-600 border border-gray-300" onClick={handleBatalEdit}>Batal</button>
             </div>
             {savedNotif && (<div className="alert alert-success py-2 text-xs flex items-center gap-1 mt-2" data-html2canvas-ignore="true"><CheckCircle2 size={14}/> Evaluasi berhasil disimpan!</div>)}
           </div>
