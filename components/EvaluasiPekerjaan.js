@@ -85,59 +85,67 @@ export default function EvaluasiPekerjaan({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
   const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
-  // SMART AUTO-GENERATE V3 (Mapping by ID/Label)
+  // SMART AUTO-GENERATE V4: Menyusun rapi per tanggal
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
     const start = periodeAktif.periodeMulai;
     const end = periodeAktif.periodeSelesai;
 
-    // Kumpulkan data dari laporan di periode ini
-    let reportData = {};
-    
-    const processLaporan = (dataList) => {
-      Object.values(dataList || {}).forEach((data) => {
-        // Cek apakah data ada di rentang tanggal
-        const tgl = data.tanggal || data.tanggalMulai;
-        if (tgl >= start && tgl <= end) {
-          // Tarik fields
-          if (data.fields) {
-            Object.entries(data.fields).forEach(([fId, val]) => {
-              if (val && val.trim()) {
-                if (!reportData[fId]) reportData[fId] = [];
-                reportData[fId].push(val.trim());
-              }
-            });
-          } 
-          // Fallback buat laporan lama (konten)
-          else if (data.konten) {
-            if (!reportData["ringkasan"]) reportData["ringkasan"] = [];
-            reportData["ringkasan"].push(data.konten.trim());
-          }
-        }
-      });
-    };
+    // Kumpulkan laporan harian dan urutkan berdasarkan tanggal
+    let laporanHarian = [];
+    if (laporanData?.harian) {
+      laporanHarian = Object.values(laporanData.harian)
+        .filter(data => data.tanggal >= start && data.tanggal <= end)
+        .sort((a, b) => a.tanggal.localeCompare(b.tanggal)); // Urut dari tanggal paling awal
+    }
 
-    processLaporan(laporanData?.harian);
-    processLaporan(laporanData?.mingguan);
-    processLaporan(laporanData?.bulanan);
-
-    if (Object.keys(reportData).length === 0) {
-      alert("Tidak ada laporan di periode ini.");
+    if (laporanHarian.length === 0) {
+      alert("Tidak ada laporan harian di periode ini.");
       return;
     }
 
-    // Cocokkan ke Field Evaluasi
-    const newValues = { ...formValues };
-    fieldEvaluasiList.forEach((evalField) => {
-      // Cari field laporan yang ID atau Label-nya mirip
-      const matchId = Object.keys(reportData).find(rId => 
-        rId === evalField.id || 
-        rId.toLowerCase().includes(evalField.label.toLowerCase()) ||
-        evalField.label.toLowerCase().includes(rId.toLowerCase())
-      );
+    // Siapkan wadah untuk tiap field
+    let aggregatedRingkasan = [];
+    let aggregatedKendala = [];
+    let aggregatedSolusi = [];
+    let aggregatedLainnya = [];
 
-      if (matchId && reportData[matchId].length > 0) {
-        newValues[evalField.id] = reportData[matchId].join("\n\n---\n\n");
+    laporanHarian.forEach(lap => {
+      const tgl = lap.tanggal;
+      
+      // Ambil field dari format baru
+      if (lap.fields) {
+        if (lap.fields.ringkasan && lap.fields.ringkasan.trim()) aggregatedRingkasan.push(`[📅 ${tgl}]\n${lap.fields.ringkasan.trim()}`);
+        if (lap.fields.kendala && lap.fields.kendala.trim()) aggregatedKendala.push(`[📅 ${tgl}]\n${lap.fields.kendala.trim()}`);
+        if (lap.fields.solusi && lap.fields.solusi.trim()) aggregatedSolusi.push(`[📅 ${tgl}]\n${lap.fields.solusi.trim()}`);
+      } 
+      // Fallback buat format lama (yang cuma punya 'konten')
+      else if (lap.konten && lap.konten.trim()) {
+        aggregatedRingkasan.push(`[📅 ${tgl}]\n${lap.konten.trim()}`);
+      }
+    });
+
+    // Gabungkan dengan pemisah enter biar rapi
+    const textRingkasan = aggregatedRingkasan.join("\n\n");
+    const textKendala = aggregatedKendala.join("\n\n");
+    const textSolusi = aggregatedSolusi.join("\n\n");
+
+    // Masukkan ke Field Evaluasi yang sesuai
+    const newValues = { ...formValues };
+    
+    fieldEvaluasiList.forEach((evalField) => {
+      const lowerLabel = evalField.label.toLowerCase();
+      const lowerId = evalField.id.toLowerCase();
+
+      // Logika pencocokan
+      if (lowerLabel.includes("efektivitas") || lowerLabel.includes("ringkasan") || lowerId === "efektivitas") {
+        if (textRingkasan) newValues[evalField.id] = textRingkasan;
+      } 
+      else if (lowerLabel.includes("kendala") || lowerLabel.includes("masalah") || lowerId === "kendala") {
+        if (textKendala) newValues[evalField.id] = textKendala;
+      } 
+      else if (lowerLabel.includes("solusi") || lowerLabel.includes("perbaikan") || lowerId === "solusi") {
+        if (textSolusi) newValues[evalField.id] = textSolusi;
       }
     });
 
@@ -154,7 +162,6 @@ export default function EvaluasiPekerjaan({
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
   };
 
-  // (Fungsi lainnya: handleHapusHistory, handleSimpanField, dll tetap sama)
   const handleHapusHistoryPekerjaan = (periodeKey) => {
     if (!confirm("Hapus history evaluasi pekerjaan periode ini? Tindakan ini tidak bisa dibatalkan.")) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
@@ -222,7 +229,7 @@ export default function EvaluasiPekerjaan({
     const val = value ?? (field.tipe === "score" ? 5 : "");
     if (field.tipe === "score") return (<div className="flex items-center gap-3"><input type="range" min="1" max="10" step="1" className="range range-primary range-sm flex-1" value={val || 5} onChange={(e) => onChange(parseInt(e.target.value))} /><span className="badge badge-primary badge-sm font-bold w-10 text-center">{val || 5}</span></div>);
     if (field.tipe === "text") return (<input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />);
-    return (<textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="3" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />);
+    return (<textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="5" placeholder={`Isi ${field.label}...`} value={val} onChange={(e) => onChange(e.target.value)} />);
   };
 
   if (!periodeAktif) {
