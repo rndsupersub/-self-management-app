@@ -28,6 +28,13 @@ const adjustDate = (dateStr, type, amount) => {
   return `${newY}-${newM}-${newD}`;
 };
 
+const formatTanggalPanjangLokal = (dateStr) => {
+  if (!dateStr || dateStr === "Data Lama") return dateStr;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  return dateObj.toLocaleDateString("id-ID", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+};
+
 export default function EvaluasiPekerjaan({
   kegiatanList = [],
   laporanData = {},
@@ -42,8 +49,8 @@ export default function EvaluasiPekerjaan({
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   
-  // State buat nampung kotak-kotak (array of objects) per tanggal
   const [evaluationReports, setEvaluationReports] = useState([]); 
+  const [editingIndex, setEditingIndex] = useState(null); 
   
   const [showHistory, setShowHistory] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
@@ -74,19 +81,19 @@ export default function EvaluasiPekerjaan({
   // Load data & Migrasi data lama
   useEffect(() => {
     if (evaluasiTersimpan?.reports) {
-      // Format baru: Array of objects
       setEvaluationReports(evaluasiTersimpan.reports);
     } else if (evaluasiTersimpan?.fields) {
-      // Migrasi format lama (textarea panjang) ke array 1 kotak
       setEvaluationReports([{
         tanggal: "Data Lama",
         ringkasan: evaluasiTersimpan.fields.ringkasan || "",
         kendala: evaluasiTersimpan.fields.kendala || "",
-        solusi: evaluasiTersimpan.fields.solusi || ""
+        solusi: evaluasiTersimpan.fields.solusi || "",
+        gdriveUrl: ""
       }]);
     } else {
       setEvaluationReports([]);
     }
+    setEditingIndex(null); 
   }, [evaluasiTersimpan]);
 
   const handlePrev = () => {
@@ -110,7 +117,6 @@ export default function EvaluasiPekerjaan({
   const handleToday = () => setSelectedDate(getTodayLocalDate());
   const handleDateChange = (e) => setSelectedDate(e.target.value);
 
-  // AUTO-GENERATE: Munculin Kotak-kotak per tanggal
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
     const start = periodeAktif.periodeMulai;
@@ -129,13 +135,14 @@ export default function EvaluasiPekerjaan({
       tanggal: lap.tanggal,
       ringkasan: lap.fields?.ringkasan || lap.konten || "",
       kendala: lap.fields?.kendala || "",
-      solusi: lap.fields?.solusi || ""
+      solusi: lap.fields?.solusi || "",
+      gdriveUrl: lap.gdriveUrl || ""
     }));
 
     setEvaluationReports(newReports);
+    setEditingIndex(null);
   };
 
-  // HANDLER EDIT KOTAK
   const handleUpdateReport = (index, field, value) => {
     const updated = [...evaluationReports];
     updated[index][field] = value;
@@ -146,11 +153,25 @@ export default function EvaluasiPekerjaan({
     if (!confirm("Hapus kotak evaluasi tanggal ini?")) return;
     const updated = evaluationReports.filter((_, i) => i !== index);
     setEvaluationReports(updated);
+    if (editingIndex === index) setEditingIndex(null);
   };
 
   const handleTambahKotakManual = () => {
     const today = getTodayLocalDate();
-    setEvaluationReports([...evaluationReports, { tanggal: today, ringkasan: "", kendala: "", solusi: "" }]);
+    setEvaluationReports([...evaluationReports, { tanggal: today, ringkasan: "", kendala: "", solusi: "", gdriveUrl: "" }]);
+    setEditingIndex(evaluationReports.length); 
+  };
+
+  // FUNGSI BATAL EDIT (Global)
+  const handleBatalEdit = () => {
+    if (evaluasiTersimpan?.reports) {
+      setEvaluationReports(evaluasiTersimpan.reports);
+    } else if (evaluasiTersimpan?.fields) {
+      setEvaluationReports([{ tanggal: "Data Lama", ...evaluasiTersimpan.fields }]);
+    } else {
+      setEvaluationReports([]);
+    }
+    setEditingIndex(null);
   };
 
   const handleSimpan = () => {
@@ -158,7 +179,6 @@ export default function EvaluasiPekerjaan({
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
     if (!newData[activePeriode]) newData[activePeriode] = {};
     
-    // Simpan dalam bentuk array of objects (reports)
     newData[activePeriode][periodeAktif.key] = { 
       periodeMulai: periodeAktif.periodeMulai, 
       periodeSelesai: periodeAktif.periodeSelesai, 
@@ -169,6 +189,7 @@ export default function EvaluasiPekerjaan({
     };
     
     onUpdateEvaluasi(newData);
+    setEditingIndex(null); 
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
   };
 
@@ -180,6 +201,7 @@ export default function EvaluasiPekerjaan({
     } else if (ev.fields) {
       setEvaluationReports([{ tanggal: "Data Lama", ...ev.fields }]);
     }
+    setEditingIndex(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -305,46 +327,100 @@ export default function EvaluasiPekerjaan({
               </div>
             ) : (
               <div className="space-y-4">
-                {evaluationReports.map((report, index) => (
-                  <div key={index} className="card bg-gray-50 border border-gray-200 shadow-sm">
-                    <div className="card-body p-4 space-y-3">
-                      
-                      {/* HEADER KOTAK */}
-                      <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={16} className="text-primary"/>
-                          <input 
-                            type="date" 
-                            className="input input-ghost input-sm font-bold text-gray-800 p-0 h-auto min-h-0 focus:bg-white focus:border focus:px-2" 
-                            value={report.tanggal} 
-                            onChange={(e) => handleUpdateReport(index, 'tanggal', e.target.value)} 
-                          />
+                {evaluationReports.map((report, index) => {
+                  const isEditing = editingIndex === index;
+
+                  return (
+                    <div key={index} className="card bg-gray-50 border border-gray-200 shadow-sm">
+                      <div className="card-body p-4 space-y-3">
+                        
+                        {/* HEADER KOTAK */}
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                          <div className="flex items-center gap-2">
+                            <Calendar size={16} className="text-primary"/>
+                            {isEditing ? (
+                              <input 
+                                type="date" 
+                                className="input input-ghost input-sm font-bold text-gray-800 p-0 h-auto min-h-0 focus:bg-white focus:border focus:px-2" 
+                                value={report.tanggal} 
+                                onChange={(e) => handleUpdateReport(index, 'tanggal', e.target.value)} 
+                              />
+                            ) : (
+                              <h4 className="text-sm font-bold text-gray-800">{formatTanggalPanjangLokal(report.tanggal)}</h4>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            {!isEditing && (
+                              <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
+                            )}
+                            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
+                          </div>
                         </div>
-                        <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
-                      </div>
 
-                      {/* ISI KOTAK */}
-                      <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Ringkasan Pekerjaan</label>
-                        <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.ringkasan} onChange={(e) => handleUpdateReport(index, 'ringkasan', e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Kendala</label>
-                        <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.kendala} onChange={(e) => handleUpdateReport(index, 'kendala', e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-gray-600 mb-1 block">Solusi</label>
-                        <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.solusi} onChange={(e) => handleUpdateReport(index, 'solusi', e.target.value)} />
-                      </div>
+                        {/* ISI KOTAK */}
+                        {isEditing ? (
+                          <div className="animate-fade-in space-y-3">
+                            <div>
+                              <label className="text-xs font-semibold text-gray-600 mb-1 block">Ringkasan Pekerjaan</label>
+                              <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.ringkasan} onChange={(e) => handleUpdateReport(index, 'ringkasan', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-gray-600 mb-1 block">Kendala</label>
+                              <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.kendala} onChange={(e) => handleUpdateReport(index, 'kendala', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-gray-600 mb-1 block">Solusi</label>
+                              <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="2" value={report.solusi} onChange={(e) => handleUpdateReport(index, 'solusi', e.target.value)} />
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-gray-600 mb-1 block flex items-center gap-1"><FolderOpen size={14}/> Link Google Drive</label>
+                              <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={report.gdriveUrl || ""} onChange={(e) => handleUpdateReport(index, 'gdriveUrl', e.target.value)} />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {report.ringkasan && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-gray-500 mb-0.5">Ringkasan Pekerjaan</p>
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{report.ringkasan}</p>
+                              </div>
+                            )}
+                            {report.kendala && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-gray-500 mb-0.5">Kendala</p>
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{report.kendala}</p>
+                              </div>
+                            )}
+                            {report.solusi && (
+                              <div>
+                                <p className="text-[10px] font-semibold text-gray-500 mb-0.5">Solusi</p>
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{report.solusi}</p>
+                              </div>
+                            )}
+                            {report.gdriveUrl && (
+                              <div>
+                                <a href={report.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary flex items-center gap-1"><LinkIcon size={12}/> Lihat GDrive</a>
+                              </div>
+                            )}
+                            {!report.ringkasan && !report.kendala && !report.solusi && !report.gdriveUrl && (
+                              <p className="text-xs text-gray-400 italic">Kosong. Klik Edit untuk mengisi.</p>
+                            )}
+                          </div>
+                        )}
 
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             
+            {/* TOMBOL SIMPAN & BATAL (GLOBAL) */}
             <div className="flex gap-2 mt-6" data-html2canvas-ignore="true">
               <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-2" onClick={handleSimpan} disabled={evaluationReports.length === 0}><Save size={16}/> Simpan Evaluasi Pekerjaan</button>
+              {(editingIndex !== null) && (
+                <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEdit}>Batal</button>
+              )}
             </div>
             {savedNotif && (<div className="alert alert-success py-2 text-xs flex items-center gap-1 mt-2" data-html2canvas-ignore="true"><CheckCircle2 size={14}/> Evaluasi berhasil disimpan!</div>)}
           </div>
@@ -368,13 +444,13 @@ export default function EvaluasiPekerjaan({
                         </div>
                       </summary>
                       <div className="mt-2 space-y-2">
-                        {/* Render history reports */}
                         {ev.reports && ev.reports.map((rep, i) => (
                           <div key={i} className="bg-white p-2 rounded border border-gray-200 mb-2">
-                            <p className="text-xs font-bold text-gray-700 flex items-center gap-1 mb-1"><Calendar size={12}/> {rep.tanggal}</p>
+                            <p className="text-xs font-bold text-gray-700 flex items-center gap-1 mb-1"><Calendar size={12}/> {formatTanggalPanjangLokal(rep.tanggal)}</p>
                             {rep.ringkasan && <div className="mb-1"><span className="text-[10px] font-semibold text-gray-500">Ringkasan:</span> <p className="text-xs text-gray-700 whitespace-pre-wrap">{rep.ringkasan}</p></div>}
                             {rep.kendala && <div className="mb-1"><span className="text-[10px] font-semibold text-gray-500">Kendala:</span> <p className="text-xs text-gray-700 whitespace-pre-wrap">{rep.kendala}</p></div>}
                             {rep.solusi && <div><span className="text-[10px] font-semibold text-gray-500">Solusi:</span> <p className="text-xs text-gray-700 whitespace-pre-wrap">{rep.solusi}</p></div>}
+                            {rep.gdriveUrl && <a href={rep.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary mt-1 flex items-center gap-1"><LinkIcon size={10}/> GDrive</a>}
                           </div>
                         ))}
                         {ev.fields && (
