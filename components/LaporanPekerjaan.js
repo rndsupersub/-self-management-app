@@ -3,18 +3,31 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, hitungStatistikKegiatan } from "@/lib/laporanData";
-import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon } from "lucide-react";
+import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle, CheckSquare } from "lucide-react";
+
+const DEFAULT_FIELDS = [
+  { id: "ringkasan", label: "Ringkasan Pekerjaan", tipe: "long" },
+  { id: "kendala", label: "Kendala", tipe: "long" },
+  { id: "solusi", label: "Solusi", tipe: "long" },
+];
 
 export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan, prioritasList = [], sumberList = [] }) {
   const [activeTab, setActiveTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState(getTanggalHariIni());
-  const [kontenText, setKontenText] = useState("");
+  const [formValues, setFormValues] = useState({});
   const [gdriveUrl, setGdriveUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showKegiatanList, setShowKegiatanList] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
   const [showLaporanSection, setShowLaporanSection] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // State Kelola Field
+  const [showKelolaField, setShowKelolaField] = useState(false);
+  const [editingFieldId, setEditingFieldId] = useState(null);
+  const [fieldForm, setFieldForm] = useState({ label: "", tipe: "long" });
+
+  const fields = useMemo(() => laporanData?.fields || DEFAULT_FIELDS, [laporanData]);
 
   const periodeHarian = useMemo(() => ({ tanggal: selectedDate }), [selectedDate]);
   const periodeMingguan = useMemo(() => getMingguRange(selectedDate), [selectedDate]);
@@ -30,10 +43,21 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     return laporanData?.bulanan?.[keyBulanan] || null;
   }, [activeTab, laporanData, keyHarian, keyMingguan, keyBulanan]);
 
-  useEffect(() => { 
-    setKontenText(laporanTersimpan?.konten || ""); 
+  // Load data & Migrasi data lama
+  useEffect(() => {
+    let initialValues = {};
+    if (laporanTersimpan?.fields) {
+      initialValues = laporanTersimpan.fields;
+    } else if (laporanTersimpan?.konten) {
+      // MIGRASI: Kalau ada data lama (konten), masukin ke field pertama
+      const firstFieldId = fields[0]?.id || "ringkasan";
+      initialValues[firstFieldId] = laporanTersimpan.konten;
+    } else {
+      fields.forEach(f => initialValues[f.id] = "");
+    }
+    setFormValues(initialValues);
     setGdriveUrl(laporanTersimpan?.gdriveUrl || "");
-  }, [laporanTersimpan, activeTab, selectedDate]);
+  }, [laporanTersimpan, activeTab, selectedDate, fields]);
 
   const kegiatanDiPeriode = useMemo(() => {
     if (activeTab === "harian") return generateLaporanHarian(kegiatanList, selectedDate);
@@ -43,40 +67,35 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
 
   const statistik = useMemo(() => hitungStatistikKegiatan(kegiatanDiPeriode), [kegiatanDiPeriode]);
 
-  // SMART AUTO-GENERATE V2
+  const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
+
   const handleAutoGenerate = () => {
     const start = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalMulai : periodeBulanan.tanggalMulai;
     const end = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalSelesai : periodeBulanan.tanggalSelesai;
 
-    let text = `=== RINGKASAN KEGIATAN ===\n`;
-    text += `Total: ${statistik.total} | Selesai: ${statistik.selesai} | Belum: ${statistik.belum}\n\n`;
-    
-    text += `=== DAFTAR KEGIATAN ===\n`;
-    if (kegiatanDiPeriode.length === 0) text += `(Tidak ada kegiatan)\n`;
-    else {
-      kegiatanDiPeriode.forEach((k) => {
-        text += `${k.status === "selesai" ? "[x]" : "[ ]"} ${k.judul}\n`;
-      });
-    }
+    let textKegiatan = `Total: ${statistik.total} | Selesai: ${statistik.selesai} | Belum: ${statistik.belum}\n\n`;
+    kegiatanDiPeriode.forEach((k) => { textKegiatan += `${k.status === "selesai" ? "[x]" : "[ ]"} ${k.judul}\n`; });
 
-    text += `\n=== CATATAN VENDOR ===\n`;
-    let adaLogVendor = false;
-    // Tarik log kunjungan dari semua vendor yang masuk di periode ini
+    let textVendor = "";
     (vendorList || []).forEach((vendor) => {
       const logs = (vendor.logKunjungan || []).filter((log) => log.tanggal >= start && log.tanggal <= end);
       logs.forEach((log) => {
-        // Fokus ke log yang "tidak layak" atau yang ada catatan pentingnya
         if (log.hasil === "tidak_layak" || (log.catatan && log.catatan.trim() !== "")) {
-          adaLogVendor = true;
-          text += `- ${log.tanggal} | ${vendor.nama} | Hasil: ${log.hasil}\n`;
-          if (log.catatan) text += `  Catatan: ${log.catatan}\n`;
+          textVendor += `- ${log.tanggal} | ${vendor.nama} | Hasil: ${log.hasil}\n`;
+          if (log.catatan) textVendor += `  Catatan: ${log.catatan}\n`;
         }
       });
     });
-    
-    if (!adaLogVendor) text += `(Tidak ada catatan kritis dari vendor di periode ini)\n`;
 
-    setKontenText(text);
+    // Masukkan ke field yang sesuai
+    const newVals = { ...formValues };
+    const ringkasanField = fields.find(f => f.id === "ringkasan") || fields[0];
+    if (ringkasanField) newVals[ringkasanField.id] = textKegiatan;
+    
+    const kendalaField = fields.find(f => f.id === "kendala" || f.label.toLowerCase().includes("kendala"));
+    if (kendalaField && textVendor) newVals[kendalaField.id] = textVendor;
+
+    setFormValues(newVals);
   };
 
   const handleSimpan = async () => {
@@ -84,7 +103,10 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     setIsSaving(true);
     
     const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
-    const payload = { konten: kontenText, gdriveUrl: gdriveUrl, updatedAt: new Date().toISOString() };
+    // Simpan konfigurasi field biar konsisten
+    newLaporanData.fields = fields; 
+    
+    const payload = { fields: formValues, gdriveUrl: gdriveUrl, updatedAt: new Date().toISOString() };
 
     if (activeTab === "harian") {
       if (!newLaporanData.harian) newLaporanData.harian = {};
@@ -101,6 +123,26 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     setIsSaving(false);
     setSavedNotif(true); 
     setTimeout(() => setSavedNotif(false), 3000);
+  };
+
+  // Handler Kelola Field
+  const handleBukaTambahField = () => { setFieldForm({ label: "", tipe: "long" }); setEditingFieldId(null); };
+  const handleBukaEditField = (f) => { setFieldForm({ label: f.label, tipe: f.tipe }); setEditingFieldId(f.id); };
+  const handleSimpanField = async () => {
+    if (!fieldForm.label.trim()) return;
+    const newField = { id: editingFieldId || `field_${Date.now()}`, label: fieldForm.label, tipe: fieldForm.tipe };
+    let updatedFields = editingFieldId ? fields.map(f => f.id === editingFieldId ? newField : f) : [...fields, newField];
+    
+    const newLaporanData = { ...laporanData, fields: updatedFields };
+    await onUpdateLaporan(newLaporanData);
+    if (!editingFieldId) setFormValues(prev => ({ ...prev, [newField.id]: "" }));
+    handleBukaTambahField();
+  };
+  const handleHapusField = async (id) => {
+    if (!confirm("Hapus field ini? Data laporan yang udah keisi bakal ilang dari tampilan.")) return;
+    const updatedFields = fields.filter(f => f.id !== id);
+    const newLaporanData = { ...laporanData, fields: updatedFields };
+    await onUpdateLaporan(newLaporanData);
   };
 
   const handlePrev = () => {
@@ -144,10 +186,15 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
         <Info size={14}/> Laporan diisi setiap <strong>hari kerja jam 17:00–18:00</strong>.
       </div>
 
-      <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
-        <button className={`tab ${activeTab === "harian" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("harian")}><Calendar size={14} className="mr-1"/> Harian</button>
-        <button className={`tab ${activeTab === "mingguan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("mingguan")}><Calendar size={14} className="mr-1"/> Mingguan</button>
-        <button className={`tab ${activeTab === "bulanan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("bulanan")}><Calendar size={14} className="mr-1"/> Bulanan</button>
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
+          <button className={`tab ${activeTab === "harian" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("harian")}><Calendar size={14} className="mr-1"/> Harian</button>
+          <button className={`tab ${activeTab === "mingguan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("mingguan")}><Calendar size={14} className="mr-1"/> Mingguan</button>
+          <button className={`tab ${activeTab === "bulanan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("bulanan")}><Calendar size={14} className="mr-1"/> Bulanan</button>
+        </div>
+        <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaField(true)}>
+          <Settings size={14}/> Kelola Field Laporan
+        </button>
       </div>
 
       <div className="card bg-white shadow border border-gray-200">
@@ -206,13 +253,15 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><ClipboardList size={16}/> Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"}</h3>
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><ClipboardList size={16}/> Form Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"}</h3>
             <div className="flex gap-1">
               <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowLaporanSection(!showLaporanSection)}>{showLaporanSection ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}</button>
               {showLaporanSection && (
                 <>
                   <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan & vendor di periode ini"><RefreshCw size={14} className="mr-1"/> Auto-generate</button>
-                  <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setKontenText("")} title="Kosongin textarea"><X size={14} className="mr-1"/> Clear</button>
+                  <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => {
+                    const cleared = {}; fields.forEach(f => cleared[f.id] = ""); setFormValues(cleared); setGdriveUrl("");
+                  }} title="Kosongin form"><X size={14} className="mr-1"/> Clear</button>
                 </>
               )}
             </div>
@@ -220,18 +269,28 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
           
           {showLaporanSection && (
             <>
-              <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="12" placeholder="Tulis laporan di sini..." value={kontenText} onChange={(e) => setKontenText(e.target.value)} />
+              <div className="space-y-4">
+                {fields.map(field => (
+                  <div key={field.id}>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">{field.label}</label>
+                    {field.tipe === "text" ? (
+                      <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formValues[field.id] || ""} onChange={(e) => handleUpdateValue(field.id, e.target.value)} />
+                    ) : (
+                      <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="4" value={formValues[field.id] || ""} onChange={(e) => handleUpdateValue(field.id, e.target.value)} />
+                    )}
+                  </div>
+                ))}
+              </div>
               
-              <div className="mt-3">
+              <div className="mt-4 pt-4 border-t border-gray-200">
                 <label className="text-xs font-semibold text-gray-600 mb-1 block flex items-center gap-1"><FolderOpen size={14}/> Link Google Drive (opsional)</label>
                 <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={gdriveUrl} onChange={(e) => setGdriveUrl(e.target.value)} />
-                <p className="text-[10px] text-gray-500 mt-1">Masukin link foto atau aset hasil kerja lo di sini.</p>
               </div>
 
-              {laporanTersimpan?.updatedAt && <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><Clock size={14}/> Terakhir disimpan: {new Date(laporanTersimpan.updatedAt).toLocaleString("id-ID")}</p>}
+              {laporanTersimpan?.updatedAt && <p className="text-xs text-gray-500 mt-3 flex items-center gap-1"><Clock size={14}/> Terakhir disimpan: {new Date(laporanTersimpan.updatedAt).toLocaleString("id-ID")}</p>}
               
               <div className="flex gap-2 mt-3">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={isSaving || (!kontenText.trim() && !gdriveUrl.trim())}>
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={isSaving}>
                   {isSaving ? <><Loader2 className="animate-spin mr-2" size={16}/> Menyimpan...</> : <><Save size={16} className="mr-1"/> Simpan Laporan</>}
                 </button>
               </div>
@@ -261,8 +320,17 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                     return (
                       <details key={lap.key} className="border border-gray-200 rounded p-2 bg-gray-50">
                         <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex items-center gap-1"><Calendar size={14}/> {label}</summary>
-                        <div className="mt-2 bg-white p-2 rounded border border-gray-200">
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{lap.konten || "(kosong)"}</p>
+                        <div className="mt-2 bg-white p-3 rounded border border-gray-200 space-y-2">
+                          {fields.map(f => {
+                            const val = lap.fields?.[f.id] || (f.id === "ringkasan" ? lap.konten : null);
+                            if (!val) return null;
+                            return (
+                              <div key={f.id}>
+                                <p className="text-[10px] font-semibold text-gray-500">{f.label}</p>
+                                <p className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{val}</p>
+                              </div>
+                            );
+                          })}
                           {lap.gdriveUrl && <a href={lap.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary mt-2 flex items-center gap-1"><LinkIcon size={12}/> Lihat GDrive</a>}
                           {lap.updatedAt && <p className="text-[10px] text-gray-400 mt-2">Disimpan: {new Date(lap.updatedAt).toLocaleString("id-ID")}</p>}
                         </div>
@@ -275,6 +343,40 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
           )}
         </div>
       </div>
+
+      {/* MODAL KELOLA FIELD LAPORAN */}
+      {showKelolaField && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><Settings size={18}/> Kelola Field Laporan</h3>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaField(false)}><X size={18}/></button>
+              </div>
+              <div className="space-y-1 mb-4">
+                {fields.map((f) => (
+                  <div key={f.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
+                    <div className="flex-1"><p className="text-sm text-gray-700">{f.label}</p><span className="text-[10px] text-gray-500">Tipe: {f.tipe}</span></div>
+                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditField(f)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusField(f.id)}><Trash2 size={14}/></button></div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-purple-50 rounded p-3 border border-purple-200 space-y-2">
+                <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">{editingFieldId ? <><Pencil size={14}/> Edit Field</> : <><Plus size={14}/> Tambah Field Baru</>}</p>
+                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama field (misal: Kendala)" value={fieldForm.label} onChange={(e) => setFieldForm({ ...fieldForm, label: e.target.value })} />
+                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={fieldForm.tipe} onChange={(e) => setFieldForm({ ...fieldForm, tipe: e.target.value })}>
+                  <option value="long">Teks Panjang</option>
+                  <option value="text">Teks Pendek</option>
+                </select>
+                <div className="flex gap-2">
+                  <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-1" onClick={handleSimpanField} disabled={!fieldForm.label.trim()}>{editingFieldId ? <><Save size={14}/> Simpan</> : <><Plus size={14}/> Tambah</>}</button>
+                  {editingFieldId && <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBukaTambahField}>Batal</button>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

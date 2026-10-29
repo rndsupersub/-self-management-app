@@ -85,62 +85,59 @@ export default function EvaluasiPekerjaan({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
   const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
-  // SMART PARSER AUTO-GENERATE
+  // SMART AUTO-GENERATE V3 (Mapping by ID/Label)
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
     const start = periodeAktif.periodeMulai;
     const end = periodeAktif.periodeSelesai;
 
-    let allLaporanText = "";
-    let allGdriveLinks = [];
-
-    // Kumpulkan semua laporan harian di periode ini
-    if (laporanData?.harian) {
-      Object.entries(laporanData.harian).forEach(([tanggal, data]) => {
-        if (tanggal >= start && tanggal <= end) {
-          if (data.konten) allLaporanText += `[${tanggal}] ${data.konten}\n`;
-          if (data.gdriveUrl) allGdriveLinks.push(data.gdriveUrl);
+    // Kumpulkan data dari laporan di periode ini
+    let reportData = {};
+    
+    const processLaporan = (dataList) => {
+      Object.values(dataList || {}).forEach((data) => {
+        // Cek apakah data ada di rentang tanggal
+        const tgl = data.tanggal || data.tanggalMulai;
+        if (tgl >= start && tgl <= end) {
+          // Tarik fields
+          if (data.fields) {
+            Object.entries(data.fields).forEach(([fId, val]) => {
+              if (val && val.trim()) {
+                if (!reportData[fId]) reportData[fId] = [];
+                reportData[fId].push(val.trim());
+              }
+            });
+          } 
+          // Fallback buat laporan lama (konten)
+          else if (data.konten) {
+            if (!reportData["ringkasan"]) reportData["ringkasan"] = [];
+            reportData["ringkasan"].push(data.konten.trim());
+          }
         }
       });
-    }
+    };
 
-    if (!allLaporanText.trim() && allGdriveLinks.length === 0) {
-      alert("Tidak ada laporan harian di periode ini. Silakan isi laporan terlebih dahulu.");
+    processLaporan(laporanData?.harian);
+    processLaporan(laporanData?.mingguan);
+    processLaporan(laporanData?.bulanan);
+
+    if (Object.keys(reportData).length === 0) {
+      alert("Tidak ada laporan di periode ini.");
       return;
     }
 
-    // Siapkan wadah untuk hasil parsing
-    let parsedEfektivitas = allLaporanText; // Default: semuanya masuk sini
-    let parsedKendala = "";
-    let parsedSolusi = "";
-    let parsedCatatan = allGdriveLinks.length > 0 ? `Link Aset:\n${allGdriveLinks.join("\n")}` : "";
-
-    // LOGIKA PARSING SEDERHANA (Cari kata kunci)
-    const lines = allLaporanText.split("\n");
-    lines.forEach((line) => {
-      const lowerLine = line.toLowerCase();
-      
-      if (lowerLine.includes("kendala") || lowerLine.includes("masalah") || lowerLine.includes("hambatan") || lowerLine.includes("error") || lowerLine.includes("gagal")) {
-        parsedKendala += `${line}\n`;
-      } else if (lowerLine.includes("solusi") || lowerLine.includes("perbaikan") || lowerLine.includes("fix") || lowerLine.includes("beres") || lowerLine.includes("selesai")) {
-        parsedSolusi += `${line}\n`;
-      }
-    });
-
-    // Masukkan ke field evaluasi berdasarkan ID atau Label
+    // Cocokkan ke Field Evaluasi
     const newValues = { ...formValues };
-    
-    fieldEvaluasiList.forEach((field) => {
-      const lowerLabel = field.label.toLowerCase();
-      
-      if (lowerLabel.includes("efektivitas") || lowerLabel.includes("hasil")) {
-        newValues[field.id] = parsedEfektivitas.trim();
-      } else if (lowerLabel.includes("kendala") || lowerLabel.includes("masalah")) {
-        newValues[field.id] = parsedKendala.trim();
-      } else if (lowerLabel.includes("solusi") || lowerLabel.includes("perbaikan")) {
-        newValues[field.id] = parsedSolusi.trim();
-      } else if (lowerLabel.includes("catatan")) {
-        newValues[field.id] = parsedCatatan.trim();
+    fieldEvaluasiList.forEach((evalField) => {
+      // Cari field laporan yang ID atau Label-nya mirip
+      const matchId = Object.keys(reportData).find(rId => 
+        rId === evalField.id || 
+        rId.toLowerCase().includes(evalField.label.toLowerCase()) ||
+        evalField.label.toLowerCase().includes(rId.toLowerCase())
+      );
+
+      if (matchId && reportData[matchId].length > 0) {
+        newValues[evalField.id] = reportData[matchId].join("\n\n---\n\n");
       }
     });
 
