@@ -29,6 +29,8 @@ export default function VendorManager({
   });
 
   const [newKategori, setNewKategori] = useState("");
+  const [editingKategoriId, setEditingKategoriId] = useState(null); // State Baru buat Edit Kategori
+
   const [newPertanyaan, setNewPertanyaan] = useState({ pertanyaan: "", tipe: "checkbox" });
   const [showKategoriBaru, setShowKategoriBaru] = useState(false);
   const [newKategoriInline, setNewKategoriInline] = useState("");
@@ -107,10 +109,26 @@ export default function VendorManager({
     setNewSatuanInline(""); setShowSatuanBaru(false);
   };
 
-  const handleTambahKategori = () => {
-    if (!newKategori.trim()) return;
-    onUpdateKategoriVendor([...kategoriVendorList, { id: generateId("kat_vendor"), label: newKategori }]);
+  // --- LOGIC KELOLA KATEGORI (DENGAN EDIT) ---
+  const handleBukaEditKategori = (kat) => {
+    setNewKategori(kat.label);
+    setEditingKategoriId(kat.id);
+  };
+
+  const handleBatalEditKategori = () => {
     setNewKategori("");
+    setEditingKategoriId(null);
+  };
+
+  const handleSimpanKategori = () => {
+    if (!newKategori.trim()) return;
+    if (editingKategoriId) {
+      onUpdateKategoriVendor(kategoriVendorList.map(k => k.id === editingKategoriId ? { ...k, label: newKategori } : k));
+    } else {
+      onUpdateKategoriVendor([...kategoriVendorList, { id: generateId("kat_vendor"), label: newKategori }]);
+    }
+    setNewKategori("");
+    setEditingKategoriId(null);
   };
 
   const handleHapusKategori = (id) => {
@@ -309,6 +327,7 @@ export default function VendorManager({
         </div>
       )}
 
+      {/* MODAL KELOLA KATEGORI DENGAN TOMBOL EDIT */}
       {showKelolaKategori && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card bg-white shadow-xl w-full max-w-md">
@@ -321,19 +340,37 @@ export default function VendorManager({
                 {kategoriVendorList.map((k) => (
                   <div key={k.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
                     <span className="text-sm text-gray-700">{k.label}</span>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKategori(k.id)}><Trash2 size={14} /></button>
+                    <div className="flex gap-1">
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditKategori(k)} title="Edit Kategori"><Pencil size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKategori(k.id)} title="Hapus Kategori"><Trash2 size={14}/></button>
+                    </div>
                   </div>
                 ))}
               </div>
               <div className="flex gap-2 mt-3">
-                <input type="text" className="input input-bordered input-sm flex-1 text-gray-800 bg-white" placeholder="Nama kategori baru" value={newKategori} onChange={(e) => setNewKategori(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleTambahKategori()} />
-                <button className="btn btn-primary btn-sm" onClick={handleTambahKategori}><Plus size={16} /></button>
+                <input 
+                  type="text" 
+                  className="input input-bordered input-sm flex-1 text-gray-800 bg-white" 
+                  placeholder={editingKategoriId ? "Edit nama kategori..." : "Nama kategori baru"} 
+                  value={newKategori} 
+                  onChange={(e) => setNewKategori(e.target.value)} 
+                  onKeyDown={(e) => e.key === "Enter" && handleSimpanKategori()} 
+                />
+                {editingKategoriId ? (
+                  <>
+                    <button className="btn btn-success btn-sm text-white" onClick={handleSimpanKategori}><Save size={16}/></button>
+                    <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEditKategori}><X size={16}/></button>
+                  </>
+                ) : (
+                  <button className="btn btn-primary btn-sm" onClick={handleSimpanKategori}><Plus size={16}/></button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* MODAL KELOLA PERTANYAAN */}
       {showKelolaPertanyaan && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card bg-white shadow-xl w-full max-w-lg">
@@ -349,7 +386,7 @@ export default function VendorManager({
                       <p className="text-xs text-gray-700">{q.pertanyaan}</p>
                       <span className="text-[10px] text-gray-500">Tipe: {q.tipe}</span>
                     </div>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusPertanyaan(q.id)}><Trash2 size={14} /></button>
+                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusPertanyaan(q.id)}><Trash2 size={14}/></button>
                   </div>
                 ))}
               </div>
