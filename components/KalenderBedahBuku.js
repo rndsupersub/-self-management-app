@@ -4,14 +4,14 @@
 import { useState } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { formatTanggal, getHalamanRange, validasiRange, getHalamanBerikutnya } from "@/lib/bedahBukuData";
-import { Calendar, ChevronLeft, ChevronRight, Pin, Pencil, BookOpen, Target, FileText, MessageSquare, FolderOpen, Video, Save, AlertTriangle, CheckCircle2, Trash2, Info, Plus } from "lucide-react";
+import { Calendar, Pin, Pencil, BookOpen, Target, FileText, MessageSquare, FolderOpen, Save, AlertTriangle, Trash2, Info, Plus } from "lucide-react";
 
 export default function KalenderBedahBuku({ bukuList = [], onUpdateBuku }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  const [formData, setFormData] = useState({ bukuId: "", halamanMulai: "", halamanAkhir: "", catatan: "", gdriveUrl: "", tiktokUrl: "" });
+  const [formData, setFormData] = useState({ bukuId: "", halamanMulai: "", halamanAkhir: "", catatan: "", gdriveUrl: "" });
   const [errorMsg, setErrorMsg] = useState("");
 
   const generateCalendar = () => {
@@ -59,7 +59,7 @@ export default function KalenderBedahBuku({ bukuList = [], onUpdateBuku }) {
     const defaultBukuId = bukuAktif?.id || bukuList[0]?.id || "";
     const halamanNext = bukuAktif ? getHalamanBerikutnya(bukuAktif) : "";
 
-    setFormData({ bukuId: defaultBukuId, halamanMulai: halamanNext || "", halamanAkhir: "", catatan: "", gdriveUrl: "", tiktokUrl: "" });
+    setFormData({ bukuId: defaultBukuId, halamanMulai: halamanNext || "", halamanAkhir: "", catatan: "", gdriveUrl: "" });
   };
 
   const handleSimpan = () => {
@@ -80,14 +80,14 @@ export default function KalenderBedahBuku({ bukuList = [], onUpdateBuku }) {
 
     const progressHarianBaru = {
       ...(buku.progressHarian || {}),
-      [selectedDate]: { halamanMulai: mulai, halamanAkhir: akhir, halamanList, catatan: formData.catatan, gdriveUrl: formData.gdriveUrl, tiktokUrl: formData.tiktokUrl, createdAt: new Date().toISOString() },
+      [selectedDate]: { halamanMulai: mulai, halamanAkhir: akhir, halamanList, catatan: formData.catatan, gdriveUrl: formData.gdriveUrl, createdAt: new Date().toISOString() },
     };
 
     const updatedBuku = { ...buku, halamanSelesai: halamanSelesaiBaru, progressHarian: progressHarianBaru };
     onUpdateBuku(buku.id, updatedBuku);
 
     const halamanNext = getHalamanBerikutnya(updatedBuku);
-    setFormData({ bukuId: buku.id, halamanMulai: halamanNext || "", halamanAkhir: "", catatan: "", gdriveUrl: "", tiktokUrl: "" });
+    setFormData({ bukuId: buku.id, halamanMulai: halamanNext || "", halamanAkhir: "", catatan: "", gdriveUrl: "" });
   };
 
   const handleHapusEntry = (bukuId, date) => {
@@ -225,11 +225,6 @@ export default function KalenderBedahBuku({ bukuList = [], onUpdateBuku }) {
                   <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={formData.gdriveUrl} onChange={(e) => setFormData({ ...formData, gdriveUrl: e.target.value })} />
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block flex items-center gap-1"><Video size={14}/> Link TikTok (opsional)</label>
-                  <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://tiktok.com/@user/video/..." value={formData.tiktokUrl} onChange={(e) => setFormData({ ...formData, tiktokUrl: e.target.value })} />
-                </div>
-
                 {errorMsg && <div className="alert alert-error py-2 text-xs flex items-center gap-1"><AlertTriangle size={14}/> {errorMsg}</div>}
 
                 <div className="flex gap-2">
@@ -259,7 +254,6 @@ export default function KalenderBedahBuku({ bukuList = [], onUpdateBuku }) {
                     {entry.catatan && <p className="text-xs text-gray-700 whitespace-pre-wrap mb-1 bg-white p-2 rounded border border-gray-200 flex items-start gap-1"><MessageSquare size={12} className="mt-0.5 shrink-0"/> {entry.catatan}</p>}
                     <div className="flex flex-wrap gap-2 mt-1">
                       {entry.gdriveUrl && <a href={entry.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary flex items-center gap-1"><FolderOpen size={12}/> GDrive</a>}
-                      {entry.tiktokUrl && <a href={entry.tiktokUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary flex items-center gap-1"><Video size={12}/> TikTok</a>}
                     </div>
                   </div>
                 ))}

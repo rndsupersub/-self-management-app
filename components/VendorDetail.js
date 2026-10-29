@@ -26,6 +26,12 @@ export default function VendorDetail({
   const [showEvalSection, setShowEvalSection] = useState(true);
   const [isEditingEval, setIsEditingEval] = useState(false);
 
+  // Fungsi Filter Emoji dari Database
+  const cleanText = (text) => {
+    if (!text) return "";
+    return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+  };
+
   useEffect(() => {
     if (vendor) {
       setFormProfil({ nama: vendor.nama || "", kategoriId: vendor.kategoriId || "", kontakNama: vendor.kontak?.nama || "", kontakTelp: vendor.kontak?.telp || "", kontakEmail: vendor.kontak?.email || "", alamat: vendor.alamat || "", moqNilai: vendor.moq?.nilai || "", moqSatuan: vendor.moq?.satuan || "pcs", hpp: vendor.hpp || "", catatan: vendor.catatan || "" });
@@ -403,7 +409,7 @@ export default function VendorDetail({
             <div className="flex gap-1" data-html2canvas-ignore="true">
               <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterTujuan} onChange={(e) => setFilterTujuan(e.target.value)}>
                 <option value="all">Semua Tujuan</option>
-                {tujuanKunjunganList.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                {tujuanKunjunganList.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
               </select>
               <button className="btn btn-primary btn-xs" onClick={() => { resetFormKunjungan(); setShowFormKunjungan(true); }}><Plus size={14} className="mr-1"/> Tambah</button>
             </div>
@@ -421,7 +427,7 @@ export default function VendorDetail({
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><Target size={14}/> Tujuan</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.tujuanId} onChange={(e) => setFormKunjungan({ ...formKunjungan, tujuanId: e.target.value })}>
-                    {tujuanKunjunganList.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                    {tujuanKunjunganList.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
                   </select>
                 </div>
               </div>
@@ -430,13 +436,13 @@ export default function VendorDetail({
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><Monitor size={14}/> Metode</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.metode} onChange={(e) => setFormKunjungan({ ...formKunjungan, metode: e.target.value })}>
-                    {METODE_KUNJUNGAN.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    {METODE_KUNJUNGAN.map((m) => <option key={m.id} value={m.id}>{cleanText(m.label)}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><CheckCircle2 size={14}/> Hasil</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.hasil} onChange={(e) => setFormKunjungan({ ...formKunjungan, hasil: e.target.value })}>
-                    {HASIL_KUNJUNGAN.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
+                    {HASIL_KUNJUNGAN.map((h) => <option key={h.id} value={h.id}>{cleanText(h.label)}</option>)}
                   </select>
                 </div>
               </div>
@@ -446,7 +452,6 @@ export default function VendorDetail({
                 <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="2" placeholder="Catatan hasil kunjungan..." value={formKunjungan.catatan} onChange={(e) => setFormKunjungan({ ...formKunjungan, catatan: e.target.value })} />
               </div>
 
-              {/* INPUT GOOGLE DRIVE YANG SEMPET HILANG */}
               <div>
                 <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><FolderOpen size={14}/> Link Google Drive (opsional)</label>
                 <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={formKunjungan.gdriveUrl} onChange={(e) => setFormKunjungan({ ...formKunjungan, gdriveUrl: e.target.value })} />
@@ -474,9 +479,9 @@ export default function VendorDetail({
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800 flex items-center gap-1"><Calendar size={14}/> {formatTanggal(log.tanggal, "pendek")}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-xs px-2 py-0.5 rounded border bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1"><Target size={12}/> {tujuanData?.label || log.tujuanId}</span>
-                          <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1"><Monitor size={12}/> {getLabelMetode(log.metode)}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}><CheckCircle2 size={12}/> {getLabelHasil(log.hasil)}</span>
+                          <span className="text-xs px-2 py-0.5 rounded border bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1"><Target size={12}/> {cleanText(tujuanData?.label || log.tujuanId)}</span>
+                          <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1"><Monitor size={12}/> {cleanText(getLabelMetode(log.metode))}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}><CheckCircle2 size={12}/> {cleanText(getLabelHasil(log.hasil))}</span>
                         </div>
                       </div>
                       <div className="flex gap-1" data-html2canvas-ignore="true">

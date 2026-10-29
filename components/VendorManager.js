@@ -29,9 +29,11 @@ export default function VendorManager({
   });
 
   const [newKategori, setNewKategori] = useState("");
-  const [editingKategoriId, setEditingKategoriId] = useState(null); // State Baru buat Edit Kategori
+  const [editingKategoriId, setEditingKategoriId] = useState(null);
 
   const [newPertanyaan, setNewPertanyaan] = useState({ pertanyaan: "", tipe: "checkbox" });
+  const [editingPertanyaanId, setEditingPertanyaanId] = useState(null); // State Edit Pertanyaan
+
   const [showKategoriBaru, setShowKategoriBaru] = useState(false);
   const [newKategoriInline, setNewKategoriInline] = useState("");
   const [showSatuanBaru, setShowSatuanBaru] = useState(false);
@@ -109,17 +111,9 @@ export default function VendorManager({
     setNewSatuanInline(""); setShowSatuanBaru(false);
   };
 
-  // --- LOGIC KELOLA KATEGORI (DENGAN EDIT) ---
-  const handleBukaEditKategori = (kat) => {
-    setNewKategori(kat.label);
-    setEditingKategoriId(kat.id);
-  };
-
-  const handleBatalEditKategori = () => {
-    setNewKategori("");
-    setEditingKategoriId(null);
-  };
-
+  // --- LOGIC KELOLA KATEGORI ---
+  const handleBukaEditKategori = (kat) => { setNewKategori(kat.label); setEditingKategoriId(kat.id); };
+  const handleBatalEditKategori = () => { setNewKategori(""); setEditingKategoriId(null); };
   const handleSimpanKategori = () => {
     if (!newKategori.trim()) return;
     if (editingKategoriId) {
@@ -127,21 +121,32 @@ export default function VendorManager({
     } else {
       onUpdateKategoriVendor([...kategoriVendorList, { id: generateId("kat_vendor"), label: newKategori }]);
     }
-    setNewKategori("");
-    setEditingKategoriId(null);
+    setNewKategori(""); setEditingKategoriId(null);
   };
-
   const handleHapusKategori = (id) => {
     if (!confirm("Hapus kategori ini?")) return;
     onUpdateKategoriVendor(kategoriVendorList.filter((k) => k.id !== id));
   };
 
-  const handleTambahPertanyaan = () => {
-    if (!newPertanyaan.pertanyaan.trim()) return;
-    onUpdatePertanyaanVendor([...pertanyaanVendorList, { id: generateId("q"), pertanyaan: newPertanyaan.pertanyaan, tipe: newPertanyaan.tipe }]);
-    setNewPertanyaan({ pertanyaan: "", tipe: "checkbox" });
+  // --- LOGIC KELOLA PERTANYAAN (DENGAN EDIT) ---
+  const handleBukaEditPertanyaan = (q) => {
+    setNewPertanyaan({ pertanyaan: q.pertanyaan, tipe: q.tipe });
+    setEditingPertanyaanId(q.id);
   };
-
+  const handleBatalEditPertanyaan = () => {
+    setNewPertanyaan({ pertanyaan: "", tipe: "checkbox" });
+    setEditingPertanyaanId(null);
+  };
+  const handleSimpanPertanyaan = () => {
+    if (!newPertanyaan.pertanyaan.trim()) return;
+    if (editingPertanyaanId) {
+      onUpdatePertanyaanVendor(pertanyaanVendorList.map(q => q.id === editingPertanyaanId ? { ...q, pertanyaan: newPertanyaan.pertanyaan, tipe: newPertanyaan.tipe } : q));
+    } else {
+      onUpdatePertanyaanVendor([...pertanyaanVendorList, { id: generateId("q"), pertanyaan: newPertanyaan.pertanyaan, tipe: newPertanyaan.tipe }]);
+    }
+    setNewPertanyaan({ pertanyaan: "", tipe: "checkbox" });
+    setEditingPertanyaanId(null);
+  };
   const handleHapusPertanyaan = (id) => {
     if (!confirm("Hapus pertanyaan ini?")) return;
     onUpdatePertanyaanVendor(pertanyaanVendorList.filter((q) => q.id !== id));
@@ -327,7 +332,7 @@ export default function VendorManager({
         </div>
       )}
 
-      {/* MODAL KELOLA KATEGORI DENGAN TOMBOL EDIT */}
+      {/* MODAL KELOLA KATEGORI */}
       {showKelolaKategori && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card bg-white shadow-xl w-full max-w-md">
@@ -370,7 +375,7 @@ export default function VendorManager({
         </div>
       )}
 
-      {/* MODAL KELOLA PERTANYAAN */}
+      {/* MODAL KELOLA PERTANYAAN (DENGAN EDIT) */}
       {showKelolaPertanyaan && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card bg-white shadow-xl w-full max-w-lg">
@@ -386,17 +391,34 @@ export default function VendorManager({
                       <p className="text-xs text-gray-700">{q.pertanyaan}</p>
                       <span className="text-[10px] text-gray-500">Tipe: {q.tipe}</span>
                     </div>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusPertanyaan(q.id)}><Trash2 size={14}/></button>
+                    <div className="flex gap-1">
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditPertanyaan(q)} title="Edit Pertanyaan"><Pencil size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusPertanyaan(q.id)} title="Hapus Pertanyaan"><Trash2 size={14}/></button>
+                    </div>
                   </div>
                 ))}
               </div>
               <div className="mt-3 space-y-2">
-                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Pertanyaan baru" value={newPertanyaan.pertanyaan} onChange={(e) => setNewPertanyaan({ ...newPertanyaan, pertanyaan: e.target.value })} />
+                <input 
+                  type="text" 
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white" 
+                  placeholder={editingPertanyaanId ? "Edit pertanyaan..." : "Pertanyaan baru"} 
+                  value={newPertanyaan.pertanyaan} 
+                  onChange={(e) => setNewPertanyaan({ ...newPertanyaan, pertanyaan: e.target.value })} 
+                  onKeyDown={(e) => e.key === "Enter" && handleSimpanPertanyaan()}
+                />
                 <div className="flex gap-2">
                   <select className="select select-bordered select-sm flex-1 text-gray-800 bg-white" value={newPertanyaan.tipe} onChange={(e) => setNewPertanyaan({ ...newPertanyaan, tipe: e.target.value })}>
                     {TIPE_PERTANYAAN.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                   </select>
-                  <button className="btn btn-primary btn-sm" onClick={handleTambahPertanyaan}><Plus size={16} className="mr-1"/> Tambah</button>
+                  {editingPertanyaanId ? (
+                    <>
+                      <button className="btn btn-success btn-sm text-white" onClick={handleSimpanPertanyaan}><Save size={16}/></button>
+                      <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEditPertanyaan}><X size={16}/></button>
+                    </>
+                  ) : (
+                    <button className="btn btn-primary btn-sm" onClick={handleSimpanPertanyaan}><Plus size={16} className="mr-1"/> Tambah</button>
+                  )}
                 </div>
               </div>
             </div>
