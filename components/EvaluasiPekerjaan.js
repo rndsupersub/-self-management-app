@@ -12,6 +12,30 @@ const DEFAULT_FIELDS = [
   { id: "solusi", label: "Solusi", tipe: "long" },
 ];
 
+// Fungsi pembantu untuk dapetin tanggal hari ini (Waktu Lokal)
+const getTodayLocalDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Fungsi pembantu untuk geser tanggal/bulan/tahun tanpa kena timezone UTC
+const adjustDate = (dateStr, type, amount) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateObj = new Date(y, m - 1, d); // Buat objek tanggal lokal
+  
+  if (type === "days") dateObj.setDate(dateObj.getDate() + amount);
+  else if (type === "months") dateObj.setMonth(dateObj.getMonth() + amount);
+  else if (type === "years") dateObj.setFullYear(dateObj.getFullYear() + amount);
+
+  const newY = dateObj.getFullYear();
+  const newM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const newD = String(dateObj.getDate()).padStart(2, "0");
+  return `${newY}-${newM}-${newD}`;
+};
+
 export default function EvaluasiPekerjaan({
   kegiatanList = [],
   laporanData = {},
@@ -21,16 +45,14 @@ export default function EvaluasiPekerjaan({
   onUpdateEvaluasi,
   onUpdatePeriodeEvaluasi,
 }) {
-  // STATE TAB UTAMA (Pemisah Evaluasi & Vendor)
   const [mainTab, setMainTab] = useState("evaluasi"); 
 
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   const [formValues, setFormValues] = useState({});
   const [showHistory, setShowHistory] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
 
-  // State buat Hide/Show Vendor Insight
   const [showAllVendorDetails, setShowAllVendorDetails] = useState(true);
   const [expandedVendors, setExpandedVendors] = useState({});
   const [hideEmptyVendors, setHideEmptyVendors] = useState(true);
@@ -69,22 +91,22 @@ export default function EvaluasiPekerjaan({
   const handlePrev = () => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
     if (!def) return;
-    if (def.tipe === "bulanan") { const d = new Date(selectedDate); d.setMonth(d.getMonth() - 1); setSelectedDate(d.toISOString().split("T")[0]); }
-    else if (def.tipe === "triwulan") { const d = new Date(selectedDate); d.setMonth(d.getMonth() - 3); setSelectedDate(d.toISOString().split("T")[0]); }
-    else if (def.tipe === "semester") { const d = new Date(selectedDate); d.setMonth(d.getMonth() - 6); setSelectedDate(d.toISOString().split("T")[0]); }
-    else if (def.tipe === "tahunan") { const d = new Date(selectedDate); d.setFullYear(d.getFullYear() - 1); setSelectedDate(d.toISOString().split("T")[0]); }
+    if (def.tipe === "bulanan") setSelectedDate(adjustDate(selectedDate, "months", -1));
+    else if (def.tipe === "triwulan") setSelectedDate(adjustDate(selectedDate, "months", -3));
+    else if (def.tipe === "semester") setSelectedDate(adjustDate(selectedDate, "months", -6));
+    else if (def.tipe === "tahunan") setSelectedDate(adjustDate(selectedDate, "years", -1));
   };
 
   const handleNext = () => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
     if (!def) return;
-    if (def.tipe === "bulanan") { const d = new Date(selectedDate); d.setMonth(d.getMonth() + 1); setSelectedDate(d.toISOString().split("T")[0]); }
-    else if (def.tipe === "triwulan") { const d = new Date(selectedDate); d.setMonth(d.getMonth() + 3); setSelectedDate(d.toISOString().split("T")[0]); }
-    else if (def.tipe === "semester") { const d = new Date(selectedDate); d.setMonth(d.getMonth() + 6); setSelectedDate(d.toISOString().split("T")[0]); }
-    else if (def.tipe === "tahunan") { const d = new Date(selectedDate); d.setFullYear(d.getFullYear() + 1); setSelectedDate(d.toISOString().split("T")[0]); }
+    if (def.tipe === "bulanan") setSelectedDate(adjustDate(selectedDate, "months", 1));
+    else if (def.tipe === "triwulan") setSelectedDate(adjustDate(selectedDate, "months", 3));
+    else if (def.tipe === "semester") setSelectedDate(adjustDate(selectedDate, "months", 6));
+    else if (def.tipe === "tahunan") setSelectedDate(adjustDate(selectedDate, "years", 1));
   };
 
-  const handleToday = () => setSelectedDate(new Date().toISOString().split("T")[0]);
+  const handleToday = () => setSelectedDate(getTodayLocalDate());
   const handleDateChange = (e) => setSelectedDate(e.target.value);
   const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
@@ -171,7 +193,6 @@ export default function EvaluasiPekerjaan({
     return Object.entries(data).map(([k, val]) => ({ key: k, ...val })).sort((a, b) => b.key.localeCompare(a.key));
   }, [evaluasiData, activePeriode]);
 
-  // LOGIKA VENDOR INSIGHT (Tambah Delay)
   const vendorInsights = useMemo(() => {
     if (!periodeAktif) return [];
     
@@ -189,22 +210,13 @@ export default function EvaluasiPekerjaan({
       const onTrack = logs.filter(l => l.hasil === "on_track").length;
       const delay = logs.filter(l => l.hasil === "delay").length;
 
-      return {
-        vendor,
-        logs,
-        total,
-        layak,
-        tidakLayak,
-        onTrack,
-        delay
-      };
+      return { vendor, logs, total, layak, tidakLayak, onTrack, delay };
     }).filter(v => {
       if (hideEmptyVendors) return v.total > 0;
       return true;
     });
   }, [vendorList, periodeAktif, hideEmptyVendors]);
 
-  // Fungsi toggle expand per vendor
   const toggleVendorDetail = (vendorId) => {
     setExpandedVendors(prev => ({ ...prev, [vendorId]: !prev[vendorId] }));
   };
@@ -240,7 +252,7 @@ export default function EvaluasiPekerjaan({
             </div>
             <div className="flex items-center gap-2">
               <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={handleDateChange} />
-              <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleToday}><CalendarDays size={14}/> Periode Ini</button>
+              <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleToday}><CalendarDays size={14}/> Hari Ini</button>
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><Calendar size={12}/> {formatTanggalPendek(periodeAktif.periodeMulai)} -- {formatTanggalPendek(periodeAktif.periodeSelesai)}</p>
@@ -346,7 +358,6 @@ export default function EvaluasiPekerjaan({
             {vendorInsights.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-4 flex flex-col items-center gap-2"><Inbox size={32} className="opacity-50"/> Belum ada kunjungan vendor di periode ini.</p>) : (
               <div className="space-y-4">
                 {vendorInsights.map(({ vendor, logs, total, layak, tidakLayak, onTrack, delay }) => {
-                  // Cek status expand (default true jika belum di set)
                   const isExpanded = showAllVendorDetails && (expandedVendors[vendor.id] !== false);
 
                   return (
