@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, hitungStatistikKegiatan, autoGenerateSummary } from "@/lib/laporanData";
-import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, Pencil, RefreshCw, X, Save, List } from "lucide-react";
+import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, Pencil, RefreshCw, X, Save, List, FileText, ClipboardList } from "lucide-react";
 
 export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, onUpdateLaporan, prioritasList = [], sumberList = [] }) {
   const [activeTab, setActiveTab] = useState("harian");
@@ -12,6 +12,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
   const [showHistory, setShowHistory] = useState(false);
   const [showKegiatanList, setShowKegiatanList] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
+  
+  // STATE BARU UNTUK HIDE/SHOW LAPORAN
+  const [showLaporanSection, setShowLaporanSection] = useState(true);
 
   const periodeHarian = useMemo(() => ({ tanggal: selectedDate }), [selectedDate]);
   const periodeMingguan = useMemo(() => getMingguRange(selectedDate), [selectedDate]);
@@ -37,7 +40,25 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
 
   const statistik = useMemo(() => hitungStatistikKegiatan(kegiatanDiPeriode), [kegiatanDiPeriode]);
 
-  const handleAutoGenerate = () => { setKontenText(autoGenerateSummary(kegiatanDiPeriode)); };
+  // AUTO-GENERATE YANG UDAH DIBENERIN
+  const handleAutoGenerate = () => {
+    if (kegiatanDiPeriode.length === 0) {
+      setKontenText("Tidak ada kegiatan di periode ini.");
+      return;
+    }
+    
+    let text = `Total kegiatan: ${statistik.total}\n`;
+    text += `Selesai: ${statistik.selesai}\n`;
+    text += `Belum: ${statistik.belum}\n`;
+    text += `Progress: ${statistik.persen}%\n\n`;
+    text += `Daftar kegiatan:\n`;
+    
+    kegiatanDiPeriode.forEach((k) => {
+      text += `- ${k.judul} (${k.status === "selesai" ? "Selesai" : "Belum"})\n`;
+    });
+    
+    setKontenText(text);
+  };
 
   const handleSimpan = () => {
     if (!onUpdateLaporan) return;
@@ -97,9 +118,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
     <div className="space-y-4">
       <div className="alert alert-info py-2 text-xs flex items-center gap-1">
         <Info size={14}/> Laporan diisi setiap <strong>hari kerja jam 17:00–18:00</strong>.
-        {activeTab === "harian" && " Laporan harian diisi setiap hari (Senin–Sabtu)."}
-        {activeTab === "mingguan" && " Laporan mingguan diisi setiap hari Sabtu."}
-        {activeTab === "bulanan" && " Laporan bulanan diisi di akhir bulan."}
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
@@ -161,28 +179,46 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
         </div>
       </div>
 
+      {/* EDITOR LAPORAN DENGAN FITUR HIDE/SHOW */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><Pencil size={16}/> Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"}</h3>
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><ClipboardList size={16}/> Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"}</h3>
+            
             <div className="flex gap-1">
-              <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan di periode ini"><RefreshCw size={14} className="mr-1"/> Auto-generate</button>
-              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setKontenText("")} title="Kosongin textarea"><X size={14} className="mr-1"/> Clear</button>
+              <button
+                className="btn btn-ghost btn-xs text-gray-600"
+                onClick={() => setShowLaporanSection(!showLaporanSection)}
+              >
+                {showLaporanSection ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}
+              </button>
+              {showLaporanSection && (
+                <>
+                  <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan di periode ini"><RefreshCw size={14} className="mr-1"/> Auto-generate</button>
+                  <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setKontenText("")} title="Kosongin textarea"><X size={14} className="mr-1"/> Clear</button>
+                </>
+              )}
             </div>
           </div>
-          <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="12" placeholder="Tulis laporan di sini..." value={kontenText} onChange={(e) => setKontenText(e.target.value)} />
-          {laporanTersimpan?.updatedAt && <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><Clock size={14}/> Terakhir disimpan: {new Date(laporanTersimpan.updatedAt).toLocaleString("id-ID")}</p>}
-          <div className="flex gap-2 mt-3">
-            <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={!kontenText.trim()}><Save size={16} className="mr-1"/> Simpan Laporan</button>
-          </div>
-          {savedNotif && <div className="alert alert-success py-2 mt-3 text-xs flex items-center gap-1"><CheckCircle2 size={14}/> Laporan berhasil disimpan!</div>}
+          
+          {showLaporanSection && (
+            <>
+              <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="12" placeholder="Tulis laporan di sini..." value={kontenText} onChange={(e) => setKontenText(e.target.value)} />
+              {laporanTersimpan?.updatedAt && <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><Clock size={14}/> Terakhir disimpan: {new Date(laporanTersimpan.updatedAt).toLocaleString("id-ID")}</p>}
+              <div className="flex gap-2 mt-3">
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={!kontenText.trim()}><Save size={16} className="mr-1"/> Simpan Laporan</button>
+              </div>
+              {savedNotif && <div className="alert alert-success py-2 mt-3 text-xs flex items-center gap-1"><CheckCircle2 size={14}/> Laporan berhasil disimpan!</div>}
+            </>
+          )}
         </div>
       </div>
 
+      {/* HISTORY */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><List size={16}/> History Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"} ({historyList.length})</h3>
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><List size={16}/> History Laporan ({historyList.length})</h3>
             <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowHistory(!showHistory)}>{showHistory ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}</button>
           </div>
           {showHistory && (
