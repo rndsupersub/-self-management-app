@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { DEFAULT_FIELD_EVALUASI, DEFAULT_PERIODE_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, TIPE_FIELD, generateId, getPeriodeRange, formatTanggalPendek, autoGenerateSummaryFromLaporan } from "@/lib/evaluasiData";
-import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox } from "lucide-react";
+import { DEFAULT_FIELD_EVALUASI, DEFAULT_PERIODE_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, TIPE_FIELD, generateId, getPeriodeRange, formatTanggalPendek } from "@/lib/evaluasiData";
+import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building } from "lucide-react";
 
 export default function EvaluasiPekerjaan({
   kegiatanList = [],
@@ -85,11 +85,43 @@ export default function EvaluasiPekerjaan({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
   const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
+  // SMART AUTO-GENERATE: Narik data dari Laporan
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
-    const summary = autoGenerateSummaryFromLaporan(laporanData, periodeAktif.periodeMulai, periodeAktif.periodeSelesai);
+    
+    // Cari laporan yang masuk di periode ini
+    let laporanText = "";
+    const start = periodeAktif.periodeMulai;
+    const end = periodeAktif.periodeSelesai;
+    
+    // Ambil semua laporan harian yang tanggalnya di antara start & end
+    if (laporanData?.harian) {
+      Object.entries(laporanData.harian).forEach(([tanggal, data]) => {
+        if (tanggal >= start && tanggal <= end && data.konten) {
+          laporanText += `[${tanggal}] ${data.konten}\n`;
+          if (data.gdriveUrl) laporanText += `(Link GDrive: ${data.gdriveUrl})\n`;
+        }
+      });
+    }
+    
+    // Ambil laporan mingguan/bulanan sebagai tambahan
+    if (laporanData?.mingguan) {
+      Object.entries(laporanData.mingguan).forEach(([key, data]) => {
+        if (data.tanggalMulai >= start && data.tanggalSelesai <= end && data.konten) {
+          laporanText += `\n[Laporan Mingguan] ${data.konten}\n`;
+        }
+      });
+    }
+
+    if (!laporanText.trim()) {
+      laporanText = "Tidak ada laporan tertulis di periode ini. Silakan tulis laporan terlebih dahulu.";
+    }
+
+    // Taruh teks laporan ke field pertama (atau field 'efektivitas' jika ada)
     const targetField = fieldEvaluasiList.find((f) => f.id === "efektivitas") || fieldEvaluasiList[0];
-    if (targetField) setFormValues({ ...formValues, [targetField.id]: summary });
+    if (targetField) {
+      setFormValues({ ...formValues, [targetField.id]: laporanText });
+    }
   };
 
   const handleSimpan = () => {
@@ -102,6 +134,7 @@ export default function EvaluasiPekerjaan({
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
   };
 
+  // (Sisa fungsi handleHapusHistory, handleSimpanField, dll SAMA SEPERTI SEBELUMNYA)
   const handleHapusHistoryPekerjaan = (periodeKey) => {
     if (!confirm("Hapus history evaluasi pekerjaan periode ini? Tindakan ini tidak bisa dibatalkan.")) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
@@ -212,7 +245,7 @@ export default function EvaluasiPekerjaan({
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><FileText size={16}/> Evaluasi Kinerja Pekerjaan ({periodeAktif.label})</h3>
             <div className="flex gap-1" data-html2canvas-ignore="true">
               <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowPekerjaanSection(!showPekerjaanSection)}>{showPekerjaanSection ? <><EyeOff size={14}/> Sembunyikan</> : <><Eye size={14}/> Tampilkan</>}</button>
-              {showPekerjaanSection && (<><button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Isi otomatis dari laporan di periode ini"><RefreshCw size={14}/> Auto-generate</button><button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaField(true)}><Settings size={14}/> Kelola Field</button></>)}
+              {showPekerjaanSection && (<><button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Tarik data dari laporan"><RefreshCw size={14}/> Auto-generate</button><button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaField(true)}><Settings size={14}/> Kelola Field</button></>)}
             </div>
           </div>
 

@@ -2,19 +2,19 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, hitungStatistikKegiatan, autoGenerateSummary } from "@/lib/laporanData";
-import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, Pencil, RefreshCw, X, Save, List, FileText, ClipboardList } from "lucide-react";
+import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, hitungStatistikKegiatan } from "@/lib/laporanData";
+import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon } from "lucide-react";
 
 export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, onUpdateLaporan, prioritasList = [], sumberList = [] }) {
   const [activeTab, setActiveTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState(getTanggalHariIni());
   const [kontenText, setKontenText] = useState("");
+  const [gdriveUrl, setGdriveUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [showKegiatanList, setShowKegiatanList] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
-  
-  // STATE BARU UNTUK HIDE/SHOW LAPORAN
   const [showLaporanSection, setShowLaporanSection] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const periodeHarian = useMemo(() => ({ tanggal: selectedDate }), [selectedDate]);
   const periodeMingguan = useMemo(() => getMingguRange(selectedDate), [selectedDate]);
@@ -30,7 +30,10 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
     return laporanData?.bulanan?.[keyBulanan] || null;
   }, [activeTab, laporanData, keyHarian, keyMingguan, keyBulanan]);
 
-  useEffect(() => { setKontenText(laporanTersimpan?.konten || ""); }, [laporanTersimpan, activeTab, selectedDate]);
+  useEffect(() => { 
+    setKontenText(laporanTersimpan?.konten || ""); 
+    setGdriveUrl(laporanTersimpan?.gdriveUrl || "");
+  }, [laporanTersimpan, activeTab, selectedDate]);
 
   const kegiatanDiPeriode = useMemo(() => {
     if (activeTab === "harian") return generateLaporanHarian(kegiatanList, selectedDate);
@@ -40,43 +43,39 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
 
   const statistik = useMemo(() => hitungStatistikKegiatan(kegiatanDiPeriode), [kegiatanDiPeriode]);
 
-  // AUTO-GENERATE YANG UDAH DIBENERIN
   const handleAutoGenerate = () => {
     if (kegiatanDiPeriode.length === 0) {
       setKontenText("Tidak ada kegiatan di periode ini.");
       return;
     }
-    
-    let text = `Total kegiatan: ${statistik.total}\n`;
-    text += `Selesai: ${statistik.selesai}\n`;
-    text += `Belum: ${statistik.belum}\n`;
-    text += `Progress: ${statistik.persen}%\n\n`;
-    text += `Daftar kegiatan:\n`;
-    
-    kegiatanDiPeriode.forEach((k) => {
-      text += `- ${k.judul} (${k.status === "selesai" ? "Selesai" : "Belum"})\n`;
-    });
-    
+    let text = `Total kegiatan: ${statistik.total}\nSelesai: ${statistik.selesai}\nBelum: ${statistik.belum}\nProgress: ${statistik.persen}%\n\nDaftar kegiatan:\n`;
+    kegiatanDiPeriode.forEach((k) => { text += `- ${k.judul} (${k.status === "selesai" ? "Selesai" : "Belum"})\n`; });
     setKontenText(text);
   };
 
-  const handleSimpan = () => {
+  const handleSimpan = async () => {
     if (!onUpdateLaporan) return;
+    setIsSaving(true);
+    
+    // Buat struktur data baru
     const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
+    const payload = { konten: kontenText, gdriveUrl: gdriveUrl, updatedAt: new Date().toISOString() };
 
     if (activeTab === "harian") {
       if (!newLaporanData.harian) newLaporanData.harian = {};
-      newLaporanData.harian[keyHarian] = { tanggal: keyHarian, konten: kontenText, updatedAt: new Date().toISOString() };
+      newLaporanData.harian[keyHarian] = { tanggal: keyHarian, ...payload };
     } else if (activeTab === "mingguan") {
       if (!newLaporanData.mingguan) newLaporanData.mingguan = {};
-      newLaporanData.mingguan[keyMingguan] = { tanggalMulai: periodeMingguan.tanggalMulai, tanggalSelesai: periodeMingguan.tanggalSelesai, mingguKe: periodeMingguan.mingguKe, tahun: periodeMingguan.tahun, konten: kontenText, updatedAt: new Date().toISOString() };
+      newLaporanData.mingguan[keyMingguan] = { tanggalMulai: periodeMingguan.tanggalMulai, tanggalSelesai: periodeMingguan.tanggalSelesai, mingguKe: periodeMingguan.mingguKe, tahun: periodeMingguan.tahun, ...payload };
     } else {
       if (!newLaporanData.bulanan) newLaporanData.bulanan = {};
-      newLaporanData.bulanan[keyBulanan] = { tahun: periodeBulanan.tahun, bulan: periodeBulanan.bulan, namaBulan: periodeBulanan.namaBulan, konten: kontenText, updatedAt: new Date().toISOString() };
+      newLaporanData.bulanan[keyBulanan] = { tahun: periodeBulanan.tahun, bulan: periodeBulanan.bulan, namaBulan: periodeBulanan.namaBulan, ...payload };
     }
 
-    onUpdateLaporan(newLaporanData);
-    setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
+    await onUpdateLaporan(newLaporanData);
+    setIsSaving(false);
+    setSavedNotif(true); 
+    setTimeout(() => setSavedNotif(false), 3000);
   };
 
   const handlePrev = () => {
@@ -179,19 +178,12 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
         </div>
       </div>
 
-      {/* EDITOR LAPORAN DENGAN FITUR HIDE/SHOW */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><ClipboardList size={16}/> Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"}</h3>
-            
             <div className="flex gap-1">
-              <button
-                className="btn btn-ghost btn-xs text-gray-600"
-                onClick={() => setShowLaporanSection(!showLaporanSection)}
-              >
-                {showLaporanSection ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}
-              </button>
+              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowLaporanSection(!showLaporanSection)}>{showLaporanSection ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}</button>
               {showLaporanSection && (
                 <>
                   <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan di periode ini"><RefreshCw size={14} className="mr-1"/> Auto-generate</button>
@@ -204,9 +196,20 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
           {showLaporanSection && (
             <>
               <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="12" placeholder="Tulis laporan di sini..." value={kontenText} onChange={(e) => setKontenText(e.target.value)} />
+              
+              {/* INPUT GDRIVE BARU */}
+              <div className="mt-3">
+                <label className="text-xs font-semibold text-gray-600 mb-1 block flex items-center gap-1"><FolderOpen size={14}/> Link Google Drive (opsional)</label>
+                <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={gdriveUrl} onChange={(e) => setGdriveUrl(e.target.value)} />
+                <p className="text-[10px] text-gray-500 mt-1">Masukin link foto atau aset hasil kerja lo di sini.</p>
+              </div>
+
               {laporanTersimpan?.updatedAt && <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><Clock size={14}/> Terakhir disimpan: {new Date(laporanTersimpan.updatedAt).toLocaleString("id-ID")}</p>}
+              
               <div className="flex gap-2 mt-3">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={!kontenText.trim()}><Save size={16} className="mr-1"/> Simpan Laporan</button>
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={isSaving || (!kontenText.trim() && !gdriveUrl.trim())}>
+                  {isSaving ? <><Loader2 className="animate-spin mr-2" size={16}/> Menyimpan...</> : <><Save size={16} className="mr-1"/> Simpan Laporan</>}
+                </button>
               </div>
               {savedNotif && <div className="alert alert-success py-2 mt-3 text-xs flex items-center gap-1"><CheckCircle2 size={14}/> Laporan berhasil disimpan!</div>}
             </>
@@ -214,7 +217,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
         </div>
       </div>
 
-      {/* HISTORY */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex justify-between items-center mb-3">
@@ -237,6 +239,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
                         <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex items-center gap-1"><Calendar size={14}/> {label}</summary>
                         <div className="mt-2 bg-white p-2 rounded border border-gray-200">
                           <p className="text-xs text-gray-700 whitespace-pre-wrap font-mono">{lap.konten || "(kosong)"}</p>
+                          {lap.gdriveUrl && <a href={lap.gdriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs link link-primary mt-2 flex items-center gap-1"><LinkIcon size={12}/> Lihat GDrive</a>}
                           {lap.updatedAt && <p className="text-[10px] text-gray-400 mt-2">Disimpan: {new Date(lap.updatedAt).toLocaleString("id-ID")}</p>}
                         </div>
                       </details>
