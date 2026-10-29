@@ -3,7 +3,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_PERIODE_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, TIPE_FIELD, generateId, getPeriodeRange, formatTanggalPendek } from "@/lib/evaluasiData";
-import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building } from "lucide-react";
+import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor } from "lucide-react";
+import { getLabelMetode, getLabelHasil, getBadgeClass, getWarnaHasil } from "@/lib/vendorData"; // Import helper buat nampilin status kunjungan
 
 export default function EvaluasiPekerjaan({
   kegiatanList = [],
@@ -36,9 +37,7 @@ export default function EvaluasiPekerjaan({
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
   const [frekuensiForm, setFrekuensiForm] = useState({ label: "", tipe: "bulanan", customStart: "", customEnd: "" });
 
-  const [showKelolaFieldVendor, setShowKelolaFieldVendor] = useState(false);
-  const [editingFieldVendorId, setEditingFieldVendorId] = useState(null);
-  const [fieldVendorForm, setFieldVendorForm] = useState({ label: "", tipe: "long" });
+  // State Kelola Field Vendor dihapus karena tab ini murni read-only insight
 
   const periodeAktif = useMemo(() => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
@@ -85,70 +84,48 @@ export default function EvaluasiPekerjaan({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
   const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
-  // SMART AUTO-GENERATE V4: Menyusun rapi per tanggal
+  // SMART AUTO-GENERATE: Aggregate data laporan per field
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
     const start = periodeAktif.periodeMulai;
     const end = periodeAktif.periodeSelesai;
 
-    // Kumpulkan laporan harian dan urutkan berdasarkan tanggal
     let laporanHarian = [];
     if (laporanData?.harian) {
       laporanHarian = Object.values(laporanData.harian)
         .filter(data => data.tanggal >= start && data.tanggal <= end)
-        .sort((a, b) => a.tanggal.localeCompare(b.tanggal)); // Urut dari tanggal paling awal
+        .sort((a, b) => a.tanggal.localeCompare(b.tanggal));
     }
 
-    if (laporanHarian.length === 0) {
-      alert("Tidak ada laporan harian di periode ini.");
-      return;
-    }
+    if (laporanHarian.length === 0) { alert("Tidak ada laporan harian di periode ini."); return; }
 
-    // Siapkan wadah untuk tiap field
     let aggregatedRingkasan = [];
     let aggregatedKendala = [];
     let aggregatedSolusi = [];
-    let aggregatedLainnya = [];
 
     laporanHarian.forEach(lap => {
       const tgl = lap.tanggal;
-      
-      // Ambil field dari format baru
       if (lap.fields) {
-        if (lap.fields.ringkasan && lap.fields.ringkasan.trim()) aggregatedRingkasan.push(`[📅 ${tgl}]\n${lap.fields.ringkasan.trim()}`);
-        if (lap.fields.kendala && lap.fields.kendala.trim()) aggregatedKendala.push(`[📅 ${tgl}]\n${lap.fields.kendala.trim()}`);
-        if (lap.fields.solusi && lap.fields.solusi.trim()) aggregatedSolusi.push(`[📅 ${tgl}]\n${lap.fields.solusi.trim()}`);
-      } 
-      // Fallback buat format lama (yang cuma punya 'konten')
-      else if (lap.konten && lap.konten.trim()) {
+        if (lap.fields.ringkasan?.trim()) aggregatedRingkasan.push(`[📅 ${tgl}]\n${lap.fields.ringkasan.trim()}`);
+        if (lap.fields.kendala?.trim()) aggregatedKendala.push(`[📅 ${tgl}]\n${lap.fields.kendala.trim()}`);
+        if (lap.fields.solusi?.trim()) aggregatedSolusi.push(`[📅 ${tgl}]\n${lap.fields.solusi.trim()}`);
+      } else if (lap.konten?.trim()) {
         aggregatedRingkasan.push(`[📅 ${tgl}]\n${lap.konten.trim()}`);
       }
     });
 
-    // Gabungkan dengan pemisah enter biar rapi
-    const textRingkasan = aggregatedRingkasan.join("\n\n");
-    const textKendala = aggregatedKendala.join("\n\n");
-    const textSolusi = aggregatedSolusi.join("\n\n");
-
-    // Masukkan ke Field Evaluasi yang sesuai
     const newValues = { ...formValues };
-    
     fieldEvaluasiList.forEach((evalField) => {
       const lowerLabel = evalField.label.toLowerCase();
       const lowerId = evalField.id.toLowerCase();
-
-      // Logika pencocokan
       if (lowerLabel.includes("efektivitas") || lowerLabel.includes("ringkasan") || lowerId === "efektivitas") {
-        if (textRingkasan) newValues[evalField.id] = textRingkasan;
-      } 
-      else if (lowerLabel.includes("kendala") || lowerLabel.includes("masalah") || lowerId === "kendala") {
-        if (textKendala) newValues[evalField.id] = textKendala;
-      } 
-      else if (lowerLabel.includes("solusi") || lowerLabel.includes("perbaikan") || lowerId === "solusi") {
-        if (textSolusi) newValues[evalField.id] = textSolusi;
+        if (aggregatedRingkasan.length) newValues[evalField.id] = aggregatedRingkasan.join("\n\n");
+      } else if (lowerLabel.includes("kendala") || lowerLabel.includes("masalah") || lowerId === "kendala") {
+        if (aggregatedKendala.length) newValues[evalField.id] = aggregatedKendala.join("\n\n");
+      } else if (lowerLabel.includes("solusi") || lowerLabel.includes("perbaikan") || lowerId === "solusi") {
+        if (aggregatedSolusi.length) newValues[evalField.id] = aggregatedSolusi.join("\n\n");
       }
     });
-
     setFormValues(newValues);
   };
 
@@ -156,14 +133,13 @@ export default function EvaluasiPekerjaan({
     if (!onUpdateEvaluasi || !periodeAktif) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
     if (!newData[activePeriode]) newData[activePeriode] = {};
-    const oldVendorEvals = newData[activePeriode][periodeAktif.key]?.vendorEvaluations || {};
-    newData[activePeriode][periodeAktif.key] = { periodeMulai: periodeAktif.periodeMulai, periodeSelesai: periodeAktif.periodeSelesai, label: periodeAktif.label, tipe: periodeAktif.tipe, fields: formValues, vendorEvaluations: oldVendorEvals, updatedAt: new Date().toISOString() };
+    newData[activePeriode][periodeAktif.key] = { periodeMulai: periodeAktif.periodeMulai, periodeSelesai: periodeAktif.periodeSelesai, label: periodeAktif.label, tipe: periodeAktif.tipe, fields: formValues, updatedAt: new Date().toISOString() };
     onUpdateEvaluasi(newData);
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
   };
 
   const handleHapusHistoryPekerjaan = (periodeKey) => {
-    if (!confirm("Hapus history evaluasi pekerjaan periode ini? Tindakan ini tidak bisa dibatalkan.")) return;
+    if (!confirm("Hapus history evaluasi pekerjaan periode ini?")) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
     if (newData[activePeriode] && newData[activePeriode][periodeKey]) {
       delete newData[activePeriode][periodeKey];
@@ -185,7 +161,7 @@ export default function EvaluasiPekerjaan({
     if (!editingFieldId) { const emptyVal = fieldForm.tipe === "score" ? 5 : ""; setFormValues((prev) => ({ ...prev, [newField.id]: emptyVal })); }
     handleBukaTambahField();
   };
-  const handleHapusField = (id) => { if (!confirm("Hapus field ini? Data evaluasi yang udah keisi bakal ilang dari tampilan.")) return; onUpdateFieldEvaluasi(fieldEvaluasiList.filter((f) => f.id !== id)); };
+  const handleHapusField = (id) => { if (!confirm("Hapus field ini?")) return; onUpdateFieldEvaluasi(fieldEvaluasiList.filter((f) => f.id !== id)); };
 
   const handleBukaTambahFrekuensi = () => { setFrekuensiForm({ label: "", tipe: "bulanan", customStart: "", customEnd: "" }); setEditingFrekuensiId(null); };
   const handleBukaEditFrekuensi = (freq) => { setFrekuensiForm({ label: freq.label.replace(/^[^\w\s]+\s/, ''), tipe: freq.tipe || "bulanan", customStart: freq.customStart || "", customEnd: freq.customEnd || "" }); setEditingFrekuensiId(freq.id); };
@@ -203,27 +179,44 @@ export default function EvaluasiPekerjaan({
     if (activePeriode === id) { const sisa = periodeEvaluasiList.filter((f) => f.id !== id); setActivePeriode(sisa[0]?.id || "bulanan"); }
   };
 
-  const handleBukaTambahFieldVendor = () => { setFieldVendorForm({ label: "", tipe: "long" }); setEditingFieldVendorId(null); };
-  const handleBukaEditFieldVendor = (field) => { setFieldVendorForm({ label: field.label.replace(/^[^\w\s]+\s/, ''), tipe: field.tipe || "long" }); setEditingFieldVendorId(field.id); };
-  const handleSimpanFieldVendor = () => {
-    if (!fieldVendorForm.label.trim()) return;
-    const newField = { id: editingFieldVendorId || generateId("field_v"), label: fieldVendorForm.label, tipe: fieldVendorForm.tipe };
-    let updated = editingFieldVendorId ? fieldEvaluasiVendorList.map((f) => (f.id === editingFieldVendorId ? newField : f)) : [...fieldEvaluasiVendorList, newField];
-    onUpdateFieldEvaluasiVendor(updated); handleBukaTambahFieldVendor();
-  };
-  const handleHapusFieldVendor = (id) => { if (!confirm("Hapus field evaluasi vendor ini?")) return; onUpdateFieldEvaluasiVendor(fieldEvaluasiVendorList.filter((f) => f.id !== id)); };
-
   const historyList = useMemo(() => {
     const data = evaluasiData?.[activePeriode] || {};
     return Object.entries(data).map(([k, val]) => ({ key: k, ...val })).sort((a, b) => b.key.localeCompare(a.key));
   }, [evaluasiData, activePeriode]);
 
-  const filteredVendors = useMemo(() => {
-    return vendorList.filter((vendor) => {
-      if (!hideEmptyVendors) return true;
-      return !!(vendor.evaluasi?.[activePeriode]?.[key]);
+  // LOGIKA VENDOR INSIGHT (Narik dari Log Kunjungan)
+  const vendorInsights = useMemo(() => {
+    if (!periodeAktif) return [];
+    
+    const start = periodeAktif.periodeMulai;
+    const end = periodeAktif.periodeSelesai;
+
+    return vendorList.map((vendor) => {
+      // Filter log kunjungan berdasarkan periode
+      const logs = (vendor.logKunjungan || [])
+        .filter(log => log.tanggal >= start && log.tanggal <= end)
+        .sort((a, b) => b.tanggal.localeCompare(a.tanggal)); // Urut dari terbaru
+
+      // Hitung statistik
+      const total = logs.length;
+      const layak = logs.filter(l => l.hasil === "layak").length;
+      const tidakLayak = logs.filter(l => l.hasil === "tidak_layak").length;
+      const onTrack = logs.filter(l => l.hasil === "on_track").length;
+
+      return {
+        vendor,
+        logs,
+        total,
+        layak,
+        tidakLayak,
+        onTrack
+      };
+    }).filter(v => {
+      // Kalau "Sembunyikan vendor kosong" aktif, filter yang log-nya 0
+      if (hideEmptyVendors) return v.total > 0;
+      return true;
     });
-  }, [vendorList, hideEmptyVendors, activePeriode, key]);
+  }, [vendorList, periodeAktif, hideEmptyVendors]);
 
   const renderFieldInput = (field, value, onChange) => {
     const val = value ?? (field.tipe === "score" ? 5 : "");
@@ -238,10 +231,7 @@ export default function EvaluasiPekerjaan({
 
   return (
     <div className="space-y-4">
-      <div className="alert alert-info py-2 text-xs flex items-center gap-1" data-html2canvas-ignore="true">
-        <Pin size={14}/> Evaluasi diisi per periode. Bisa auto-generate dari laporan.
-      </div>
-
+      {/* HEADER TAB FREKUENSI */}
       <div className="flex flex-wrap justify-between items-center gap-2" data-html2canvas-ignore="true">
         <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
           {periodeEvaluasiList.map((freq) => (<button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActivePeriode(freq.id)}>{freq.label}</button>))}
@@ -249,6 +239,7 @@ export default function EvaluasiPekerjaan({
         <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaFrekuensi(true)}><Settings size={14}/> Kelola Frekuensi</button>
       </div>
 
+      {/* NAVIGASI PERIODE */}
       <div className="card bg-white shadow border border-gray-200" data-html2canvas-ignore="true">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center gap-2">
@@ -266,6 +257,7 @@ export default function EvaluasiPekerjaan({
         </div>
       </div>
 
+      {/* EVALUASI KINERJA PEKERJAAN (MAIN) */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
@@ -289,46 +281,88 @@ export default function EvaluasiPekerjaan({
         </div>
       </div>
 
+      {/* VENDOR INSIGHT DASHBOARD (READ-ONLY) */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><Factory size={16}/> Ringkasan Evaluasi Vendor ({filteredVendors.length})</h3>
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><Factory size={16}/> Insight Kunjungan Vendor</h3>
             <div className="flex gap-2 items-center" data-html2canvas-ignore="true">
-              <label className="label cursor-pointer gap-2"><span className="label-text text-xs text-gray-600">Sembunyikan vendor kosong</span><input type="checkbox" className="checkbox checkbox-xs" checked={hideEmptyVendors} onChange={(e) => setHideEmptyVendors(e.target.checked)} /></label>
+              <label className="label cursor-pointer gap-2">
+                <span className="label-text text-xs text-gray-600">Sembunyikan vendor kosong</span>
+                <input type="checkbox" className="checkbox checkbox-xs" checked={hideEmptyVendors} onChange={(e) => setHideEmptyVendors(e.target.checked)} />
+              </label>
               <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowVendorSection(!showVendorSection)}>{showVendorSection ? <><EyeOff size={14}/> Sembunyikan</> : <><Eye size={14}/> Tampilkan</>}</button>
-              <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaFieldVendor(true)}><Settings size={14}/> Field Vendor</button>
             </div>
           </div>
 
           {showVendorSection && (
-            filteredVendors.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-4 flex flex-col items-center gap-2"><Inbox size={32} className="opacity-50"/> Belum ada vendor yang dievaluasi di periode ini.</p>) : (
+            vendorInsights.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-4 flex flex-col items-center gap-2"><Inbox size={32} className="opacity-50"/> Belum ada kunjungan vendor di periode ini.</p>) : (
               <div className="space-y-4">
-                {filteredVendors.map((vendor) => {
-                  const vendorEval = vendor.evaluasi?.[activePeriode]?.[key];
-                  return (
-                    <div key={vendor.id} className="border border-gray-200 rounded p-3 bg-gray-50">
-                      <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
-                        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1"><Factory size={14}/> {vendor.nama}</h4>
-                        <span className="text-[10px] text-gray-500 bg-white px-2 py-1 rounded border border-gray-200">{vendorEval ? `Diisi: ${new Date(vendorEval.updatedAt).toLocaleDateString("id-ID")}` : "Belum Dievaluasi"}</span>
+                {vendorInsights.map(({ vendor, logs, total, layak, tidakLayak, onTrack }) => (
+                  <div key={vendor.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    
+                    {/* HEADER VENDOR & STATS */}
+                    <div className="flex flex-wrap justify-between items-center gap-4 mb-4 border-b border-gray-200 pb-3">
+                      <div className="flex-1">
+                        <h4 className="text-base font-bold text-gray-800 flex items-center gap-2"><Factory size={18} className="text-primary"/> {vendor.nama}</h4>
+                        <p className="text-xs text-gray-500 mt-1">Total {total} Kunjungan di periode ini</p>
                       </div>
-                      <div className="space-y-2">
-                        {vendorEval ? (
-                          fieldEvaluasiVendorList.map((field) => {
-                            const val = vendorEval.fields?.[field.id];
-                            if (!val) return null;
-                            return (<div key={field.id} className="bg-white p-2 rounded border border-gray-100"><p className="text-[10px] font-semibold text-gray-500 mb-1">{field.label}</p><p className="text-xs text-gray-800 whitespace-pre-wrap">{val}</p></div>);
-                          })
-                        ) : (<p className="text-xs text-gray-400 italic">Tidak ada data evaluasi untuk periode ini.</p>)}
+                      
+                      {/* BADGES STATISTIK */}
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 flex items-center gap-1 font-semibold">
+                          <ThumbsUp size={12}/> Layak: {layak}
+                        </span>
+                        <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 flex items-center gap-1 font-semibold">
+                          <ThumbsDown size={12}/> Tidak Layak: {tidakLayak}
+                        </span>
+                        <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 border border-blue-300 flex items-center gap-1 font-semibold">
+                          <CheckCircle2 size={12}/> On Track: {onTrack}
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* TIMELINE LOG KUNJUNGAN */}
+                    <div className="space-y-2">
+                      {logs.map((log) => (
+                        <div key={log.id} className="bg-white p-3 rounded border border-gray-200 flex flex-col md:flex-row gap-3">
+                          
+                          {/* Tanggal & Metode */}
+                          <div className="md:w-1/4 flex flex-col gap-1 shrink-0">
+                            <span className="text-xs font-semibold text-gray-800 flex items-center gap-1"><Calendar size={12}/> {formatTanggal(log.tanggal, "pendek")}</span>
+                            <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                              {log.metode === "online" ? <><Monitor size={10}/> Online</> : <><Building size={10}/> Offline</>}
+                            </span>
+                          </div>
+                          
+                          {/* Hasil */}
+                          <div className="md:w-1/4 shrink-0">
+                             <span className={`text-[10px] px-2 py-0.5 rounded border inline-flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}>
+                               {log.hasil === "layak" && <ThumbsUp size={10}/>}
+                               {log.hasil === "tidak_layak" && <ThumbsDown size={10}/>}
+                               {log.hasil === "on_track" && <CheckCircle2 size={10}/>}
+                               {getLabelHasil(log.hasil)}
+                             </span>
+                          </div>
+
+                          {/* Catatan */}
+                          <div className="flex-1">
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap">{log.catatan || "-"}</p>
+                          </div>
+
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
+                ))}
               </div>
             )
           )}
         </div>
       </div>
 
+      {/* SIMPAN & HISTORY EVALUASI */}
       <div className="flex gap-2" data-html2canvas-ignore="true">
         <button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-2" onClick={handleSimpan} disabled={fieldEvaluasiList.length === 0}><Save size={16}/> Simpan Evaluasi Pekerjaan ({periodeAktif.label})</button>
       </div>
@@ -411,31 +445,6 @@ export default function EvaluasiPekerjaan({
                 </select>
                 {frekuensiForm.tipe === "custom" && (<div className="grid grid-cols-2 gap-2"><div><label className="text-xs text-gray-600 mb-1 block">Mulai</label><input type="date" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={frekuensiForm.customStart} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, customStart: e.target.value })} /></div><div><label className="text-xs text-gray-600 mb-1 block">Selesai</label><input type="date" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={frekuensiForm.customEnd} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, customEnd: e.target.value })} /></div></div>)}
                 <div className="flex gap-2"><button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-1" onClick={handleSimpanFrekuensi} disabled={!frekuensiForm.label.trim()}>{editingFrekuensiId ? <><Save size={14}/> Simpan</> : <><Plus size={14}/> Tambah</>}</button>{editingFrekuensiId && <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBukaTambahFrekuensi}>Batal</button>}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL KELOLA FIELD VENDOR */}
-      {showKelolaFieldVendor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
-          <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="card-body p-4">
-              <div className="flex justify-between items-center mb-3"><h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><Settings size={18}/> Kelola Field Evaluasi Vendor</h3><button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaFieldVendor(false)}><X size={18}/></button></div>
-              <div className="space-y-1 mb-4">
-                {fieldEvaluasiVendorList.map((f) => (
-                  <div key={f.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
-                    <div className="flex-1"><p className="text-sm text-gray-700">{f.label}</p><span className="text-[10px] text-gray-500">Tipe: {f.tipe}</span></div>
-                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditFieldVendor(f)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusFieldVendor(f.id)}><Trash2 size={14}/></button></div>
-                  </div>
-                ))}
-              </div>
-              <div className="bg-orange-50 rounded p-3 border border-orange-200 space-y-2">
-                <p className="text-xs font-semibold text-orange-700 flex items-center gap-1">{editingFieldVendorId ? <><Pencil size={14}/> Edit Field Vendor</> : <><Plus size={14}/> Tambah Field Vendor Baru</>}</p>
-                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama field vendor" value={fieldVendorForm.label} onChange={(e) => setFieldVendorForm({ ...fieldVendorForm, label: e.target.value })} />
-                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={fieldVendorForm.tipe} onChange={(e) => setFieldVendorForm({ ...fieldVendorForm, tipe: e.target.value })}>{TIPE_FIELD.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
-                <div className="flex gap-2"><button className="btn btn-primary btn-sm flex-1 flex items-center justify-center gap-1" onClick={handleSimpanFieldVendor} disabled={!fieldVendorForm.label.trim()}>{editingFieldVendorId ? <><Save size={14}/> Simpan</> : <><Plus size={14}/> Tambah</>}</button>{editingFieldVendorId && <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleBukaTambahFieldVendor}>Batal</button>}</div>
               </div>
             </div>
           </div>

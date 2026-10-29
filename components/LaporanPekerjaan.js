@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, hitungStatistikKegiatan } from "@/lib/laporanData";
-import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle, CheckSquare } from "lucide-react";
+import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan } from "@/lib/laporanData";
+import { Info, Calendar, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 
 const DEFAULT_FIELDS = [
   { id: "ringkasan", label: "Ringkasan Pekerjaan", tipe: "long" },
@@ -11,13 +11,12 @@ const DEFAULT_FIELDS = [
   { id: "solusi", label: "Solusi", tipe: "long" },
 ];
 
-export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan, prioritasList = [], sumberList = [] }) {
+export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan }) {
   const [activeTab, setActiveTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState(getTanggalHariIni());
   const [formValues, setFormValues] = useState({});
   const [gdriveUrl, setGdriveUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
-  const [showKegiatanList, setShowKegiatanList] = useState(false);
   const [savedNotif, setSavedNotif] = useState(false);
   const [showLaporanSection, setShowLaporanSection] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -59,39 +58,38 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     setGdriveUrl(laporanTersimpan?.gdriveUrl || "");
   }, [laporanTersimpan, activeTab, selectedDate, fields]);
 
-  const kegiatanDiPeriode = useMemo(() => {
-    if (activeTab === "harian") return generateLaporanHarian(kegiatanList, selectedDate);
-    if (activeTab === "mingguan") return generateLaporanMingguan(kegiatanList, periodeMingguan.tanggalMulai, periodeMingguan.tanggalSelesai);
-    return generateLaporanBulanan(kegiatanList, periodeBulanan.tanggalMulai, periodeBulanan.tanggalSelesai);
-  }, [activeTab, kegiatanList, selectedDate, periodeMingguan, periodeBulanan]);
-
-  const statistik = useMemo(() => hitungStatistikKegiatan(kegiatanDiPeriode), [kegiatanDiPeriode]);
-
-  const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
-
+  // AUTO-GENERATE: Narik data dari kegiatan & log vendor
   const handleAutoGenerate = () => {
     const start = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalMulai : periodeBulanan.tanggalMulai;
     const end = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalSelesai : periodeBulanan.tanggalSelesai;
 
-    let textKegiatan = `Total: ${statistik.total} | Selesai: ${statistik.selesai} | Belum: ${statistik.belum}\n\n`;
+    let kegiatanDiPeriode = [];
+    if (activeTab === "harian") kegiatanDiPeriode = generateLaporanHarian(kegiatanList, selectedDate);
+    else if (activeTab === "mingguan") kegiatanDiPeriode = generateLaporanMingguan(kegiatanList, periodeMingguan.tanggalMulai, periodeMingguan.tanggalSelesai);
+    else kegiatanDiPeriode = generateLaporanBulanan(kegiatanList, periodeBulanan.tanggalMulai, periodeBulanan.tanggalSelesai);
+
+    let textKegiatan = `Total: ${kegiatanDiPeriode.length} Kegiatan\n`;
     kegiatanDiPeriode.forEach((k) => { textKegiatan += `${k.status === "selesai" ? "[x]" : "[ ]"} ${k.judul}\n`; });
 
     let textVendor = "";
     (vendorList || []).forEach((vendor) => {
       const logs = (vendor.logKunjungan || []).filter((log) => log.tanggal >= start && log.tanggal <= end);
-      logs.forEach((log) => {
-        if (log.hasil === "tidak_layak" || (log.catatan && log.catatan.trim() !== "")) {
-          textVendor += `- ${log.tanggal} | ${vendor.nama} | Hasil: ${log.hasil}\n`;
-          if (log.catatan) textVendor += `  Catatan: ${log.catatan}\n`;
-        }
-      });
+      if (logs.length > 0) {
+        textVendor += `Vendor: ${vendor.nama}\n`;
+        logs.forEach((log) => {
+          textVendor += `- ${log.tanggal} | Hasil: ${log.hasil} ${log.catatan ? `| Catatan: ${log.catatan}` : ""}\n`;
+        });
+        textVendor += "\n";
+      }
     });
 
-    // Masukkan ke field yang sesuai
     const newVals = { ...formValues };
-    const ringkasanField = fields.find(f => f.id === "ringkasan") || fields[0];
+    
+    // Masukin ke field Ringkasan
+    const ringkasanField = fields.find(f => f.id === "ringkasan" || f.label.toLowerCase().includes("ringkasan"));
     if (ringkasanField) newVals[ringkasanField.id] = textKegiatan;
     
+    // Masukin ke field Kendala / Catatan Vendor (kalau ada)
     const kendalaField = fields.find(f => f.id === "kendala" || f.label.toLowerCase().includes("kendala"));
     if (kendalaField && textVendor) newVals[kendalaField.id] = textVendor;
 
@@ -103,7 +101,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     setIsSaving(true);
     
     const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
-    // Simpan konfigurasi field biar konsisten
     newLaporanData.fields = fields; 
     
     const payload = { fields: formValues, gdriveUrl: gdriveUrl, updatedAt: new Date().toISOString() };
@@ -163,14 +160,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     return periodeBulanan.label;
   }, [activeTab, selectedDate, periodeMingguan, periodeBulanan]);
 
-  const getBadgeClass = (warna) => {
-    const map = { red: "bg-red-100 text-red-700 border-red-300", yellow: "bg-yellow-100 text-yellow-700 border-yellow-300", blue: "bg-blue-100 text-blue-700 border-blue-300", gray: "bg-gray-100 text-gray-700 border-gray-300", orange: "bg-orange-100 text-orange-700 border-orange-300", purple: "bg-purple-100 text-purple-700 border-purple-300", green: "bg-green-100 text-green-700 border-green-300", pink: "bg-pink-100 text-pink-700 border-pink-300" };
-    return map[warna] || map.gray;
-  };
-
-  const getPrioritasData = (id) => prioritasList.find((p) => p.id === id);
-  const getSumberData = (id) => sumberList.find((s) => s.id === id);
-
   const historyList = useMemo(() => {
     const data = laporanData?.[activeTab] || {};
     return Object.entries(data).map(([key, val]) => ({ key, ...val })).sort((a, b) => {
@@ -215,43 +204,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
 
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><PieChart size={16}/> Ringkasan Kegiatan ({statistik.total})</h3>
-            <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKegiatanList(!showKegiatanList)}>{showKegiatanList ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Lihat Detail</>}</button>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="bg-gray-50 rounded p-2 border border-gray-200"><p className="text-xs text-gray-500">Total</p><p className="text-lg font-bold text-gray-800">{statistik.total}</p></div>
-            <div className="bg-green-50 rounded p-2 border border-green-200"><p className="text-xs text-gray-500">Selesai</p><p className="text-lg font-bold text-green-700">{statistik.selesai}</p></div>
-            <div className="bg-yellow-50 rounded p-2 border border-yellow-200"><p className="text-xs text-gray-500">Belum</p><p className="text-lg font-bold text-yellow-700">{statistik.belum}</p></div>
-            <div className="bg-blue-50 rounded p-2 border border-blue-200"><p className="text-xs text-gray-500">Progress</p><p className="text-lg font-bold text-blue-700">{statistik.persen}%</p></div>
-          </div>
-
-          {showKegiatanList && (
-            <div className="mt-3 space-y-2">
-              {kegiatanDiPeriode.length === 0 ? (
-                <p className="text-xs text-gray-400 italic text-center py-3">Tidak ada kegiatan di periode ini.</p>
-              ) : (
-                kegiatanDiPeriode.map((keg) => {
-                  const prio = getPrioritasData(keg.prioritas); const sum = getSumberData(keg.sumber);
-                  return (
-                    <div key={keg.id} className="p-2 rounded border border-gray-200 bg-gray-50">
-                      <p className={`text-sm font-semibold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>{keg.judul}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {prio && <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(prio.warna)}`}>{prio.label}</span>}
-                        {sum && <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(sum.warna)}`}>{sum.label}</span>}
-                        <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1">{keg.status === "selesai" ? <><CheckCircle2 size={12}/> Selesai</> : <><Clock size={12}/> Belum</>}</span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="card bg-white shadow border border-gray-200">
-        <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><ClipboardList size={16}/> Form Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"}</h3>
             <div className="flex gap-1">
@@ -274,9 +226,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                   <div key={field.id}>
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">{field.label}</label>
                     {field.tipe === "text" ? (
-                      <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formValues[field.id] || ""} onChange={(e) => handleUpdateValue(field.id, e.target.value)} />
+                      <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formValues[field.id] || ""} onChange={(e) => setFormValues({ ...formValues, [field.id]: e.target.value })} />
                     ) : (
-                      <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="4" value={formValues[field.id] || ""} onChange={(e) => handleUpdateValue(field.id, e.target.value)} />
+                      <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="4" value={formValues[field.id] || ""} onChange={(e) => setFormValues({ ...formValues, [field.id]: e.target.value })} />
                     )}
                   </div>
                 ))}
