@@ -48,7 +48,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     if (laporanTersimpan?.fields) {
       initialValues = laporanTersimpan.fields;
     } else if (laporanTersimpan?.konten) {
-      // MIGRASI: Kalau ada data lama (konten), masukin ke field pertama
       const firstFieldId = fields[0]?.id || "ringkasan";
       initialValues[firstFieldId] = laporanTersimpan.konten;
     } else {
@@ -85,11 +84,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
 
     const newVals = { ...formValues };
     
-    // Masukin ke field Ringkasan
     const ringkasanField = fields.find(f => f.id === "ringkasan" || f.label.toLowerCase().includes("ringkasan"));
     if (ringkasanField) newVals[ringkasanField.id] = textKegiatan;
     
-    // Masukin ke field Kendala / Catatan Vendor (kalau ada)
     const kendalaField = fields.find(f => f.id === "kendala" || f.label.toLowerCase().includes("kendala"));
     if (kendalaField && textVendor) newVals[kendalaField.id] = textVendor;
 
@@ -120,6 +117,28 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     setIsSaving(false);
     setSavedNotif(true); 
     setTimeout(() => setSavedNotif(false), 3000);
+  };
+
+  // HANDLER EDIT & HAPUS LAPORAN
+  const handleEditLaporan = (lap) => {
+    const dateToSet = lap.tanggal || lap.tanggalMulai || lap.key;
+    if (dateToSet) setSelectedDate(dateToSet);
+    if (lap.fields) {
+      setFormValues(lap.fields);
+    } else if (lap.konten) {
+      setFormValues({ [fields[0]?.id || "ringkasan"]: lap.konten });
+    }
+    setGdriveUrl(lap.gdriveUrl || "");
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleHapusLaporan = (key) => {
+    if (!confirm("Hapus laporan ini?")) return;
+    const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
+    if (newLaporanData[activeTab] && newLaporanData[activeTab][key]) {
+      delete newLaporanData[activeTab][key];
+      onUpdateLaporan(newLaporanData);
+    }
   };
 
   // Handler Kelola Field
@@ -271,7 +290,13 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                     const label = activeTab === "harian" ? labelHarian : activeTab === "mingguan" ? labelMingguan : labelBulanan;
                     return (
                       <details key={lap.key} className="border border-gray-200 rounded p-2 bg-gray-50">
-                        <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex items-center gap-1"><Calendar size={14}/> {label}</summary>
+                        <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex justify-between items-center">
+                          <span className="flex items-center gap-1"><Calendar size={14}/> {label}</span>
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button type="button" onClick={() => handleEditLaporan(lap)} className="btn btn-ghost btn-xs text-blue-500" title="Edit Laporan"><Pencil size={14}/></button>
+                            <button type="button" onClick={() => handleHapusLaporan(lap.key)} className="btn btn-ghost btn-xs text-red-500" title="Hapus Laporan"><Trash2 size={14}/></button>
+                          </div>
+                        </summary>
                         <div className="mt-2 bg-white p-3 rounded border border-gray-200 space-y-2">
                           {fields.map(f => {
                             const val = lap.fields?.[f.id] || (f.id === "ringkasan" ? lap.konten : null);
@@ -296,7 +321,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
         </div>
       </div>
 
-      {/* MODAL KELOLA FIELD LAPORAN */}
       {showKelolaField && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">

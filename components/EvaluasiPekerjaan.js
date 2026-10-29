@@ -12,7 +12,6 @@ const DEFAULT_FIELDS = [
   { id: "solusi", label: "Solusi", tipe: "long" },
 ];
 
-// Fungsi pembantu untuk dapetin tanggal hari ini (Waktu Lokal)
 const getTodayLocalDate = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -21,10 +20,9 @@ const getTodayLocalDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-// Fungsi pembantu untuk geser tanggal/bulan/tahun tanpa kena timezone UTC
 const adjustDate = (dateStr, type, amount) => {
   const [y, m, d] = dateStr.split("-").map(Number);
-  const dateObj = new Date(y, m - 1, d); // Buat objek tanggal lokal
+  const dateObj = new Date(y, m - 1, d); 
   
   if (type === "days") dateObj.setDate(dateObj.getDate() + amount);
   else if (type === "months") dateObj.setMonth(dateObj.getMonth() + amount);
@@ -157,6 +155,13 @@ export default function EvaluasiPekerjaan({
     newData[activePeriode][periodeAktif.key] = { periodeMulai: periodeAktif.periodeMulai, periodeSelesai: periodeAktif.periodeSelesai, label: periodeAktif.label, tipe: periodeAktif.tipe, fields: formValues, updatedAt: new Date().toISOString() };
     onUpdateEvaluasi(newData);
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
+  };
+
+  const handleEditHistory = (ev) => {
+    const dateToSet = ev.tanggal || ev.tanggalMulai || (ev.key.length === 7 ? `${ev.key}-01` : ev.key);
+    if (dateToSet) setSelectedDate(dateToSet);
+    setFormValues(ev.fields || {});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleHapusHistoryPekerjaan = (periodeKey) => {
@@ -317,7 +322,10 @@ export default function EvaluasiPekerjaan({
                     <details key={ev.key} className="border border-gray-200 rounded p-2 bg-gray-50">
                       <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex justify-between items-center">
                         <span className="flex items-center gap-1"><Calendar size={14}/> {ev.label || ev.key}</span>
-                        <button onClick={(e) => { e.preventDefault(); handleHapusHistoryPekerjaan(ev.key); }} className="btn btn-ghost btn-xs text-red-500" title="Hapus History" data-html2canvas-ignore="true"><Trash2 size={14}/></button>
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button type="button" onClick={() => handleEditHistory(ev)} className="btn btn-ghost btn-xs text-blue-500" title="Edit History"><Pencil size={14}/></button>
+                          <button type="button" onClick={() => handleHapusHistoryPekerjaan(ev.key)} className="btn btn-ghost btn-xs text-red-500" title="Hapus History"><Trash2 size={14}/></button>
+                        </div>
                       </summary>
                       <div className="mt-2 space-y-2">
                         {fields.map((f) => {
