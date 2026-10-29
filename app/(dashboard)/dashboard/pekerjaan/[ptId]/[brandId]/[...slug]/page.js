@@ -3,29 +3,22 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import Sidebar from "@/components/Sidebar";
 import DetailKegiatan from "@/components/DetailKegiatan";
-import ExportPDFButton from "@/components/ExportPDFButton"; // <-- TAMBAHAN
-import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
-import {
-  DEFAULT_PRIORITAS,
-  DEFAULT_SUMBER,
-  DEFAULT_SECTIONS,
-} from "@/lib/pekerjaanData";
+import ExportPDFButton from "@/components/ExportPDFButton";
+import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS } from "@/lib/pekerjaanData";
+import { Home, Briefcase, Building2, Tag, ClipboardList, Loader2 } from "lucide-react";
 
 export default function DetailKegiatanPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [today, setToday] = useState("");
-  const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [pekerjaan, setPekerjaan] = useState([]);
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_SUMBER);
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [kegiatan, setKegiatan] = useState(null);
 
   const router = useRouter();
@@ -50,13 +43,6 @@ export default function DetailKegiatanPage() {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-
-        if (data.activities && Array.isArray(data.activities)) {
-          setActivities(data.activities);
-        } else {
-          await setDoc(docRef, { activities: DEFAULT_ACTIVITIES }, { merge: true });
-          setActivities(DEFAULT_ACTIVITIES);
-        }
 
         if (data.pekerjaan && Array.isArray(data.pekerjaan)) {
           setPekerjaan(data.pekerjaan);
@@ -84,13 +70,11 @@ export default function DetailKegiatanPage() {
         }
       } else {
         await setDoc(docRef, {
-          activities: DEFAULT_ACTIVITIES,
           pekerjaan: [],
           prioritasList: DEFAULT_PRIORITAS,
           sumberList: DEFAULT_SUMBER,
           sections: DEFAULT_SECTIONS,
         });
-        setActivities(DEFAULT_ACTIVITIES);
         setPekerjaan([]);
       }
 
@@ -98,7 +82,7 @@ export default function DetailKegiatanPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     setToday(new Date().toISOString().split("T")[0]);
@@ -232,136 +216,77 @@ export default function DetailKegiatanPage() {
     router.push(`/dashboard/pekerjaan/${ptId}/${brandId}`);
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/login");
-  };
-
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-primary" size={32} /></div>;
   }
 
   if (!kegiatan) {
     return (
-      <div className="h-screen flex flex-col bg-base-200">
-        <div className="navbar bg-base-100 shadow px-4">
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">🌙 Self Management</h1>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="card bg-white shadow border border-gray-200">
-            <div className="card-body p-8 text-center text-gray-400">
-              <p className="text-3xl mb-2">📋</p>
-              <p className="text-sm mb-4">Kegiatan tidak ditemukan.</p>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}`)}
-              >
-                ← Balik ke Brand
-              </button>
-            </div>
-          </div>
+      <div className="card bg-white shadow border border-gray-200 max-w-md mx-auto mt-10">
+        <div className="card-body p-8 text-center text-gray-400">
+          <ClipboardList size={40} className="mx-auto mb-2 opacity-50" />
+          <p className="text-sm mb-4">Kegiatan tidak ditemukan.</p>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}`)}
+          >
+            ← Balik ke Brand
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar - IGNORE */}
-      <div className="navbar bg-base-100 shadow px-4" data-html2canvas-ignore="true">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">🌙 Self Management</h1>
-        </div>
-        <div className="flex gap-2 items-center">
-          <span className="text-sm font-mono">{today}</span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
+    <div className="max-w-6xl mx-auto">
+      {/* Breadcrumb - IGNORE */}
+      <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
+        <ul>
+          <li>
+            <a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary">
+              <Home size={14} /> Dashboard
+            </a>
+          </li>
+          <li>
+            <a onClick={() => router.push("/dashboard/pekerjaan")} className="cursor-pointer flex items-center gap-1 hover:text-primary">
+              <Briefcase size={14} /> Pekerjaan
+            </a>
+          </li>
+          <li>
+            <a onClick={() => router.push(`/dashboard/pekerjaan/${ptId}`)} className="cursor-pointer flex items-center gap-1 hover:text-primary">
+              <Building2 size={14} /> {pekerjaan.find((p) => p.id === ptId)?.nama || ptId}
+            </a>
+          </li>
+          <li>
+            <a onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}`)} className="cursor-pointer flex items-center gap-1 hover:text-primary">
+              <Tag size={14} /> {pekerjaan.find((p) => p.id === ptId)?.brands?.find((b) => b.id === brandId)?.nama || brandId}
+            </a>
+          </li>
+          <li className="flex items-center gap-1"><ClipboardList size={14} /> {kegiatan.judul}</li>
+        </ul>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - IGNORE */}
-        <div
-          className={`${sidebarCollapsed ? "w-12" : "w-64"} transition-all duration-300 bg-base-100`}
-          data-html2canvas-ignore="true"
-        >
-          <Sidebar
-            activities={activities}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
+      {/* ========== AREA EXPORT ========== */}
+      <div id="export-area">
+        {/* Tombol Export - IGNORE */}
+        <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
+          <ExportPDFButton 
+            targetId="export-area" 
+            fileName={`Kegiatan_${kegiatan.judul}.pdf`} 
+            title={kegiatan.judul} 
           />
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb - IGNORE */}
-          <div className="text-sm breadcrumbs mb-6" data-html2canvas-ignore="true">
-            <ul>
-              <li>
-                <a
-                  onClick={() => router.push("/dashboard")}
-                  className="cursor-pointer"
-                >
-                  🏠 Dashboard
-                </a>
-              </li>
-              <li>
-                <a
-                  onClick={() => router.push("/dashboard/pekerjaan")}
-                  className="cursor-pointer"
-                >
-                  💼 Pekerjaan
-                </a>
-              </li>
-              <li>
-                <a
-                  onClick={() => router.push(`/dashboard/pekerjaan/${ptId}`)}
-                  className="cursor-pointer"
-                >
-                  🏢 {pekerjaan.find((p) => p.id === ptId)?.nama || ptId}
-                </a>
-              </li>
-              <li>
-                <a
-                  onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}`)}
-                  className="cursor-pointer"
-                >
-                  🏷️{" "}
-                  {pekerjaan
-                    .find((p) => p.id === ptId)
-                    ?.brands?.find((b) => b.id === brandId)?.nama || brandId}
-                </a>
-              </li>
-              <li>{kegiatan.judul}</li>
-            </ul>
-          </div>
-
-          {/* ========== AREA EXPORT ========== */}
-          <div id="export-area">
-            {/* Tombol Export - IGNORE */}
-            <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-              <ExportPDFButton 
-                targetId="export-area" 
-                fileName={`Kegiatan_${kegiatan.judul}.pdf`} 
-                title={kegiatan.judul} 
-              />
-            </div>
-
-            <DetailKegiatan
-              kegiatan={kegiatan}
-              prioritasList={prioritasList}
-              sumberList={sumberList}
-              sections={sections}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              onToggleStatus={handleToggleStatus}
-              onEdit={handleEdit}
-            />
-          </div>
-        </div>
+        <DetailKegiatan
+          kegiatan={kegiatan}
+          prioritasList={prioritasList}
+          sumberList={sumberList}
+          sections={sections}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+          onToggleStatus={handleToggleStatus}
+          onEdit={handleEdit}
+        />
       </div>
     </div>
   );
