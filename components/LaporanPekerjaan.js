@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan } from "@/lib/laporanData";
+import { formatTanggalPanjang, formatTanggalPendek, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan } from "@/lib/laporanData";
 import { Info, Calendar, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 
 const DEFAULT_FIELDS = [
@@ -11,9 +11,33 @@ const DEFAULT_FIELDS = [
   { id: "solusi", label: "Solusi", tipe: "long" },
 ];
 
+// Fungsi pembantu untuk dapetin tanggal hari ini (Waktu Lokal)
+const getTodayLocalDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Fungsi pembantu untuk geser tanggal/bulan/tahun tanpa kena timezone UTC
+const adjustDate = (dateStr, type, amount) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  
+  if (type === "days") dateObj.setDate(dateObj.getDate() + amount);
+  else if (type === "months") dateObj.setMonth(dateObj.getMonth() + amount);
+  else if (type === "years") dateObj.setFullYear(dateObj.getFullYear() + amount);
+
+  const newY = dateObj.getFullYear();
+  const newM = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const newD = String(dateObj.getDate()).padStart(2, "0");
+  return `${newY}-${newM}-${newD}`;
+};
+
 export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan }) {
   const [activeTab, setActiveTab] = useState("harian");
-  const [selectedDate, setSelectedDate] = useState(getTanggalHariIni());
+  const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   const [formValues, setFormValues] = useState({});
   const [gdriveUrl, setGdriveUrl] = useState("");
   const [showHistory, setShowHistory] = useState(false);
@@ -162,15 +186,15 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   };
 
   const handlePrev = () => {
-    if (activeTab === "harian") setSelectedDate(tambahHari(selectedDate, -1));
-    else if (activeTab === "mingguan") setSelectedDate(tambahHari(selectedDate, -7));
-    else { const d = new Date(selectedDate); d.setMonth(d.getMonth() - 1); setSelectedDate(d.toISOString().split("T")[0]); }
+    if (activeTab === "harian") setSelectedDate(adjustDate(selectedDate, "days", -1));
+    else if (activeTab === "mingguan") setSelectedDate(adjustDate(selectedDate, "days", -7));
+    else setSelectedDate(adjustDate(selectedDate, "months", -1));
   };
 
   const handleNext = () => {
-    if (activeTab === "harian") setSelectedDate(tambahHari(selectedDate, 1));
-    else if (activeTab === "mingguan") setSelectedDate(tambahHari(selectedDate, 7));
-    else { const d = new Date(selectedDate); d.setMonth(d.getMonth() + 1); setSelectedDate(d.toISOString().split("T")[0]); }
+    if (activeTab === "harian") setSelectedDate(adjustDate(selectedDate, "days", 1));
+    else if (activeTab === "mingguan") setSelectedDate(adjustDate(selectedDate, "days", 7));
+    else setSelectedDate(adjustDate(selectedDate, "months", 1));
   };
 
   const labelPeriode = useMemo(() => {
@@ -215,7 +239,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
             </div>
             <div className="flex items-center gap-2">
               <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-              <button className="btn btn-outline btn-xs text-gray-700" onClick={() => setSelectedDate(getTanggalHariIni())}><Calendar size={14} className="mr-1"/> {activeTab === "harian" ? "Hari Ini" : activeTab === "mingguan" ? "Minggu Ini" : "Bulan Ini"}</button>
+              <button className="btn btn-outline btn-xs text-gray-700" onClick={() => setSelectedDate(getTodayLocalDate())}><Calendar size={14} className="mr-1"/> {activeTab === "harian" ? "Hari Ini" : activeTab === "mingguan" ? "Minggu Ini" : "Bulan Ini"}</button>
             </div>
           </div>
         </div>
