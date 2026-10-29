@@ -207,7 +207,14 @@ export default function BisnisBrandPage() {
         )}
 
         {activeTab === "laporan" && (
-          <LaporanPekerjaan kegiatanList={brand.kegiatan || []} laporanData={brand.laporanData || {}} onUpdateLaporan={(data) => updateBrandData({ laporanData: data })} prioritasList={prioritasList} sumberList={sumberList} />
+          <LaporanPekerjaan 
+            kegiatanList={brand.kegiatan || []} 
+            vendorList={vendorList} // <-- TAMBAHAN PROP VENDOR
+            laporanData={brand.laporanData || {}} 
+            onUpdateLaporan={(data) => updateBrandData({ laporanData: data })} 
+            prioritasList={prioritasList} 
+            sumberList={sumberList} 
+          />
         )}
 
         {activeTab === "evaluasi" && (

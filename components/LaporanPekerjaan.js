@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from "react";
 import { getTanggalHariIni, formatTanggalPanjang, formatTanggalPendek, tambahHari, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, hitungStatistikKegiatan } from "@/lib/laporanData";
 import { Info, Calendar, PieChart, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon } from "lucide-react";
 
-export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, onUpdateLaporan, prioritasList = [], sumberList = [] }) {
+export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan, prioritasList = [], sumberList = [] }) {
   const [activeTab, setActiveTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState(getTanggalHariIni());
   const [kontenText, setKontenText] = useState("");
@@ -43,13 +43,39 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
 
   const statistik = useMemo(() => hitungStatistikKegiatan(kegiatanDiPeriode), [kegiatanDiPeriode]);
 
+  // SMART AUTO-GENERATE V2
   const handleAutoGenerate = () => {
-    if (kegiatanDiPeriode.length === 0) {
-      setKontenText("Tidak ada kegiatan di periode ini.");
-      return;
+    const start = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalMulai : periodeBulanan.tanggalMulai;
+    const end = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalSelesai : periodeBulanan.tanggalSelesai;
+
+    let text = `=== RINGKASAN KEGIATAN ===\n`;
+    text += `Total: ${statistik.total} | Selesai: ${statistik.selesai} | Belum: ${statistik.belum}\n\n`;
+    
+    text += `=== DAFTAR KEGIATAN ===\n`;
+    if (kegiatanDiPeriode.length === 0) text += `(Tidak ada kegiatan)\n`;
+    else {
+      kegiatanDiPeriode.forEach((k) => {
+        text += `${k.status === "selesai" ? "[x]" : "[ ]"} ${k.judul}\n`;
+      });
     }
-    let text = `Total kegiatan: ${statistik.total}\nSelesai: ${statistik.selesai}\nBelum: ${statistik.belum}\nProgress: ${statistik.persen}%\n\nDaftar kegiatan:\n`;
-    kegiatanDiPeriode.forEach((k) => { text += `- ${k.judul} (${k.status === "selesai" ? "Selesai" : "Belum"})\n`; });
+
+    text += `\n=== CATATAN VENDOR ===\n`;
+    let adaLogVendor = false;
+    // Tarik log kunjungan dari semua vendor yang masuk di periode ini
+    (vendorList || []).forEach((vendor) => {
+      const logs = (vendor.logKunjungan || []).filter((log) => log.tanggal >= start && log.tanggal <= end);
+      logs.forEach((log) => {
+        // Fokus ke log yang "tidak layak" atau yang ada catatan pentingnya
+        if (log.hasil === "tidak_layak" || (log.catatan && log.catatan.trim() !== "")) {
+          adaLogVendor = true;
+          text += `- ${log.tanggal} | ${vendor.nama} | Hasil: ${log.hasil}\n`;
+          if (log.catatan) text += `  Catatan: ${log.catatan}\n`;
+        }
+      });
+    });
+    
+    if (!adaLogVendor) text += `(Tidak ada catatan kritis dari vendor di periode ini)\n`;
+
     setKontenText(text);
   };
 
@@ -57,7 +83,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
     if (!onUpdateLaporan) return;
     setIsSaving(true);
     
-    // Buat struktur data baru
     const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
     const payload = { konten: kontenText, gdriveUrl: gdriveUrl, updatedAt: new Date().toISOString() };
 
@@ -186,7 +211,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
               <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowLaporanSection(!showLaporanSection)}>{showLaporanSection ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}</button>
               {showLaporanSection && (
                 <>
-                  <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan di periode ini"><RefreshCw size={14} className="mr-1"/> Auto-generate</button>
+                  <button className="btn btn-outline btn-xs text-gray-700" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan & vendor di periode ini"><RefreshCw size={14} className="mr-1"/> Auto-generate</button>
                   <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setKontenText("")} title="Kosongin textarea"><X size={14} className="mr-1"/> Clear</button>
                 </>
               )}
@@ -197,7 +222,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], laporanData = {}, 
             <>
               <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white font-mono" rows="12" placeholder="Tulis laporan di sini..." value={kontenText} onChange={(e) => setKontenText(e.target.value)} />
               
-              {/* INPUT GDRIVE BARU */}
               <div className="mt-3">
                 <label className="text-xs font-semibold text-gray-600 mb-1 block flex items-center gap-1"><FolderOpen size={14}/> Link Google Drive (opsional)</label>
                 <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={gdriveUrl} onChange={(e) => setGdriveUrl(e.target.value)} />
