@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { METODE_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getLabelHasil, getWarnaHasil } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
-import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, Check, FolderOpen, Plus } from "lucide-react"; // <-- Plus Udah Ditambahin
+import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, Check, FolderOpen, Plus, Link as LinkIcon } from "lucide-react";
 
 export default function VendorDetail({
   vendor, kategoriVendorList = [], tujuanKunjunganList = [], fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
@@ -412,6 +412,7 @@ export default function VendorDetail({
           {showFormKunjungan && (
             <div className="bg-blue-50 rounded p-3 mb-3 space-y-3 border border-blue-200" data-html2canvas-ignore="true">
               <p className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Pencil size={14}/> {editingKunjunganId ? "Edit Kunjungan" : "Tambah Kunjungan"}</p>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><Calendar size={14}/> Tanggal</label>
@@ -424,6 +425,7 @@ export default function VendorDetail({
                   </select>
                 </div>
               </div>
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><Monitor size={14}/> Metode</label>
@@ -438,10 +440,18 @@ export default function VendorDetail({
                   </select>
                 </div>
               </div>
+
               <div>
                 <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><MessageSquare size={14}/> Catatan</label>
                 <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="2" placeholder="Catatan hasil kunjungan..." value={formKunjungan.catatan} onChange={(e) => setFormKunjungan({ ...formKunjungan, catatan: e.target.value })} />
               </div>
+
+              {/* INPUT GOOGLE DRIVE YANG SEMPET HILANG */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><FolderOpen size={14}/> Link Google Drive (opsional)</label>
+                <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="https://drive.google.com/..." value={formKunjungan.gdriveUrl} onChange={(e) => setFormKunjungan({ ...formKunjungan, gdriveUrl: e.target.value })} />
+              </div>
+
               <div className="flex gap-2">
                 <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanKunjungan}>{editingKunjunganId ? <><Save size={16} className="mr-1"/> Simpan</> : <><Plus size={16} className="mr-1"/> Tambah</>}</button>
                 <button className="btn btn-ghost btn-sm text-gray-700" onClick={resetFormKunjungan}>Batal</button>
