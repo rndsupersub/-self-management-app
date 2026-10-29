@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { getPeriodeRange, formatTanggalPendek } from "@/lib/evaluasiData";
-import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor, LayoutDashboard, Activity } from "lucide-react";
+import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor } from "lucide-react";
 import { getLabelHasil, getBadgeClass, getWarnaHasil, formatTanggal } from "@/lib/vendorData"; 
 
 const DEFAULT_FIELDS = [
@@ -21,19 +21,22 @@ export default function EvaluasiPekerjaan({
   onUpdateEvaluasi,
   onUpdatePeriodeEvaluasi,
 }) {
-  // State buat Tab Utama (Evaluasi vs Vendor Insight)
+  // STATE TAB UTAMA (Pemisah Evaluasi & Vendor)
   const [mainTab, setMainTab] = useState("evaluasi"); 
 
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [formValues, setFormValues] = useState({});
   const [showHistory, setShowHistory] = useState(false);
-  const [showVendorSection, setShowVendorSection] = useState(true);
   const [savedNotif, setSavedNotif] = useState(false);
 
-  const [showPekerjaanSection, setShowPekerjaanSection] = useState(true);
+  // State buat Hide/Show Vendor Insight
+  const [showAllVendorDetails, setShowAllVendorDetails] = useState(true);
+  const [expandedVendors, setExpandedVendors] = useState({});
   const [hideEmptyVendors, setHideEmptyVendors] = useState(true);
+  const [showVendorSection, setShowVendorSection] = useState(true);
 
+  const [showPekerjaanSection, setShowPekerjaanSection] = useState(true);
   const [showKelolaFrekuensi, setShowKelolaFrekuensi] = useState(false);
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
   const [frekuensiForm, setFrekuensiForm] = useState({ label: "", tipe: "bulanan", customStart: "", customEnd: "" });
@@ -184,7 +187,7 @@ export default function EvaluasiPekerjaan({
       const layak = logs.filter(l => l.hasil === "layak").length;
       const tidakLayak = logs.filter(l => l.hasil === "tidak_layak").length;
       const onTrack = logs.filter(l => l.hasil === "on_track").length;
-      const delay = logs.filter(l => l.hasil === "delay").length; // Tambahan Delay
+      const delay = logs.filter(l => l.hasil === "delay").length;
 
       return {
         vendor,
@@ -200,6 +203,11 @@ export default function EvaluasiPekerjaan({
       return true;
     });
   }, [vendorList, periodeAktif, hideEmptyVendors]);
+
+  // Fungsi toggle expand per vendor
+  const toggleVendorDetail = (vendorId) => {
+    setExpandedVendors(prev => ({ ...prev, [vendorId]: !prev[vendorId] }));
+  };
 
   const renderFieldInput = (field, value, onChange) => {
     const val = value ?? "";
@@ -320,29 +328,47 @@ export default function EvaluasiPekerjaan({
           <div className="card-body p-4">
             <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
               <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><Factory size={16}/> Insight Kunjungan Vendor</h3>
-              <div className="flex gap-2 items-center" data-html2canvas-ignore="true">
+              
+              <div className="flex gap-2 items-center flex-wrap" data-html2canvas-ignore="true">
+                <button 
+                  className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1"
+                  onClick={() => setShowAllVendorDetails(!showAllVendorDetails)}
+                >
+                  {showAllVendorDetails ? <><EyeOff size={14}/> Sembunyikan Semua Detail</> : <><Eye size={14}/> Tampilkan Semua Detail</>}
+                </button>
                 <label className="label cursor-pointer gap-2">
                   <span className="label-text text-xs text-gray-600">Sembunyikan vendor kosong</span>
                   <input type="checkbox" className="checkbox checkbox-xs" checked={hideEmptyVendors} onChange={(e) => setHideEmptyVendors(e.target.checked)} />
                 </label>
-                <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowVendorSection(!showVendorSection)}>{showVendorSection ? <><EyeOff size={14}/> Sembunyikan</> : <><Eye size={14}/> Tampilkan</>}</button>
               </div>
             </div>
 
-            {showVendorSection && (
-              vendorInsights.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-4 flex flex-col items-center gap-2"><Inbox size={32} className="opacity-50"/> Belum ada kunjungan vendor di periode ini.</p>) : (
-                <div className="space-y-4">
-                  {vendorInsights.map(({ vendor, logs, total, layak, tidakLayak, onTrack, delay }) => (
+            {vendorInsights.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-4 flex flex-col items-center gap-2"><Inbox size={32} className="opacity-50"/> Belum ada kunjungan vendor di periode ini.</p>) : (
+              <div className="space-y-4">
+                {vendorInsights.map(({ vendor, logs, total, layak, tidakLayak, onTrack, delay }) => {
+                  // Cek status expand (default true jika belum di set)
+                  const isExpanded = showAllVendorDetails && (expandedVendors[vendor.id] !== false);
+
+                  return (
                     <div key={vendor.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                       
                       {/* HEADER VENDOR & STATS */}
                       <div className="flex flex-wrap justify-between items-center gap-4 mb-4 border-b border-gray-200 pb-3">
                         <div className="flex-1">
-                          <h4 className="text-base font-bold text-gray-800 flex items-center gap-2"><Factory size={18} className="text-primary"/> {vendor.nama}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-base font-bold text-gray-800 flex items-center gap-2"><Factory size={18} className="text-primary"/> {vendor.nama}</h4>
+                            <button 
+                              onClick={() => toggleVendorDetail(vendor.id)}
+                              className="btn btn-ghost btn-xs btn-square text-gray-500"
+                              title={isExpanded ? "Sembunyikan detail" : "Tampilkan detail"}
+                            >
+                              {isExpanded ? <EyeOff size={16}/> : <Eye size={16}/>}
+                            </button>
+                          </div>
                           <p className="text-xs text-gray-500 mt-1">Total {total} Kunjungan di periode ini</p>
                         </div>
                         
-                        {/* BADGES STATISTIK (Tambah Delay) */}
+                        {/* BADGES STATISTIK */}
                         <div className="flex flex-wrap gap-2">
                           <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 flex items-center gap-1 font-semibold">
                             <ThumbsUp size={12}/> Layak: {layak}
@@ -359,43 +385,49 @@ export default function EvaluasiPekerjaan({
                         </div>
                       </div>
 
-                      {/* TIMELINE LOG KUNJUNGAN */}
-                      <div className="space-y-2">
-                        {logs.map((log) => (
-                          <div key={log.id} className="bg-white p-3 rounded border border-gray-200 flex flex-col md:flex-row gap-3">
-                            
-                            {/* Tanggal & Metode */}
-                            <div className="md:w-1/4 flex flex-col gap-1 shrink-0">
-                              <span className="text-xs font-semibold text-gray-800 flex items-center gap-1"><Calendar size={12}/> {formatTanggal(log.tanggal, "pendek")}</span>
-                              <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                                {log.metode === "online" ? <><Monitor size={10}/> Online</> : <><Building size={10}/> Offline</>}
-                              </span>
-                            </div>
-                            
-                            {/* Hasil */}
-                            <div className="md:w-1/4 shrink-0">
-                               <span className={`text-[10px] px-2 py-0.5 rounded border inline-flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}>
-                                 {log.hasil === "layak" && <ThumbsUp size={10}/>}
-                                 {log.hasil === "tidak_layak" && <ThumbsDown size={10}/>}
-                                 {log.hasil === "on_track" && <CheckCircle2 size={10}/>}
-                                 {log.hasil === "delay" && <Clock size={10}/>}
-                                 {getLabelHasil(log.hasil)}
-                               </span>
-                            </div>
+                      {/* TIMELINE LOG KUNJUNGAN (Bisa disembunyikan) */}
+                      {isExpanded && (
+                        <div className="space-y-2 animate-fade-in">
+                          {logs.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic text-center py-2">Belum ada kunjungan.</p>
+                          ) : (
+                            logs.map((log) => (
+                              <div key={log.id} className="bg-white p-3 rounded border border-gray-200 flex flex-col md:flex-row gap-3">
+                                
+                                {/* Tanggal & Metode */}
+                                <div className="md:w-1/4 flex flex-col gap-1 shrink-0">
+                                  <span className="text-xs font-semibold text-gray-800 flex items-center gap-1"><Calendar size={12}/> {formatTanggal(log.tanggal, "pendek")}</span>
+                                  <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                                    {log.metode === "online" ? <><Monitor size={10}/> Online</> : <><Building size={10}/> Offline</>}
+                                  </span>
+                                </div>
+                                
+                                {/* Hasil */}
+                                <div className="md:w-1/4 shrink-0">
+                                   <span className={`text-[10px] px-2 py-0.5 rounded border inline-flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}>
+                                     {log.hasil === "layak" && <ThumbsUp size={10}/>}
+                                     {log.hasil === "tidak_layak" && <ThumbsDown size={10}/>}
+                                     {log.hasil === "on_track" && <CheckCircle2 size={10}/>}
+                                     {log.hasil === "delay" && <Clock size={10}/>}
+                                     {getLabelHasil(log.hasil)}
+                                   </span>
+                                </div>
 
-                            {/* Catatan */}
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-700 whitespace-pre-wrap">{log.catatan || "-"}</p>
-                            </div>
+                                {/* Catatan */}
+                                <div className="flex-1">
+                                  <p className="text-xs text-gray-700 whitespace-pre-wrap">{log.catatan || "-"}</p>
+                                </div>
 
-                          </div>
-                        ))}
-                      </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
 
                     </div>
-                  ))}
-                </div>
-              )
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
