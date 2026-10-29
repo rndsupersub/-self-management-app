@@ -85,43 +85,66 @@ export default function EvaluasiPekerjaan({
   const handleDateChange = (e) => setSelectedDate(e.target.value);
   const handleUpdateValue = (fieldId, value) => { setFormValues({ ...formValues, [fieldId]: value }); };
 
-  // SMART AUTO-GENERATE: Narik data dari Laporan
+  // SMART PARSER AUTO-GENERATE
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
-    
-    // Cari laporan yang masuk di periode ini
-    let laporanText = "";
     const start = periodeAktif.periodeMulai;
     const end = periodeAktif.periodeSelesai;
-    
-    // Ambil semua laporan harian yang tanggalnya di antara start & end
+
+    let allLaporanText = "";
+    let allGdriveLinks = [];
+
+    // Kumpulkan semua laporan harian di periode ini
     if (laporanData?.harian) {
       Object.entries(laporanData.harian).forEach(([tanggal, data]) => {
-        if (tanggal >= start && tanggal <= end && data.konten) {
-          laporanText += `[${tanggal}] ${data.konten}\n`;
-          if (data.gdriveUrl) laporanText += `(Link GDrive: ${data.gdriveUrl})\n`;
+        if (tanggal >= start && tanggal <= end) {
+          if (data.konten) allLaporanText += `[${tanggal}] ${data.konten}\n`;
+          if (data.gdriveUrl) allGdriveLinks.push(data.gdriveUrl);
         }
       });
     }
+
+    if (!allLaporanText.trim() && allGdriveLinks.length === 0) {
+      alert("Tidak ada laporan harian di periode ini. Silakan isi laporan terlebih dahulu.");
+      return;
+    }
+
+    // Siapkan wadah untuk hasil parsing
+    let parsedEfektivitas = allLaporanText; // Default: semuanya masuk sini
+    let parsedKendala = "";
+    let parsedSolusi = "";
+    let parsedCatatan = allGdriveLinks.length > 0 ? `Link Aset:\n${allGdriveLinks.join("\n")}` : "";
+
+    // LOGIKA PARSING SEDERHANA (Cari kata kunci)
+    const lines = allLaporanText.split("\n");
+    lines.forEach((line) => {
+      const lowerLine = line.toLowerCase();
+      
+      if (lowerLine.includes("kendala") || lowerLine.includes("masalah") || lowerLine.includes("hambatan") || lowerLine.includes("error") || lowerLine.includes("gagal")) {
+        parsedKendala += `${line}\n`;
+      } else if (lowerLine.includes("solusi") || lowerLine.includes("perbaikan") || lowerLine.includes("fix") || lowerLine.includes("beres") || lowerLine.includes("selesai")) {
+        parsedSolusi += `${line}\n`;
+      }
+    });
+
+    // Masukkan ke field evaluasi berdasarkan ID atau Label
+    const newValues = { ...formValues };
     
-    // Ambil laporan mingguan/bulanan sebagai tambahan
-    if (laporanData?.mingguan) {
-      Object.entries(laporanData.mingguan).forEach(([key, data]) => {
-        if (data.tanggalMulai >= start && data.tanggalSelesai <= end && data.konten) {
-          laporanText += `\n[Laporan Mingguan] ${data.konten}\n`;
-        }
-      });
-    }
+    fieldEvaluasiList.forEach((field) => {
+      const lowerLabel = field.label.toLowerCase();
+      
+      if (lowerLabel.includes("efektivitas") || lowerLabel.includes("hasil")) {
+        newValues[field.id] = parsedEfektivitas.trim();
+      } else if (lowerLabel.includes("kendala") || lowerLabel.includes("masalah")) {
+        newValues[field.id] = parsedKendala.trim();
+      } else if (lowerLabel.includes("solusi") || lowerLabel.includes("perbaikan")) {
+        newValues[field.id] = parsedSolusi.trim();
+      } else if (lowerLabel.includes("catatan")) {
+        newValues[field.id] = parsedCatatan.trim();
+      }
+    });
 
-    if (!laporanText.trim()) {
-      laporanText = "Tidak ada laporan tertulis di periode ini. Silakan tulis laporan terlebih dahulu.";
-    }
-
-    // Taruh teks laporan ke field pertama (atau field 'efektivitas' jika ada)
-    const targetField = fieldEvaluasiList.find((f) => f.id === "efektivitas") || fieldEvaluasiList[0];
-    if (targetField) {
-      setFormValues({ ...formValues, [targetField.id]: laporanText });
-    }
+    setFormValues(newValues);
   };
 
   const handleSimpan = () => {
@@ -134,7 +157,7 @@ export default function EvaluasiPekerjaan({
     setSavedNotif(true); setTimeout(() => setSavedNotif(false), 2000);
   };
 
-  // (Sisa fungsi handleHapusHistory, handleSimpanField, dll SAMA SEPERTI SEBELUMNYA)
+  // (Fungsi lainnya: handleHapusHistory, handleSimpanField, dll tetap sama)
   const handleHapusHistoryPekerjaan = (periodeKey) => {
     if (!confirm("Hapus history evaluasi pekerjaan periode ini? Tindakan ini tidak bisa dibatalkan.")) return;
     const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
