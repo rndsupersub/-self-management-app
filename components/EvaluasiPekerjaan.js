@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_PERIODE_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, TIPE_FIELD, generateId, getPeriodeRange, formatTanggalPendek } from "@/lib/evaluasiData";
 import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor } from "lucide-react";
-import { getLabelMetode, getLabelHasil, getBadgeClass, getWarnaHasil } from "@/lib/vendorData"; // Import helper buat nampilin status kunjungan
+import { getLabelHasil, getBadgeClass, getWarnaHasil, formatTanggal } from "@/lib/vendorData"; // formatTanggal UDAH DITAMBAHIN
 
 export default function EvaluasiPekerjaan({
   kegiatanList = [],
@@ -36,8 +36,6 @@ export default function EvaluasiPekerjaan({
   const [showKelolaFrekuensi, setShowKelolaFrekuensi] = useState(false);
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
   const [frekuensiForm, setFrekuensiForm] = useState({ label: "", tipe: "bulanan", customStart: "", customEnd: "" });
-
-  // State Kelola Field Vendor dihapus karena tab ini murni read-only insight
 
   const periodeAktif = useMemo(() => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
@@ -192,12 +190,10 @@ export default function EvaluasiPekerjaan({
     const end = periodeAktif.periodeSelesai;
 
     return vendorList.map((vendor) => {
-      // Filter log kunjungan berdasarkan periode
       const logs = (vendor.logKunjungan || [])
         .filter(log => log.tanggal >= start && log.tanggal <= end)
-        .sort((a, b) => b.tanggal.localeCompare(a.tanggal)); // Urut dari terbaru
+        .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
 
-      // Hitung statistik
       const total = logs.length;
       const layak = logs.filter(l => l.hasil === "layak").length;
       const tidakLayak = logs.filter(l => l.hasil === "tidak_layak").length;
@@ -212,7 +208,6 @@ export default function EvaluasiPekerjaan({
         onTrack
       };
     }).filter(v => {
-      // Kalau "Sembunyikan vendor kosong" aktif, filter yang log-nya 0
       if (hideEmptyVendors) return v.total > 0;
       return true;
     });
