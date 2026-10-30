@@ -8,6 +8,12 @@ import {
   nowHHMM,
   todayStr,
 } from "@/lib/telegramReminder";
+import {
+  cariReminderProyek,
+  buildReminderProyekMessage,
+  todayStr as todayStrProyek
+} from "@/lib/telegramReminderProyek";
+import { sendTelegramWithButtons } from "@/lib/telegramData";
 
 let adminApp = null;
 function getAdminApp() {
@@ -63,42 +69,78 @@ export async function POST(req) {
       const chatId = userData.telegramChatId;
       if (!chatId) continue;
 
-      const reminders = tentukanReminderYangHarusDikirim(userData, sekarang);
+      // ==========================================
+      // 1. REMINDER PRIBADI (JANGAN SENTUH LOGIKANYA)
+      // ==========================================
+      const remindersPribadi = tentukanReminderYangHarusDikirim(userData, sekarang);
+      const sentPribadi = [];
 
-      if (reminders.length === 0) {
-        results.push({ uid: userDoc.id, sent: 0, message: "Nggak ada reminder yang waktunya." });
-        continue;
+      if (remindersPribadi.length > 0) {
+        for (const rem of remindersPribadi) {
+          try {
+            await kirimReminder(chatId, rem.menuId, rem.lapis, rem.config);
+            await firestore.collection("users").doc(userDoc.id).set(
+              {
+                reminderLog: {
+                  ...(userData.reminderLog || {}),
+                  [tanggal]: {
+                    ...((userData.reminderLog || {})[tanggal] || {}),
+                    [rem.menuId]: {
+                      ...(((userData.reminderLog || {})[tanggal] || {})[rem.menuId] || {}),
+                      [rem.lapis]: true,
+                    },
+                  },
+                },
+              },
+              { merge: true }
+            );
+            sentPribadi.push({ menuId: rem.menuId, lapis: rem.lapis });
+          } catch (err) {
+            console.error(`[reminder] Gagal kirim pribadi:`, err.message);
+          }
+        }
       }
 
-      const sentList = [];
-      for (const rem of reminders) {
-        try {
-          await kirimReminder(chatId, rem.menuId, rem.lapis, rem.config);
+      // ==========================================
+      // 2. REMINDER PROYEK (PEKERJAAN & BISNIS)
+      // ==========================================
+      const remindersProyek = cariReminderProyek(userData);
+      const sentProyek = [];
+      const todayLog = userData.reminderProyekLog?.[tanggal] || {};
 
+      for (const rem of remindersProyek) {
+        // Cek apakah hari ini udah dikirim
+        if (todayLog[rem.id]) continue; 
+
+        try {
+          const { text, buttons } = buildReminderProyekMessage(rem);
+          await sendTelegramWithButtons(chatId, text, buttons);
+          
+          // Catat di log biar nggak dikirim 2x sehari
           await firestore.collection("users").doc(userDoc.id).set(
             {
-              reminderLog: {
-                ...(userData.reminderLog || {}),
+              reminderProyekLog: {
+                ...(userData.reminderProyekLog || {}),
                 [tanggal]: {
-                  ...((userData.reminderLog || {})[tanggal] || {}),
-                  [rem.menuId]: {
-                    ...(((userData.reminderLog || {})[tanggal] || {})[rem.menuId] || {}),
-                    [rem.lapis]: true,
-                  },
+                  ...todayLog,
+                  [rem.id]: true,
                 },
               },
             },
             { merge: true }
           );
-
-          sentList.push({ menuId: rem.menuId, lapis: rem.lapis, lapisLabel: rem.lapisLabel });
+          sentProyek.push({ id: rem.id, tipe: rem.tipe });
         } catch (err) {
-          console.error(`[reminder] Gagal kirim:`, err.message);
-          sentList.push({ menuId: rem.menuId, lapis: rem.lapis, error: err.message });
+          console.error(`[reminder proyek] Gagal kirim:`, err.message);
         }
       }
 
-      results.push({ uid: userDoc.id, sent: sentList.length, reminders: sentList });
+      results.push({ 
+        uid: userDoc.id, 
+        sentPribadi: sentPribadi.length, 
+        sentProyek: sentProyek.length,
+        details: { sentPribadi, sentProyek }
+      });
     }
 
     return NextResponse.json({ ok: true, jam: sekarang, tanggal, totalUsers: usersSnap.size, results });

@@ -30,6 +30,8 @@ import {
   parseReminderCallback,
   todayStr,
 } from "@/lib/telegramReminder";
+// === TAMBAHAN BARU: Import helper buat reminder proyek ===
+import { todayStr as todayStrProyek } from "@/lib/telegramReminderProyek";
 
 // ========== FIREBASE ADMIN ==========
 let adminApp = null;
@@ -1587,6 +1589,34 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     await sendTelegramMessage(chatId, `▶️ <b>Semua reminder dinyalain.</b>\n\nKetik /reminder buat cek status.`);
     return;
   }
+    // ==== REMINDER PROYEK (BARU) ====
+  if (command === "reminder-proyek") {
+    const settings = userData.reminderProyekSettings || { enabled: true };
+    const isOn = settings.enabled !== false;
+    const text = `<b>📋 Reminder Proyek (Pekerjaan & Bisnis)</b>\n\nStatus: <b>${isOn ? "🟢 Aktif" : "🔴 Nonaktif"}</b>\n\n<i>Reminder ini terpisah dari reminder pribadi.</i>`;
+    const buttons = [[{ text: isOn ? "⏸️ Pause Proyek" : "▶️ Resume Proyek", callback_data: "proyek_toggle" }]];
+    await sendTelegramWithButtons(chatId, text, buttons);
+    return;
+  }
+
+  if (command === "pause-proyek") {
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderProyekSettings: { enabled: false } },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.\n\nKetik /resume-proyek buat nyalain lagi.`);
+    return;
+  }
+
+  if (command === "resume-proyek") {
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderProyekSettings: { enabled: true } },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>\n\nKetik /reminder-proyek buat cek status.`);
+    return;
+  }
+  // ==== END REMINDER PROYEK ====
 
   // ==== KARYA ====
   if (command === "karya") {
@@ -1946,6 +1976,149 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
     return;
   }
+  
+  // ==== REMINDER PROYEK CALLBACK (BARU) ====
+  if (action.startsWith("proyek_")) {
+    const todayLocal = todayStrProyek();
+
+    if (action === "proyek_toggle") {
+      const settings = userData.reminderProyekSettings || { enabled: true };
+      const newEnabled = settings.enabled === false ? true : false;
+      await firestore.collection("users").doc(userData._uid).set(
+        { reminderProyekSettings: { ...settings, enabled: newEnabled } },
+        { merge: true }
+      );
+      const text = `<b>📋 Reminder Proyek</b>\n\nStatus: <b>${newEnabled ? "🟢 Aktif" : "🔴 Nonaktif"}</b>\n\n<i>Reminder pribadi nggak terpengaruh.</i>`;
+      const buttons = [[{ text: newEnabled ? "⏸️ Pause Proyek" : "▶️ Resume Proyek", callback_data: "proyek_toggle" }]];
+      await editTelegramMessage(chatId, messageId, text, buttons);
+      return;
+    }
+
+    if (action === "proyek_selesai") {
+      const tipeData = parts[1];
+      const kegId = parts[2];
+      const isPekerjaan = tipeData === "pekerjaan_deadline";
+      let updated = false;
+
+      if (isPekerjaan) {
+        const pekerjaan = userData.pekerjaan || [];
+        for (let p of pekerjaan) {
+          for (let b of p.brands || []) {
+            const kegIdx = (b.kegiatan || []).findIndex((k) => k.id === kegId);
+            if (kegIdx !== -1) {
+              b.kegiatan[kegIdx].status = "selesai";
+              b.kegiatan[kegIdx].updatedAt = new Date().toISOString();
+              updated = true;
+              break;
+            }
+          }
+          if (updated) break;
+        }
+        if (updated) await firestore.collection("users").doc(userData._uid).set({ pekerjaan }, { merge: true });
+      } else {
+        const brands = userData.bisnisBrands || [];
+        for (let b of brands) {
+          const kegIdx = (b.kegiatan || []).findIndex((k) => k.id === kegId);
+          if (kegIdx !== -1) {
+            b.kegiatan[kegIdx].status = "selesai";
+            b.kegiatan[kegIdx].updatedAt = new Date().toISOString();
+            updated = true;
+            break;
+          }
+        }
+        if (updated) await firestore.collection("users").doc(userData._uid).set({ bisnisBrands: brands }, { merge: true });
+      }
+
+      if (updated) {
+        await editTelegramMessage(chatId, messageId, `✅ <b>Mantap!</b>\n\nKegiatan berhasil ditandai <b>Selesai</b>.`);
+      } else {
+        await editTelegramMessage(chatId, messageId, `⚠️ Gagal update, kegiatan nggak ketemu.`);
+      }
+      return;
+    }
+
+    if (action === "proyek_tunda") {
+      const tipeData = parts[1];
+      const idData = parts[2];
+      await firestore.collection("users").doc(userData._uid).set(
+        {
+          reminderProyekLog: {
+            ...(userData.reminderProyekLog || {}),
+            [todayLocal]: {
+              ...((userData.reminderProyekLog || {})[todayLocal] || {}),
+              [`${tipeData}_${idData}`]: true,
+            },
+          },
+        },
+        { merge: true }
+      );
+      await editTelegramMessage(chatId, messageId, `⏳ Oke, reminder buat kegiatan ini ditunda.`);
+      return;
+    }
+
+    if (action === "proyek_vendor_followup") {
+      await editTelegramMessage(chatId, messageId, `📞 <b>Siap Follow Up!</b>\n\nSilakan buka web di menu Pekerjaan/Bisnis untuk isi log kunjungan vendor.`);
+      return;
+    }
+
+    if (action === "proyek_vendor_tunda") {
+      const vendorId = parts[2];
+      await firestore.collection("users").doc(userData._uid).set(
+        {
+          reminderProyekLog: {
+            ...(userData.reminderProyekLog || {}),
+            [todayLocal]: {
+              ...((userData.reminderProyekLog || {})[todayLocal] || {}),
+              [`vendor_tunda_${vendorId}`]: true,
+            },
+          },
+        },
+        { merge: true }
+      );
+      await editTelegramMessage(chatId, messageId, `⏳ Oke, reminder vendor ini ditunda 1 minggu.`);
+      return;
+    }
+
+    if (action === "proyek_vendor_belum") {
+      const tipeData = parts[1];
+      const vendorId = parts[2];
+      const isPekerjaan = tipeData === "vendor_followup";
+      let updated = false;
+
+      if (isPekerjaan) {
+        const pekerjaan = userData.pekerjaan || [];
+        for (let p of pekerjaan) {
+          for (let b of p.brands || []) {
+            const vIdx = (b.vendorList || []).findIndex((v) => v.id === vendorId);
+            if (vIdx !== -1) {
+              b.vendorList[vIdx].status = "belum_digunakan";
+              updated = true;
+              break;
+            }
+          }
+          if (updated) break;
+        }
+        if (updated) await firestore.collection("users").doc(userData._uid).set({ pekerjaan }, { merge: true });
+      } else {
+        const brands = userData.bisnisBrands || [];
+        for (let b of brands) {
+          const vIdx = (b.vendorList || []).findIndex((v) => v.id === vendorId);
+          if (vIdx !== -1) {
+            b.vendorList[vIdx].status = "belum_digunakan";
+            updated = true;
+            break;
+          }
+        }
+        if (updated) await firestore.collection("users").doc(userData._uid).set({ bisnisBrands: brands }, { merge: true });
+      }
+
+      await editTelegramMessage(chatId, messageId, `🚫 Oke, vendor ini ditandai <b>Belum Digunakan</b>.\n\nDatanya tetap aman, cuma reminder-nya yang mati.`);
+      return;
+    }
+
+    return;
+  }
+  // ==== END REMINDER PROYEK CALLBACK ====
 
   // ==== VENDOR CALLBACK ====
   if (action.startsWith("vend_")) {
