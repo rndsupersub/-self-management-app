@@ -1458,6 +1458,35 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
 
 // ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
+
+    // ==== TRIK PAKSA: TANGKEP COMMAND REMINDER PROYEK DULUAN ====
+  if (text === "/reminder-proyek") {
+    const settings = userData.reminderProyekSettings || { enabled: true };
+    const textUI = buildStatusReminderProyekText(settings);
+    const buttons = buildStatusReminderProyekButtons(settings);
+    await sendTelegramWithButtons(chatId, textUI, buttons);
+    return;
+  }
+
+  if (text === "/pause-proyek") {
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderProyekSettings: { enabled: false } },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.`);
+    return;
+  }
+
+  if (text === "/resume-proyek") {
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderProyekSettings: { enabled: true } },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>`);
+    return;
+  }
+  // ==== END TRIK PAKSA ====
+  
   const state = await getState(firestore, chatId);
 
   // ==== STATE AKTIF: CEK VENDOR vs WIZARD BIASA ====
