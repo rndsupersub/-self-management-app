@@ -1590,15 +1590,14 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
     // ==== REMINDER PROYEK (BARU) ====
-  if (command === "reminder-proyek") {
+    if (command === "reminder-proyek") {
     const settings = userData.reminderProyekSettings || { enabled: true };
-    const isOn = settings.enabled !== false;
-    const text = `<b>📋 Reminder Proyek (Pekerjaan & Bisnis)</b>\n\nStatus: <b>${isOn ? "🟢 Aktif" : "🔴 Nonaktif"}</b>\n\n<i>Reminder ini terpisah dari reminder pribadi.</i>`;
-    const buttons = [[{ text: isOn ? "⏸️ Pause Proyek" : "▶️ Resume Proyek", callback_data: "proyek_toggle" }]];
+    const text = buildStatusReminderProyekText(settings);
+    const buttons = buildStatusReminderProyekButtons(settings);
     await sendTelegramWithButtons(chatId, text, buttons);
     return;
   }
-
+  
   if (command === "pause-proyek") {
     await firestore.collection("users").doc(userData._uid).set(
       { reminderProyekSettings: { enabled: false } },
@@ -1976,21 +1975,40 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
     return;
   }
-  
+
   // ==== REMINDER PROYEK CALLBACK (BARU) ====
   if (action.startsWith("proyek_")) {
     const todayLocal = todayStrProyek();
 
-    if (action === "proyek_toggle") {
+        if (action === "proyek_toggle_deadline") {
       const settings = userData.reminderProyekSettings || { enabled: true };
-      const newEnabled = settings.enabled === false ? true : false;
-      await firestore.collection("users").doc(userData._uid).set(
-        { reminderProyekSettings: { ...settings, enabled: newEnabled } },
-        { merge: true }
-      );
-      const text = `<b>📋 Reminder Proyek</b>\n\nStatus: <b>${newEnabled ? "🟢 Aktif" : "🔴 Nonaktif"}</b>\n\n<i>Reminder pribadi nggak terpengaruh.</i>`;
-      const buttons = [[{ text: newEnabled ? "⏸️ Pause Proyek" : "▶️ Resume Proyek", callback_data: "proyek_toggle" }]];
-      await editTelegramMessage(chatId, messageId, text, buttons);
+      const newSettings = { ...settings, deadlineH7: settings.deadlineH7 === false, deadlineH3: settings.deadlineH7 === false, deadlineH1: settings.deadlineH7 === false, deadlineLewat: settings.deadlineH7 === false };
+      await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
+      await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
+      return;
+    }
+
+    if (action === "proyek_toggle_vendor") {
+      const settings = userData.reminderProyekSettings || { enabled: true };
+      const newSettings = { ...settings, vendorFollowUp: settings.vendorFollowUp === false };
+      await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
+      await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
+      return;
+    }
+
+    if (action === "proyek_pause_all") {
+      const settings = userData.reminderProyekSettings || { enabled: true };
+      const newSettings = { ...settings, enabled: false };
+      await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
+      await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
+      return;
+    }
+
+    if (action === "proyek_resume_all") {
+      const settings = userData.reminderProyekSettings || { enabled: true };
+      const newSettings = { ...settings, enabled: true };
+      await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
+      await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
       return;
     }
 
@@ -2157,6 +2175,42 @@ export async function POST(req) {
     const chatId = message.chat.id;
     const fromData = message.from || message.chat;
 
+   // === TAMBAHAN BARU: Helper UI Reminder Proyek ===
+function buildStatusReminderProyekText(settings) {
+  const isEnabled = settings?.enabled !== false;
+  const isDeadlineOn = settings?.deadlineH7 !== false; // Kita pakai deadlineH7 sebagai representasi toggle deadline
+  const isVendorOn = settings?.vendorFollowUp !== false;
+
+  let text = `<b>📋 STATUS REMINDER PROYEK LO</b>\n\n`;
+  text += `${isDeadlineOn && isEnabled ? "🟢" : "🔴"} Deadline Kegiatan — <b>${isDeadlineOn && isEnabled ? "ON" : "OFF"}</b>\n`;
+  text += `${isVendorOn && isEnabled ? "🟢" : "🔴"} Vendor Follow Up — <b>${isVendorOn && isEnabled ? "ON" : "OFF"}</b>\n\n`;
+  text += `<i>Klik tombol buat toggle ON/OFF.</i>`;
+  return text;
+}
+
+function buildStatusReminderProyekButtons(settings) {
+  const isEnabled = settings?.enabled !== false;
+  const isDeadlineOn = settings?.deadlineH7 !== false;
+  const isVendorOn = settings?.vendorFollowUp !== false;
+
+  const btnDeadline = isDeadlineOn && isEnabled ? "🟢 Deadline Kegiatan" : "🔴 Deadline Kegiatan";
+  const btnVendor = isVendorOn && isEnabled ? "🟢 Vendor Follow Up" : "🔴 Vendor Follow Up";
+
+  return [
+    [
+      { text: btnDeadline, callback_data: "proyek_toggle_deadline" },
+    ],
+    [
+      { text: btnVendor, callback_data: "proyek_toggle_vendor" },
+    ],
+    [
+      { text: "⏸️ Pause Semua Proyek", callback_data: "proyek_pause_all" },
+      { text: "▶️ Resume Semua Proyek", callback_data: "proyek_resume_all" },
+    ],
+  ];
+}
+// === END HELPER UI REMINDER PROYEK ===
+ 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
 
