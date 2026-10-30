@@ -4,17 +4,24 @@
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { generateId, DEFAULT_KATEGORI_KEGIATAN, WARNA_OPTIONS, getKategoriStyle } from "@/lib/pekerjaanData";
-import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, Folder, FileText, Save, AlertTriangle } from "lucide-react";
+import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, Folder, FileText, Save, AlertTriangle, List, Circle } from "lucide-react";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
   onAdd,
   onClickKegiatan,
+  onEditKegiatan,
+  onDeleteKegiatan,
+  onToggleStatusKegiatan,
   prioritasList = [],
   sumberList = [],
   kategoriList = DEFAULT_KATEGORI_KEGIATAN,
   onUpdateKategoriList,
 }) {
+  // STATE TAMPILAN (KALENDER vs TIME SCHEDULE)
+  const [viewMode, setViewMode] = useState("kalender");
+  const [timeRange, setTimeRange] = useState("1-tahun"); // "1-bulan", "3-bulan", "6-bulan", "1-tahun"
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectStart, setSelectStart] = useState(null);
   const [selectEnd, setSelectEnd] = useState(null);
@@ -45,6 +52,7 @@ export default function KalenderPekerjaan({
     });
   }, [kegiatan, filterPrioritas, filterSumber, filterKategori]);
 
+  // --- LOGIKA KALENDER GRID ---
   const generateCalendar = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -148,6 +156,85 @@ export default function KalenderPekerjaan({
     onUpdateKategoriList(kategoriList.filter((k) => k.id !== id));
   };
 
+  // --- LOGIKA TIME SCHEDULE (GANTT CHART) ---
+  const timeScheduleData = useMemo(() => {
+    if (viewMode !== "timeschedule") return { bars: [], monthsHeader: [], totalDays: 0 };
+
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    let start = new Date(year, month, 1);
+    let end = new Date(year, month + 1, 0);
+
+    if (timeRange === "3-bulan") {
+      const qMonth = Math.floor(month / 3) * 3;
+      start = new Date(year, qMonth, 1);
+      end = new Date(year, qMonth + 3, 0);
+    } else if (timeRange === "6-bulan") {
+      const halfMonth = month < 6 ? 0 : 6;
+      start = new Date(year, halfMonth, 1);
+      end = new Date(year, halfMonth + 6, 0);
+    } else if (timeRange === "1-tahun") {
+      start = new Date(year, 0, 1);
+      end = new Date(year, 11, 31);
+    }
+
+    // Helper untuk format tanggal lokal YYYY-MM-DD
+    const toLocalDateStr = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    };
+
+    const startDateStr = toLocalDateStr(start);
+    const endDateStr = toLocalDateStr(end);
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Filter kegiatan yang masuk di range ini
+    const filtered = filteredKegiatan.filter(k => {
+      const kStart = k.tanggalMulai || k.tanggal;
+      const kEnd = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
+      return (kStart <= endDateStr && kEnd >= startDateStr);
+    });
+
+    const bars = filtered.map(k => {
+      const kStart = k.tanggalMulai || k.tanggal;
+      const kEnd = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
+      
+      const clampedStart = kStart < startDateStr ? startDateStr : kStart;
+      const clampedEnd = kEnd > endDateStr ? endDateStr : kEnd;
+      
+      const leftDays = Math.ceil((new Date(clampedStart) - start) / (1000 * 60 * 60 * 24));
+      const widthDays = Math.ceil((new Date(clampedEnd) - new Date(clampedStart)) / (1000 * 60 * 60 * 24)) + 1;
+
+      const leftPct = (leftDays / totalDays) * 100;
+      const widthPct = (widthDays / totalDays) * 100;
+
+      return { ...k, leftPct, widthPct };
+    });
+
+    // Generate Header Months
+    const monthsHeader = [];
+    let temp = new Date(start);
+    while (temp <= end) {
+      const mName = temp.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
+      if (monthsHeader.length > 0) {
+        const last = monthsHeader[monthsHeader.length - 1];
+        if (last.mName === mName) {
+          last.days++;
+        } else {
+          monthsHeader.push({ mName, days: 1 });
+        }
+      } else {
+        monthsHeader.push({ mName, days: 1 });
+      }
+      temp.setDate(temp.getDate() + 1);
+    }
+
+    return { bars, monthsHeader, totalDays };
+  }, [currentMonth, timeRange, filteredKegiatan, viewMode]);
+
+
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
   const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   const currentYear = new Date().getFullYear();
@@ -156,6 +243,7 @@ export default function KalenderPekerjaan({
 
   return (
     <div className="space-y-4">
+      {/* 1. FILTER & KELOLA KATEGORI (Berlaku untuk kedua tampilan) */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -183,20 +271,51 @@ export default function KalenderPekerjaan({
         </div>
       </div>
 
+      {/* 2. TOGGLE VIEW MODE & NAVIGASI WAKTU */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
+          
+          {/* TOGGLE VIEW */}
+          <div className="flex justify-center mb-4">
+            <div className="tabs tabs-boxed bg-gray-100 p-1 w-fit">
+              <button className={`tab tab-sm ${viewMode === 'kalender' ? 'tab-active bg-white shadow text-gray-800 font-semibold' : 'text-gray-500'}`} onClick={() => setViewMode('kalender')}>
+                <Calendar size={14} className="mr-1"/> Kalender
+              </button>
+              <button className={`tab tab-sm ${viewMode === 'timeschedule' ? 'tab-active bg-white shadow text-gray-800 font-semibold' : 'text-gray-500'}`} onClick={() => setViewMode('timeschedule')}>
+                <List size={14} className="mr-1"/> Time Schedule
+              </button>
+            </div>
+          </div>
+
+          {/* NAVIGASI WAKTU */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear}>«</button>
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth}>‹</button>
             </div>
             <div className="flex items-center gap-2">
-              <select className="select select-bordered select-sm text-gray-800 bg-white" value={currentMonth.getMonth()} onChange={handleMonthChange}>
-                {monthNames.map((name, idx) => <option key={idx} value={idx}>{name}</option>)}
-              </select>
-              <select className="select select-bordered select-sm text-gray-800 bg-white" value={currentMonth.getFullYear()} onChange={handleYearChange}>
-                {years.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
+              {viewMode === 'kalender' ? (
+                <>
+                  <select className="select select-bordered select-sm text-gray-800 bg-white" value={currentMonth.getMonth()} onChange={handleMonthChange}>
+                    {monthNames.map((name, idx) => <option key={idx} value={idx}>{name}</option>)}
+                  </select>
+                  <select className="select select-bordered select-sm text-gray-800 bg-white" value={currentMonth.getFullYear()} onChange={handleYearChange}>
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <select className="select select-bordered select-sm text-gray-800 bg-white" value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
+                    <option value="1-bulan">Bulanan</option>
+                    <option value="3-bulan">Triwulan (3 Bulan)</option>
+                    <option value="6-bulan">Semester (6 Bulan)</option>
+                    <option value="1-tahun">Tahunan (12 Bulan)</option>
+                  </select>
+                  <select className="select select-bordered select-sm text-gray-800 bg-white" value={currentMonth.getFullYear()} onChange={handleYearChange}>
+                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={nextMonth}>›</button>
@@ -208,67 +327,148 @@ export default function KalenderPekerjaan({
             <button className="btn btn-outline btn-xs text-gray-700" onClick={goToToday}><Calendar size={14} className="mr-1"/> Hari Ini</button>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 mb-1">
-            {dayNames.map((day) => <div key={day} className="text-center text-xs font-bold text-gray-600 bg-gray-100 py-2 rounded">{day}</div>)}
-          </div>
+          {/* 3. AREA TAMPILAN: KALENDER */}
+          {viewMode === 'kalender' && (
+            <>
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {dayNames.map((day) => <div key={day} className="text-center text-xs font-bold text-gray-600 bg-gray-100 py-2 rounded">{day}</div>)}
+              </div>
 
-          <div className="grid grid-cols-7 gap-1">
-            {generateCalendar().map((item, idx) => {
-              if (!item) return <div key={idx} className="aspect-square" />;
-              const kegiatanHariIni = getKegiatanDiTanggal(item.date);
-              const isSelected = isInSelectRange(item.date);
-              const isToday = item.date === todayStr;
-              const holiday = HOLIDAYS[item.date];
-              const isHolidayDate = !!holiday;
+              <div className="grid grid-cols-7 gap-1">
+                {generateCalendar().map((item, idx) => {
+                  if (!item) return <div key={idx} className="aspect-square" />;
+                  const kegiatanHariIni = getKegiatanDiTanggal(item.date);
+                  const isSelected = isInSelectRange(item.date);
+                  const isToday = item.date === todayStr;
+                  const holiday = HOLIDAYS[item.date];
+                  const isHolidayDate = !!holiday;
 
-              let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
-              if (isToday && !isSelected && !isHolidayDate) boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
-              if (isHolidayDate && !isSelected) boxClass = "bg-red-600 text-white border-red-700 font-bold";
-              if (isSelected) boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-1 ring-blue-300";
+                  let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
+                  if (isToday && !isSelected && !isHolidayDate) boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
+                  if (isHolidayDate && !isSelected) boxClass = "bg-red-600 text-white border-red-700 font-bold";
+                  if (isSelected) boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-1 ring-blue-300";
 
-              return (
-                <button key={item.date} className={`rounded border ${boxClass} relative transition text-left p-1 min-h-[100px] flex flex-col`} onClick={() => handleDateClick(item.date)} title={holiday || ""}>
-                  <span className="text-xs font-semibold mb-1">{item.day}</span>
-                  <div className="space-y-0.5 flex-1 overflow-hidden">
-                    {kegiatanHariIni.slice(0, 3).map((k) => {
-                      const mulai = k.tanggalMulai || k.tanggal;
-                      const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
-                      const isStart = item.date === mulai;
-                      const isEnd = item.date === selesai;
+                  return (
+                    <button key={item.date} className={`rounded border ${boxClass} relative transition text-left p-1 min-h-[100px] flex flex-col`} onClick={() => handleDateClick(item.date)} title={holiday || ""}>
+                      <span className="text-xs font-semibold mb-1">{item.day}</span>
+                      <div className="space-y-0.5 flex-1 overflow-hidden">
+                        {kegiatanHariIni.slice(0, 3).map((k) => {
+                          const mulai = k.tanggalMulai || k.tanggal;
+                          const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
+                          const isStart = item.date === mulai;
+                          const isEnd = item.date === selesai;
+                          const kategoriData = getKategoriData(k.kategori);
+                          const style = getKategoriStyle(kategoriData);
+                          const barClass = style.isCustom ? `text-[10px] px-1 py-0.5 truncate text-white ${isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""}` : `${style.bg} ${style.text} text-[10px] px-1 py-0.5 truncate ${isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""}`;
+                          return (
+                            <div key={k.id} className={barClass} style={style.isCustom ? style.inlineStyle : {}} onClick={(e) => { e.stopPropagation(); onClickKegiatan(k.id); }} title={k.judul}>
+                              {isStart ? k.judul : "\u00A0"}
+                            </div>
+                          );
+                        })}
+                        {kegiatanHariIni.length > 3 && <p className="text-[9px] text-gray-500 mt-0.5">+{kegiatanHariIni.length - 3} lagi</p>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
+                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-red-600 border border-red-700" /><span>Libur Nasional</span></div>
+                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300" /><span>Hari Ini</span></div>
+                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-600" /><span>Tanggal Dipilih</span></div>
+                {kategoriList.map((k) => {
+                  const style = getKategoriStyle(k);
+                  return (<div key={k.id} className="flex items-center gap-1"><span className={`w-4 h-4 rounded ${style.isCustom ? "" : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} /><span>{k.label}</span></div>);
+                })}
+              </div>
+
+              {selectStart && !selectEnd && (
+                <div className="mt-3 alert alert-info py-2 text-xs flex items-center gap-1">
+                  <Info size={14} className="mr-1"/> Tanggal mulai: <strong>{selectStart}</strong>. Klik tanggal akhir, atau klik tanggal yang sama buat 1 hari.
+                </div>
+              )}
+            </>
+          )}
+
+          {/* 4. AREA TAMPILAN: TIME SCHEDULE (GANTT CHART) */}
+          {viewMode === 'timeschedule' && (
+            <div className="overflow-x-auto pb-4 animate-fade-in">
+              <div className="min-w-[800px]">
+                {/* HEADER BULAN */}
+                <div className="flex border-b border-gray-300 mb-2 pb-1">
+                  <div className="w-1/3 shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
+                  <div className="w-2/3 flex">
+                    {timeScheduleData.monthsHeader.map((m, i) => (
+                      <div key={i} className="text-center text-xs font-semibold text-gray-600 border-l border-gray-200" style={{ width: `${(m.days / timeScheduleData.totalDays) * 100}%` }}>
+                        {m.mName}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* BARIS KEGIATAN */}
+                <div className="space-y-2">
+                  {timeScheduleData.bars.length === 0 ? (
+                    <p className="text-sm text-center py-6 text-gray-500 italic">Tidak ada kegiatan di periode ini.</p>
+                  ) : (
+                    timeScheduleData.bars.map((k) => {
                       const kategoriData = getKategoriData(k.kategori);
                       const style = getKategoriStyle(kategoriData);
-                      const barClass = style.isCustom ? `text-[10px] px-1 py-0.5 truncate text-white ${isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""}` : `${style.bg} ${style.text} text-[10px] px-1 py-0.5 truncate ${isStart && isEnd ? "rounded" : isStart ? "rounded-l" : isEnd ? "rounded-r" : ""}`;
+                      
                       return (
-                        <div key={k.id} className={barClass} style={style.isCustom ? style.inlineStyle : {}} onClick={(e) => { e.stopPropagation(); onClickKegiatan(k.id); }} title={k.judul}>
-                          {isStart ? k.judul : "\u00A0"}
+                        <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
+                          {/* Info Kegiatan (Kiri) */}
+                          <div className="w-1/3 shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-3">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                               <div className={`w-2 h-2 rounded-full shrink-0 ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
+                               <span className={`text-xs font-semibold truncate ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}>{k.judul}</span>
+                            </div>
+                            {/* TOMBOL AKSI KEGIATAN */}
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-html2canvas-ignore="true">
+                              <button 
+                                className={`w-5 h-5 rounded-full flex items-center justify-center transition ${k.status === "selesai" ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
+                                onClick={() => onToggleStatusKegiatan(k.id)}
+                                title={k.status === "selesai" ? "Tandai Belum Selesai" : "Tandai Selesai"}
+                              >
+                                {k.status === "selesai" ? <CheckCircle2 size={12} /> : <Circle size={12} />}
+                              </button>
+                              <button className="btn btn-ghost btn-xs text-blue-500 px-1 py-0 h-auto" onClick={() => onEditKegiatan(k)} title="Edit">
+                                <Pencil size={12} />
+                              </button>
+                              <button className="btn btn-ghost btn-xs text-red-500 px-1 py-0 h-auto" onClick={() => onDeleteKegiatan(k.id)} title="Hapus">
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Timeline Bar (Kanan) */}
+                          <div className="w-2/3 relative h-8 bg-gray-100/50 rounded-sm border border-dashed border-gray-200">
+                            <div 
+                              className={`absolute top-1 bottom-1 rounded shadow-sm text-[10px] text-white flex items-center px-1.5 truncate ${style.isCustom ? '' : style.bg}`}
+                              style={{ 
+                                left: `${k.leftPct}%`, 
+                                width: `${k.widthPct}%`,
+                                ...(style.isCustom ? style.inlineStyle : {})
+                              }}
+                              title={`${k.judul} (${k.tanggalMulai} - ${k.tanggalSelesai})`}
+                            >
+                              {k.judul}
+                            </div>
+                          </div>
                         </div>
                       );
-                    })}
-                    {kegiatanHariIni.length > 3 && <p className="text-[9px] text-gray-500 mt-0.5">+{kegiatanHariIni.length - 3} lagi</p>}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-red-600 border border-red-700" /><span>Libur Nasional</span></div>
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300" /><span>Hari Ini</span></div>
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-600" /><span>Tanggal Dipilih</span></div>
-            {kategoriList.map((k) => {
-              const style = getKategoriStyle(k);
-              return (<div key={k.id} className="flex items-center gap-1"><span className={`w-4 h-4 rounded ${style.isCustom ? "" : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} /><span>{k.label}</span></div>);
-            })}
-          </div>
-
-          {selectStart && !selectEnd && (
-            <div className="mt-3 alert alert-info py-2 text-xs flex items-center gap-1">
-              <Info size={14} className="mr-1"/> Tanggal mulai: <strong>{selectStart}</strong>. Klik tanggal akhir, atau klik tanggal yang sama buat 1 hari.
+                    })
+                  )}
+                </div>
+              </div>
             </div>
           )}
+
         </div>
       </div>
 
+      {/* FORM TAMBAH KEGIATAN */}
       {showForm && selectStart && (
         <div className="card bg-white shadow border border-blue-300">
           <div className="card-body p-4">
@@ -318,6 +518,7 @@ export default function KalenderPekerjaan({
         </div>
       )}
 
+      {/* SEMUA KEGIATAN (List View) */}
       {filteredKegiatan.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
@@ -350,8 +551,9 @@ export default function KalenderPekerjaan({
         </div>
       )}
 
+      {/* MODAL KELOLA KATEGORI */}
       {showKelolaKategori && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
