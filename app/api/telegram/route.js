@@ -1458,17 +1458,17 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
 
 // ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
-
-    // ==== TRIK PAKSA: TANGKEP COMMAND REMINDER PROYEK DULUAN ====
-  if (text === "/reminder-proyek") {
-    const settings = userData.reminderProyekSettings || { enabled: true };
+async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
+  // ==== REMINDER PROYEK (DITARUH PALING ATAS BIAR PASTI KEPANGGIL) ====
+  if (text.includes("reminder-proyek")) {
+    const settings = userData?.reminderProyekSettings || { enabled: true };
     const textUI = buildStatusReminderProyekText(settings);
     const buttons = buildStatusReminderProyekButtons(settings);
     await sendTelegramWithButtons(chatId, textUI, buttons);
     return;
   }
 
-  if (text === "/pause-proyek") {
+  if (text.includes("pause-proyek")) {
     await firestore.collection("users").doc(userData._uid).set(
       { reminderProyekSettings: { enabled: false } },
       { merge: true }
@@ -1477,7 +1477,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
-  if (text === "/resume-proyek") {
+  if (text.includes("resume-proyek")) {
     await firestore.collection("users").doc(userData._uid).set(
       { reminderProyekSettings: { enabled: true } },
       { merge: true }
@@ -1485,9 +1485,10 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>`);
     return;
   }
-  // ==== END TRIK PAKSA ====
-  
+  // ==== END REMINDER PROYEK ====
+
   const state = await getState(firestore, chatId);
+}
 
   // ==== STATE AKTIF: CEK VENDOR vs WIZARD BIASA ====
   if (state && state.phase && VENDOR_MENUS.includes(state.menuId)) {
