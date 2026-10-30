@@ -229,7 +229,18 @@ export default function BrandPage() {
 
         {activeTab === "kalender" && (
           <>
-            <KalenderPekerjaan kegiatan={brand.kegiatan || []} onAdd={handleTambahKegiatan} onClickKegiatan={(id) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${id}`)} prioritasList={prioritasList} sumberList={sumberList} kategoriList={kategoriPekerjaanList} onUpdateKategoriList={(u) => { setKategoriPekerjaanList(u); simpanSettings({ kategoriPekerjaanList: u }); }} />
+            <KalenderPekerjaan 
+  kegiatan={brand.kegiatan || []} 
+  onAdd={handleTambahKegiatan} 
+  onClickKegiatan={(id) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${id}`)} 
+  onEditKegiatan={(keg) => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}
+  onDeleteKegiatan={handleHapusKegiatan}
+  onToggleStatusKegiatan={handleToggleStatusKegiatan}
+  prioritasList={prioritasList} 
+  sumberList={sumberList} 
+  kategoriList={kategoriPekerjaanList} 
+  onUpdateKategoriList={(u) => { setKategoriPekerjaanList(u); simpanSettings({ kategoriPekerjaanList: u }); }} 
+/>
             {brand.kegiatan && brand.kegiatan.length > 0 && (
               <div className="card bg-white shadow border border-gray-200 mt-4">
                 <div className="card-body p-4">

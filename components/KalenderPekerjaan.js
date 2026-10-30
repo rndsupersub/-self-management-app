@@ -158,7 +158,7 @@ export default function KalenderPekerjaan({
 
   // --- LOGIKA TIME SCHEDULE (GANTT CHART) ---
   const timeScheduleData = useMemo(() => {
-    if (viewMode !== "timeschedule") return { bars: [], monthsHeader: [], totalDays: 0 };
+    if (viewMode !== "timeschedule") return { bars: [], columns: [], totalDays: 0 };
 
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -178,7 +178,6 @@ export default function KalenderPekerjaan({
       end = new Date(year, 11, 31);
     }
 
-    // Helper untuk format tanggal lokal YYYY-MM-DD
     const toLocalDateStr = (d) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -190,7 +189,6 @@ export default function KalenderPekerjaan({
     const endDateStr = toLocalDateStr(end);
     const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
 
-    // Filter kegiatan yang masuk di range ini
     const filtered = filteredKegiatan.filter(k => {
       const kStart = k.tanggalMulai || k.tanggal;
       const kEnd = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
@@ -213,25 +211,35 @@ export default function KalenderPekerjaan({
       return { ...k, leftPct, widthPct };
     });
 
-    // Generate Header Months
-    const monthsHeader = [];
-    let temp = new Date(start);
-    while (temp <= end) {
-      const mName = temp.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
-      if (monthsHeader.length > 0) {
-        const last = monthsHeader[monthsHeader.length - 1];
-        if (last.mName === mName) {
-          last.days++;
-        } else {
-          monthsHeader.push({ mName, days: 1 });
-        }
-      } else {
-        monthsHeader.push({ mName, days: 1 });
+    // Generate Header Kolom
+    const columns = [];
+    if (timeRange === "1-bulan") {
+      // Tampilkan tanggal (1,2,3...)
+      let temp = new Date(start);
+      while (temp <= end) {
+        columns.push({ label: temp.getDate().toString(), days: 1 });
+        temp.setDate(temp.getDate() + 1);
       }
-      temp.setDate(temp.getDate() + 1);
+    } else {
+      // Tampilkan bulan (Jan, Feb...)
+      let temp = new Date(start);
+      while (temp <= end) {
+        const mName = temp.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
+        if (columns.length > 0) {
+          const last = columns[columns.length - 1];
+          if (last.label === mName) {
+            last.days++;
+          } else {
+            columns.push({ label: mName, days: 1 });
+          }
+        } else {
+          columns.push({ label: mName, days: 1 });
+        }
+        temp.setDate(temp.getDate() + 1);
+      }
     }
 
-    return { bars, monthsHeader, totalDays };
+    return { bars, columns, totalDays };
   }, [currentMonth, timeRange, filteredKegiatan, viewMode]);
 
 
@@ -243,7 +251,7 @@ export default function KalenderPekerjaan({
 
   return (
     <div className="space-y-4">
-      {/* 1. FILTER & KELOLA KATEGORI (Berlaku untuk kedua tampilan) */}
+      {/* 1. FILTER & KELOLA KATEGORI */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -395,20 +403,20 @@ export default function KalenderPekerjaan({
           {viewMode === 'timeschedule' && (
             <div className="overflow-x-auto pb-4 animate-fade-in">
               <div className="min-w-[800px]">
-                {/* HEADER BULAN */}
+                {/* HEADER KOLOM */}
                 <div className="flex border-b border-gray-300 mb-2 pb-1">
-                  <div className="w-1/3 shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
-                  <div className="w-2/3 flex">
-                    {timeScheduleData.monthsHeader.map((m, i) => (
-                      <div key={i} className="text-center text-xs font-semibold text-gray-600 border-l border-gray-200" style={{ width: `${(m.days / timeScheduleData.totalDays) * 100}%` }}>
-                        {m.mName}
+                  <div className="w-[200px] shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
+                  <div className="flex-1 flex">
+                    {timeScheduleData.columns.map((col, i) => (
+                      <div key={i} className="text-center text-xs font-semibold text-gray-600 border-l border-gray-200 truncate px-1" style={{ width: `${(col.days / timeScheduleData.totalDays) * 100}%` }}>
+                        {col.label}
                       </div>
                     ))}
                   </div>
                 </div>
 
                 {/* BARIS KEGIATAN */}
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {timeScheduleData.bars.length === 0 ? (
                     <p className="text-sm text-center py-6 text-gray-500 italic">Tidak ada kegiatan di periode ini.</p>
                   ) : (
@@ -419,7 +427,7 @@ export default function KalenderPekerjaan({
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
                           {/* Info Kegiatan (Kiri) */}
-                          <div className="w-1/3 shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-3">
+                          <div className="w-[200px] shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-2">
                             <div className="flex items-center gap-2 overflow-hidden">
                                <div className={`w-2 h-2 rounded-full shrink-0 ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
                                <span className={`text-xs font-semibold truncate ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}>{k.judul}</span>
@@ -443,7 +451,7 @@ export default function KalenderPekerjaan({
                           </div>
 
                           {/* Timeline Bar (Kanan) */}
-                          <div className="w-2/3 relative h-8 bg-gray-100/50 rounded-sm border border-dashed border-gray-200">
+                          <div className="flex-1 relative h-8 bg-gray-100/50 rounded-sm border border-dashed border-gray-200">
                             <div 
                               className={`absolute top-1 bottom-1 rounded shadow-sm text-[10px] text-white flex items-center px-1.5 truncate ${style.isCustom ? '' : style.bg}`}
                               style={{ 
