@@ -214,14 +214,12 @@ export default function KalenderPekerjaan({
     // Generate Header Kolom
     const columns = [];
     if (timeRange === "1-bulan") {
-      // Tampilkan tanggal (1,2,3...)
       let temp = new Date(start);
       while (temp <= end) {
         columns.push({ label: temp.getDate().toString(), days: 1 });
         temp.setDate(temp.getDate() + 1);
       }
     } else {
-      // Tampilkan bulan (Jan, Feb...)
       let temp = new Date(start);
       while (temp <= end) {
         const mName = temp.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
@@ -406,9 +404,9 @@ export default function KalenderPekerjaan({
                 {/* HEADER KOLOM */}
                 <div className="flex border-b border-gray-300 mb-2 pb-1">
                   <div className="w-[200px] shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
-                  <div className="flex-1 flex">
+                  <div className="flex-1 flex border-l border-gray-200">
                     {timeScheduleData.columns.map((col, i) => (
-                      <div key={i} className="text-center text-xs font-semibold text-gray-600 border-l border-gray-200 truncate px-1" style={{ width: `${(col.days / timeScheduleData.totalDays) * 100}%` }}>
+                      <div key={i} className="text-center text-xs font-semibold text-gray-600 border-r border-gray-200 truncate px-1" style={{ width: `${(col.days / timeScheduleData.totalDays) * 100}%` }}>
                         {col.label}
                       </div>
                     ))}
@@ -451,9 +449,17 @@ export default function KalenderPekerjaan({
                           </div>
 
                           {/* Timeline Bar (Kanan) */}
-                          <div className="flex-1 relative h-8 bg-gray-100/50 rounded-sm border border-dashed border-gray-200">
+                          <div className="flex-1 relative h-8 bg-gray-50/50 border-l border-gray-200">
+                            {/* Garis Grid Vertikal */}
+                            <div className="absolute inset-0 flex pointer-events-none">
+                              {timeScheduleData.columns.map((col, i) => (
+                                <div key={i} className="border-r border-gray-200 border-dashed h-full" style={{ width: `${(col.days / timeScheduleData.totalDays) * 100}%` }} />
+                              ))}
+                            </div>
+                            
+                            {/* Balok Kegiatan */}
                             <div 
-                              className={`absolute top-1 bottom-1 rounded shadow-sm text-[10px] text-white flex items-center px-1.5 truncate ${style.isCustom ? '' : style.bg}`}
+                              className={`absolute top-1 bottom-1 rounded shadow-sm text-[10px] text-white flex items-center px-1.5 truncate z-10 ${style.isCustom ? '' : style.bg}`}
                               style={{ 
                                 left: `${k.leftPct}%`, 
                                 width: `${k.widthPct}%`,
