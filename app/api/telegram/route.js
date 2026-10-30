@@ -30,8 +30,41 @@ import {
   parseReminderCallback,
   todayStr,
 } from "@/lib/telegramReminder";
+
 // === TAMBAHAN BARU: Import helper buat reminder proyek ===
 import { todayStr as todayStrProyek } from "@/lib/telegramReminderProyek";
+
+// === TAMBAHAN BARU: Helper UI Reminder Proyek ===
+function buildStatusReminderProyekText(settings) {
+  const isEnabled = settings?.enabled !== false;
+  const isDeadlineOn = settings?.deadlineH7 !== false;
+  const isVendorOn = settings?.vendorFollowUp !== false;
+
+  let text = `<b>📋 STATUS REMINDER PROYEK LO</b>\n\n`;
+  text += `${isDeadlineOn && isEnabled ? "🟢" : "🔴"} Deadline Kegiatan — <b>${isDeadlineOn && isEnabled ? "ON" : "OFF"}</b>\n`;
+  text += `${isVendorOn && isEnabled ? "🟢" : "🔴"} Vendor Follow Up — <b>${isVendorOn && isEnabled ? "ON" : "OFF"}</b>\n\n`;
+  text += `<i>Klik tombol buat toggle ON/OFF.</i>`;
+  return text;
+}
+
+function buildStatusReminderProyekButtons(settings) {
+  const isEnabled = settings?.enabled !== false;
+  const isDeadlineOn = settings?.deadlineH7 !== false;
+  const isVendorOn = settings?.vendorFollowUp !== false;
+
+  const btnDeadline = isDeadlineOn && isEnabled ? "🟢 Deadline Kegiatan" : "🔴 Deadline Kegiatan";
+  const btnVendor = isVendorOn && isEnabled ? "🟢 Vendor Follow Up" : "🔴 Vendor Follow Up";
+
+  return [
+    [{ text: btnDeadline, callback_data: "proyek_toggle_deadline" }],
+    [{ text: btnVendor, callback_data: "proyek_toggle_vendor" }],
+    [
+      { text: "⏸️ Pause Semua Proyek", callback_data: "proyek_pause_all" },
+      { text: "▶️ Resume Semua Proyek", callback_data: "proyek_resume_all" },
+    ],
+  ];
+}
+// === END HELPER UI REMINDER PROYEK ===
 
 // ========== FIREBASE ADMIN ==========
 let adminApp = null;
@@ -600,8 +633,7 @@ async function saveWizard(firestore, userData, state) {
     await userRef.update({ bisnisBrands: brands });
     return;
   }
-
-  // BELAJAR
+    // BELAJAR
   if (menuId === "belajar") {
     const logHarian = userData.belajarLogHarian || {};
     if (!logHarian[todayStr]) logHarian[todayStr] = [];
@@ -722,7 +754,7 @@ async function saveWizard(firestore, userData, state) {
   }
 
   throw new Error(`Menu "${menuId}" belum didukung.`);
-}
+} // <--- INI PENUTUP FUNGSI saveWizard
 
 // ========== WIZARD VENDOR ==========
 const VENDOR_MENUS = ["pekerjaan_vendor", "bisnis_vendor"];
@@ -1413,7 +1445,7 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
   }
 
   const wizardKey = `${command}_${subMenuId}`;
-  const config = WIZARD_CONFIG[wizardKey];
+  const config  = WIZARD_CONFIG[wizardKey];
   if (!config) {
     await editTelegramMessage(chatId, messageId, `⚠️ Sub-menu "${subMenuId}" belum punya wizard.`);
     return;
@@ -1458,37 +1490,7 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
 
 // ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
-async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
-  // ==== REMINDER PROYEK (DITARUH PALING ATAS BIAR PASTI KEPANGGIL) ====
-  if (text.includes("reminder-proyek")) {
-    const settings = userData?.reminderProyekSettings || { enabled: true };
-    const textUI = buildStatusReminderProyekText(settings);
-    const buttons = buildStatusReminderProyekButtons(settings);
-    await sendTelegramWithButtons(chatId, textUI, buttons);
-    return;
-  }
-
-  if (text.includes("pause-proyek")) {
-    await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: false } },
-      { merge: true }
-    );
-    await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.`);
-    return;
-  }
-
-  if (text.includes("resume-proyek")) {
-    await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: true } },
-      { merge: true }
-    );
-    await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>`);
-    return;
-  }
-  // ==== END REMINDER PROYEK ====
-
   const state = await getState(firestore, chatId);
-}
 
   // ==== STATE AKTIF: CEK VENDOR vs WIZARD BIASA ====
   if (state && state.phase && VENDOR_MENUS.includes(state.menuId)) {
@@ -1552,15 +1554,6 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     await sendTelegramMessage(chatId, buildHelpText());
     return;
   }
-
-    if (command === "reminder-proyek") {
-    const settings = userData.reminderProyekSettings || { enabled: true };
-    const text = buildStatusReminderProyekText(settings);
-    const buttons = buildStatusReminderProyekButtons(settings);
-    await sendTelegramWithButtons(chatId, text, buttons);
-    return;
-  }
-
   if (!userData) {
     await sendTelegramMessage(chatId, `⚠️ Belum di-link.\nBuka web → 🤖 Telegram → Generate Pairing Code → <code>/link KODE</code>.`);
     return;
@@ -1592,7 +1585,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
-  // ==== REMINDER ====
+  // ==== REMINDER PRIBADI ====
   if (command === "reminder") {
     const settings = userData.reminderSettings || {};
     const text = buildStatusReminderText(settings);
@@ -1611,7 +1604,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
       { reminderSettings: newSettings },
       { merge: true }
     );
-    await sendTelegramMessage(chatId, `⏸️ <b>Semua reminder dimatiin.</b>\n\nKetik /reminder buat cek status.`);
+    await sendTelegramMessage(chatId, `⏸️ <b>Semua reminder pribadi dimatiin.</b>\n\nKetik /reminder buat cek status.`);
     return;
   }
 
@@ -1625,40 +1618,19 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
       { reminderSettings: newSettings },
       { merge: true }
     );
-    await sendTelegramMessage(chatId, `▶️ <b>Semua reminder dinyalain.</b>\n\nKetik /reminder buat cek status.`);
+    await sendTelegramMessage(chatId, `▶️ <b>Semua reminder pribadi dinyalain.</b>\n\nKetik /reminder buat cek status.`);
     return;
   }
-    // ==== REMINDER PROYEK (BARU) ====
+
+  // ==== REMINDER PROYEK (BARU) ====
   if (command === "reminder-proyek") {
     const settings = userData.reminderProyekSettings || { enabled: true };
-    const text = buildStatusReminderProyekText(settings);
+    const textUI = buildStatusReminderProyekText(settings);
     const buttons = buildStatusReminderProyekButtons(settings);
-    await sendTelegramWithButtons(chatId, text, buttons);
+    await sendTelegramWithButtons(chatId, textUI, buttons);
     return;
   }
 
-    if (command === "pause-proyek") {
-    await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: false } },
-      { merge: true }
-    );
-    await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.\n\nKetik /resume-proyek buat nyalain lagi.`);
-    return;
-  }
-
-  if (command === "resume-proyek") {
-    await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: true } },
-      { merge: true }
-    );
-    await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>\n\nKetik /reminder-proyek buat cek status.`);
-    return;
-  }
-
-  if (command === "resume-proyek") {
-    // ... (kode resume proyek)
-  }
-  
   if (command === "pause-proyek") {
     await firestore.collection("users").doc(userData._uid).set(
       { reminderProyekSettings: { enabled: false } },
@@ -1717,34 +1689,6 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
-    // ==== REMINDER PROYEK (BARU) ====
-  if (command === "reminder-proyek") {
-    const settings = userData.reminderProyekSettings || { enabled: true };
-    const text = buildStatusReminderProyekText(settings);
-    const buttons = buildStatusReminderProyekButtons(settings);
-    await sendTelegramWithButtons(chatId, text, buttons);
-    return;
-  }
-
-  if (command === "pause-proyek") {
-    await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: false } },
-      { merge: true }
-    );
-    await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.\n\nKetik /resume-proyek buat nyalain lagi.`);
-    return;
-  }
-
-  if (command === "resume-proyek") {
-    await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: true } },
-      { merge: true }
-    );
-    await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>\n\nKetik /reminder-proyek buat cek status.`);
-    return;
-  }
-  // ==== END REMINDER PROYEK ====
-  
   // ==== MENU COMMAND → WIZARD ATAU SUB-MENU ====
   const found = findMenuByCommand(command, userData.menus, userData.menusCustom);
   if (!found) {
@@ -1922,7 +1866,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
     return;
   }
 
-  // ==== REMINDER CALLBACK ====
+  // ==== REMINDER CALLBACK (PRIBADI) ====
   if (action.startsWith("rem_")) {
     const { action: remAction, menuId } = parseReminderCallback(data);
 
@@ -2069,7 +2013,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
   if (action.startsWith("proyek_")) {
     const todayLocal = todayStrProyek();
 
-        if (action === "proyek_toggle_deadline") {
+    if (action === "proyek_toggle_deadline") {
       const settings = userData.reminderProyekSettings || { enabled: true };
       const newSettings = { ...settings, deadlineH7: settings.deadlineH7 === false, deadlineH3: settings.deadlineH7 === false, deadlineH1: settings.deadlineH7 === false, deadlineLewat: settings.deadlineH7 === false };
       await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
@@ -2244,7 +2188,8 @@ async function handleCallback(callbackQuery, userData, firestore) {
   if (action.startsWith("wiz_")) {
     const state = await getState(firestore, chatId);
     if (!state) {
-      await editTelegramMessage(chatId, messageId, "⚠️ Wizard udah selesai / expired.");
+      await editTelegramMessage
+      (chatId, messageId, "⚠️ Wizard udah selesai / expired.");
       return;
     }
     state.messageId = messageId;
@@ -2264,42 +2209,6 @@ export async function POST(req) {
     const chatId = message.chat.id;
     const fromData = message.from || message.chat;
 
-   // === TAMBAHAN BARU: Helper UI Reminder Proyek ===
-function buildStatusReminderProyekText(settings) {
-  const isEnabled = settings?.enabled !== false;
-  const isDeadlineOn = settings?.deadlineH7 !== false; // Kita pakai deadlineH7 sebagai representasi toggle deadline
-  const isVendorOn = settings?.vendorFollowUp !== false;
-
-  let text = `<b>📋 STATUS REMINDER PROYEK LO</b>\n\n`;
-  text += `${isDeadlineOn && isEnabled ? "🟢" : "🔴"} Deadline Kegiatan — <b>${isDeadlineOn && isEnabled ? "ON" : "OFF"}</b>\n`;
-  text += `${isVendorOn && isEnabled ? "🟢" : "🔴"} Vendor Follow Up — <b>${isVendorOn && isEnabled ? "ON" : "OFF"}</b>\n\n`;
-  text += `<i>Klik tombol buat toggle ON/OFF.</i>`;
-  return text;
-}
-
-function buildStatusReminderProyekButtons(settings) {
-  const isEnabled = settings?.enabled !== false;
-  const isDeadlineOn = settings?.deadlineH7 !== false;
-  const isVendorOn = settings?.vendorFollowUp !== false;
-
-  const btnDeadline = isDeadlineOn && isEnabled ? "🟢 Deadline Kegiatan" : "🔴 Deadline Kegiatan";
-  const btnVendor = isVendorOn && isEnabled ? "🟢 Vendor Follow Up" : "🔴 Vendor Follow Up";
-
-  return [
-    [
-      { text: btnDeadline, callback_data: "proyek_toggle_deadline" },
-    ],
-    [
-      { text: btnVendor, callback_data: "proyek_toggle_vendor" },
-    ],
-    [
-      { text: "⏸️ Pause Semua Proyek", callback_data: "proyek_pause_all" },
-      { text: "▶️ Resume Semua Proyek", callback_data: "proyek_resume_all" },
-    ],
-  ];
-}
-// === END HELPER UI REMINDER PROYEK ===
- 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
 
