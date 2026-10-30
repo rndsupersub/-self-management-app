@@ -1687,6 +1687,34 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     return;
   }
 
+    // ==== REMINDER PROYEK (BARU) ====
+  if (command === "reminder-proyek") {
+    const settings = userData.reminderProyekSettings || { enabled: true };
+    const text = buildStatusReminderProyekText(settings);
+    const buttons = buildStatusReminderProyekButtons(settings);
+    await sendTelegramWithButtons(chatId, text, buttons);
+    return;
+  }
+
+  if (command === "pause-proyek") {
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderProyekSettings: { enabled: false } },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.\n\nKetik /resume-proyek buat nyalain lagi.`);
+    return;
+  }
+
+  if (command === "resume-proyek") {
+    await firestore.collection("users").doc(userData._uid).set(
+      { reminderProyekSettings: { enabled: true } },
+      { merge: true }
+    );
+    await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>\n\nKetik /reminder-proyek buat cek status.`);
+    return;
+  }
+  // ==== END REMINDER PROYEK ====
+  
   // ==== MENU COMMAND → WIZARD ATAU SUB-MENU ====
   const found = findMenuByCommand(command, userData.menus, userData.menusCustom);
   if (!found) {
