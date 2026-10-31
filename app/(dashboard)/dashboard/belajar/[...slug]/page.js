@@ -72,7 +72,8 @@ export default function BelajarDetailPage() {
   const handleUpdateLog = async (newLogHarian, meta = {}) => {
     const { action, log } = meta;
     let newKategori = kategori;
-    if ((action === "add" || action === "edit") && log && log.sumber !== "materi") {
+    // PENGAMAN: Jangan jalanin sync kalau data kategori kosong/belum siap
+    if ((action === "add" || action === "edit") && log && log.sumber !== "materi" && kategori) {
       newKategori = syncLogToMateri(kategori, log);
     }
     setLogHarian(newLogHarian);
