@@ -26,7 +26,8 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
   useEffect(() => {
     if (isMateriMode) return;
     if (!today) return;
-    const entries = logHarian?.[today] || [];
+    const safeLog = logHarian || {};
+    const entries = safeLog[today] || [];
     const matched = entries.find((e) => (e.subKategoriId || "") === (path[1] || "") && (e.toolId || "") === (path[2] || "") && (e.fiturId || "") === (path[3] || "") && (e.partId || "") === (path[4] || ""));
     if (matched && matched.catatan && !formData.catatan) {
       setFormData((prev) => ({ ...prev, catatan: matched.catatan, gdriveUrl: matched.gdriveUrl || "" }));
@@ -37,8 +38,14 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
 
   const riwayat = useMemo(() => {
     const result = [];
-    Object.entries(logHarian || {}).forEach(([tanggal, list]) => {
-      (list || []).forEach((log) => {
+    if (!logHarian) return result;
+    
+    Object.entries(logHarian).forEach(([tanggal, list]) => {
+      // PENGAMAN: Kalau list bukan array (misal kosong atau object), skip aja biar nggak crash
+      if (!Array.isArray(list)) return; 
+      
+      list.forEach((log) => {
+        if (!log) return;
         if (log.kategoriId !== kategoriId) return;
         if ((log.subKategoriId || "") !== (path[1] || "")) return;
         if ((log.toolId || "") !== (path[2] || "")) return;
@@ -69,7 +76,7 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
     if (!today) { setErrorMsg("Tanggal belum siap."); return; }
 
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
-    if (!updated[today]) updated[today] = [];
+    if (!updated[today] || !Array.isArray(updated[today])) updated[today] = [];
 
     const newLog = { id: editingLogId || `log_${Date.now()}`, kategoriId, subKategoriId: formData.subKategoriId, toolId: formData.toolId, fiturId: formData.fiturId || "", partId: formData.partId || "", catatan: formData.catatan, gdriveUrl: formData.gdriveUrl, telegramMessageId: "", sumber: "kalender", updatedAt: new Date().toISOString() };
 
@@ -85,9 +92,11 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
   const handleHapus = (log) => {
     if (!confirm("Hapus catatan ini?")) return;
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
-    updated[log.tanggal] = (updated[log.tanggal] || []).filter((l) => l.id !== log.id);
-    if (updated[log.tanggal].length === 0) delete updated[log.tanggal];
-    if (onUpdateLog) onUpdateLog(updated, { action: "delete", log });
+    if (updated[log.tanggal] && Array.isArray(updated[log.tanggal])) {
+      updated[log.tanggal] = updated[log.tanggal].filter((l) => l.id !== log.id);
+      if (updated[log.tanggal].length === 0) delete updated[log.tanggal];
+      if (onUpdateLog) onUpdateLog(updated, { action: "delete", log });
+    }
   };
 
   const handleSimpanMateri = () => { onUpdate({ materi }); setIsEditingMateri(false); setSaved(true); setTimeout(() => setSaved(false), 2000); };
