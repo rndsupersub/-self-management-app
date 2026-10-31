@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { formatTanggal } from "@/lib/belajarData";
-import { BookOpen, Pencil, Plus, Save, Inbox, MessageSquare, FolderOpen, Link as LinkIcon, AlertTriangle, CheckCircle2, Eye, EyeOff, X, List, Calendar } from "lucide-react";
+import { BookOpen, Pencil, Plus, Save, Inbox, MessageSquare, FolderOpen, Link as LinkIcon, AlertTriangle, CheckCircle2, Eye, EyeOff, X, List, Calendar, Trash2 } from "lucide-react";
 
 export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, kategoriData = [], logHarian = {}, onUpdateLog, today, mode = "hasil-belajar" }) {
   const isMateriMode = mode === "materi";
