@@ -1,11 +1,13 @@
 // components/DashboardKeuangan.js
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungPengeluaranMingguIni, hitungHealthScore, hitungProgressWallet, getWalletStatus, hitungProgressGoal, generateSmartAlert, flattenTransaksi, getBulanRange, hitungTotalByJenis, getTanggalHariIni } from "@/lib/keuanganData";
 import { Wallet, ArrowUpRight, Calendar, Activity, HeartPulse, Target, Landmark, MessageSquare, TrendingUp, BarChart3, Bell, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 
 export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsList = DEFAULT_GOALS, keuanganTransaksi = {}, setting = DEFAULT_SETTING }) {
+  const [timeRange, setTimeRange] = useState("6-bulan"); // "1-bulan", "3-bulan", "6-bulan", "1-tahun"
+
   const cash = useMemo(() => hitungCash(keuanganTransaksi), [keuanganTransaksi]);
   const pengeluaranBulan = useMemo(() => hitungPengeluaranBulanIni(keuanganTransaksi), [keuanganTransaksi]);
   const pengeluaranMinggu = useMemo(() => hitungPengeluaranMingguIni(keuanganTransaksi), [keuanganTransaksi]);
@@ -41,7 +43,14 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
   const analyticsBulanan = useMemo(() => {
     const today = new Date();
     const result = [];
-    for (let i = 5; i >= 0; i--) {
+    let loopCount = 6;
+    
+    if (timeRange === "1-bulan") loopCount = 1;
+    else if (timeRange === "3-bulan") loopCount = 3;
+    else if (timeRange === "6-bulan") loopCount = 6;
+    else if (timeRange === "1-tahun") loopCount = 12;
+
+    for (let i = loopCount - 1; i >= 0; i--) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const bulanKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const bulanLabel = d.toLocaleDateString("id-ID", { month: "short", year: "2-digit" });
@@ -50,9 +59,10 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
       result.push({ bulanKey, bulanLabel, masuk, keluar });
     }
     return result;
-  }, [keuanganTransaksi]);
+  }, [keuanganTransaksi, timeRange]);
 
-  const maxAnalytics = Math.max(...analyticsBulanan.map((a) => Math.max(a.masuk, a.keluar)), 1);
+  // Skala Minimal biar grafik tetap kelihatan kalau nominalnya kecil
+  const maxAnalytics = Math.max(...analyticsBulanan.map((a) => Math.max(a.masuk, a.keluar)), 100000); 
   const alerts = useMemo(() => generateSmartAlert(dompetList, goalsList, keuanganTransaksi, setting), [dompetList, goalsList, keuanganTransaksi, setting]);
 
   return (
@@ -162,15 +172,23 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
       {/* ANALYTICS BULANAN */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><BarChart3 size={16}/> Tren 6 Bulan Terakhir</h3>
-          <div className="flex items-end justify-between gap-2 h-40">
+          <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><BarChart3 size={16}/> Tren Keuangan</h3>
+            <select className="select select-bordered select-xs text-gray-800 bg-white" value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
+              <option value="1-bulan">Bulanan (1 Bulan)</option>
+              <option value="3-bulan">Triwulan (3 Bulan)</option>
+              <option value="6-bulan">Semester (6 Bulan)</option>
+              <option value="1-tahun">Tahunan (1 Tahun)</option>
+            </select>
+          </div>
+          <div className="flex items-end justify-between gap-1 sm:gap-2 h-40 overflow-x-auto pb-2">
             {analyticsBulanan.map((b) => (
-              <div key={b.bulanKey} className="flex-1 flex flex-col items-center gap-1">
+              <div key={b.bulanKey} className="flex-1 min-w-[30px] flex flex-col items-center gap-1">
                 <div className="flex-1 w-full flex flex-col justify-end gap-0.5">
                   <div className="bg-green-500 rounded-t w-full" style={{ height: `${(b.masuk / maxAnalytics) * 100}%`, minHeight: b.masuk > 0 ? "2px" : "0" }} title={`Masuk: ${formatRupiah(b.masuk)}`} />
                   <div className="bg-red-500 rounded-b w-full" style={{ height: `${(b.keluar / maxAnalytics) * 100}%`, minHeight: b.keluar > 0 ? "2px" : "0" }} title={`Keluar: ${formatRupiah(b.keluar)}`} />
                 </div>
-                <span className="text-[10px] text-gray-500">{b.bulanLabel}</span>
+                <span className="text-[10px] text-gray-500 text-center">{b.bulanLabel}</span>
               </div>
             ))}
           </div>

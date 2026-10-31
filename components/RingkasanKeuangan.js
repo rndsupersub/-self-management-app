@@ -1,14 +1,19 @@
 // components/RingkasanKeuangan.js
 "use client";
 
-import { DEFAULT_DOMPET, DEFAULT_GOALS, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungHealthScore, generateSmartAlert } from "@/lib/keuanganData";
-import { Wallet, ArrowUpRight, Activity, Target, Bell, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { useState } from "react";
+import { DEFAULT_DOMPET, DEFAULT_GOALS, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungHealthScore, hitungProgressGoal, generateSmartAlert } from "@/lib/keuanganData";
+import { Wallet, ArrowUpRight, Activity, Target, Bell, AlertTriangle, CheckCircle2, Info, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function RingkasanKeuangan({ dompetList = DEFAULT_DOMPET, goalsList = DEFAULT_GOALS, keuanganTransaksi = {}, setting = {}, onClickDetail }) {
+  const [showAllGoals, setShowAllGoals] = useState(false);
+  
   const cash = hitungCash(keuanganTransaksi);
   const pengeluaranBulan = hitungPengeluaranBulanIni(keuanganTransaksi);
   const healthScore = hitungHealthScore(dompetList, goalsList, keuanganTransaksi, setting);
   const alerts = generateSmartAlert(dompetList, goalsList, keuanganTransaksi, setting);
+
+  const displayedGoals = showAllGoals ? goalsList : goalsList.slice(0, 5);
 
   return (
     <div className="space-y-4">
@@ -57,18 +62,26 @@ export default function RingkasanKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
           <div className="card-body p-4">
             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><Target size={16}/> Progress Goals</h3>
             <div className="space-y-3">
-              {goalsList.slice(0, 5).map((goal) => {
-                const saldo = 0; // Placeholder logic, usually from a helper
-                const persen = 0; 
+              {displayedGoals.map((goal) => {
+                const { persen, saldo, target } = hitungProgressGoal(goal, dompetList, keuanganTransaksi);
                 return (
                   <div key={goal.id}>
-                    <div className="flex justify-between text-xs mb-1"><span className="font-medium text-gray-700">{goal.nama}</span><span className="text-gray-500">{formatRupiah(saldo)} / {formatRupiah(goal.target)} ({persen}%)</span></div>
+                    <div className="flex justify-between text-xs mb-1"><span className="font-medium text-gray-700">{goal.nama}</span><span className="text-gray-500">{formatRupiah(saldo)} / {formatRupiah(target)} ({persen}%)</span></div>
                     <progress className="progress w-full h-2 progress-warning" value={persen} max="100" />
                   </div>
                 );
               })}
-              {goalsList.length > 5 && <p className="text-xs text-gray-400 text-center mt-2">+{goalsList.length - 5} goal lainnya</p>}
             </div>
+            
+            {/* TOMBOL EXPAND/COLLAPSE */}
+            {goalsList.length > 5 && (
+              <button 
+                className="btn btn-ghost btn-xs w-full mt-3 text-blue-600 flex items-center justify-center gap-1"
+                onClick={() => setShowAllGoals(!showAllGoals)}
+              >
+                {showAllGoals ? <><ChevronUp size={14}/> Sembunyikan</> : <><ChevronDown size={14}/> Lihat Semua ({goalsList.length - 5} lagi)</>}
+              </button>
+            )}
           </div>
         </div>
       )}
