@@ -70,7 +70,7 @@ export async function POST(req) {
       if (!chatId) continue;
 
       // ==========================================
-      // 1. REMINDER PRIBADI (JANGAN SENTUH LOGIKANYA)
+      // 1. REMINDER PRIBADI (DINAMIS DARI JADWAL WEB)
       // ==========================================
       const remindersPribadi = tentukanReminderYangHarusDikirim(userData, sekarang);
       const sentPribadi = [];
@@ -78,7 +78,9 @@ export async function POST(req) {
       if (remindersPribadi.length > 0) {
         for (const rem of remindersPribadi) {
           try {
-            await kirimReminder(chatId, rem.menuId, rem.lapis, rem.config);
+            // PERUBAHAN PENTING: Kirim rem.jamMulai dan rem.deadline ke fungsi
+            await kirimReminder(chatId, rem.menuId, rem.lapis, rem.config, rem.jamMulai, rem.deadline);
+            
             await firestore.collection("users").doc(userDoc.id).set(
               {
                 reminderLog: {
