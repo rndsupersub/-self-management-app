@@ -60,12 +60,20 @@ export default function Dashboard() {
     }
 
     let jadwalBaru = data.jadwalUser;
-    if (jadwalBaru?.kerja && Array.isArray(jadwalBaru.kerja)) {
-      const adaNpdJadwal = jadwalBaru.kerja.some((item) => item.id === "npd");
-      if (adaNpdJadwal) {
-        jadwalBaru = { ...jadwalBaru, kerja: jadwalBaru.kerja.map((item) => item.id === "npd" ? { ...item, id: "bedah-buku", label: "📚 Bedah Buku", unit: "10 halaman" } : item) };
-        updates.jadwalUser = jadwalBaru;
-        perluSimpan = true;
+    // PERBAIKAN: Cek jika jadwalUser kurang lengkap, merge dengan DEFAULT_JADWAL jangan direset
+    if (!jadwalBaru || !jadwalBaru.kerja || !jadwalBaru.minggu) {
+      jadwalBaru = { ...DEFAULT_JADWAL, ...(jadwalBaru || {}) };
+      updates.jadwalUser = jadwalBaru;
+      perluSimpan = true;
+    } else {
+      // Migrasi NPD ke Bedah Buku jika ada
+      if (Array.isArray(jadwalBaru.kerja)) {
+        const adaNpdJadwal = jadwalBaru.kerja.some((item) => item.id === "npd");
+        if (adaNpdJadwal) {
+          jadwalBaru = { ...jadwalBaru, kerja: jadwalBaru.kerja.map((item) => item.id === "npd" ? { ...item, id: "bedah-buku", label: "📚 Bedah Buku", unit: "10 halaman" } : item) };
+          updates.jadwalUser = jadwalBaru;
+          perluSimpan = true;
+        }
       }
     }
 
@@ -144,7 +152,7 @@ export default function Dashboard() {
         setMenusCustomLogHarian(logCustomBaru || {});
         setMenusCustomTargetHarian(targetCustomBaru || {});
 
-        if (jadwalBaru?.kerja && jadwalBaru?.minggu) setJadwalUser(jadwalBaru); else { await setDoc(docRef, { jadwalUser: DEFAULT_JADWAL }, { merge: true }); setJadwalUser(DEFAULT_JADWAL); }
+        setJadwalUser(jadwalBaru);
         if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru)) setProgress(progressBaru || {}); else { await setDoc(docRef, { dailyProgress: {} }, { merge: true }); setProgress({}); }
 
         if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet); else { await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true }); setDompetList(DEFAULT_DOMPET); }
@@ -177,9 +185,12 @@ export default function Dashboard() {
 
   const updateJadwal = async (newJadwal) => {
     if (!user) return;
-    setJadwalUser(newJadwal);
+    // PERBAIKAN: Merge state agar key lain (minggu/kerja) tidak hilang
+    const mergedJadwal = { ...jadwalUser, ...newJadwal };
+    setJadwalUser(mergedJadwal);
+    
     const docRef = doc(db, "users", user.uid);
-    await setDoc(docRef, { jadwalUser: newJadwal }, { merge: true });
+    await setDoc(docRef, { jadwalUser: mergedJadwal }, { merge: true });
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;

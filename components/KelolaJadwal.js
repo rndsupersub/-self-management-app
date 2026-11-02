@@ -21,10 +21,12 @@ export default function KelolaJadwal({
     unit: "60 menit",
   });
 
+  // STATE UNTUK DRAG & DROP
+  const [draggedIndex, setDraggedIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
+
   // ========== SIMPAN KE FIRESTORE ==========
   const simpanJadwal = async (jadwalBaru) => {
-    // Kalau hari Minggu (dayIndex 0), update jadwal.minggu
-    // Kalau Senin-Sabtu (dayIndex 1-6), update jadwal.kerja
     const key = dayIndex === 0 ? "minggu" : "kerja";
     const updated = {
       ...(jadwalUser || {}),
@@ -33,7 +35,7 @@ export default function KelolaJadwal({
     await onUpdateJadwal(updated);
   };
 
-  // ========== TAMBAH ==========
+  // ========== TAMBAH / EDIT ==========
   const handleTambah = () => {
     if (!formData.label.trim()) return;
 
@@ -54,8 +56,8 @@ export default function KelolaJadwal({
       jadwalBaru = [...jadwal, newItem];
     }
 
-    // Sort berdasarkan waktuMulai
-    jadwalBaru.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+    // PENTING: Sort otomatis DIHAPUS agar urutan manual (drag & drop) tidak hancur.
+    // jadwalBaru.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
 
     simpanJadwal(jadwalBaru);
     setShowForm(false);
@@ -87,6 +89,43 @@ export default function KelolaJadwal({
     simpanJadwal(jadwalBaru);
   };
 
+  // ========== DRAG & DROP HANDLERS (NATIVE HTML5) ==========
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    // Set efek transparan saat di drag
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newJadwal = [...jadwal];
+    // Ambil item yang di-drag
+    const [movedItem] = newJadwal.splice(draggedIndex, 1);
+    // Masukkan ke posisi baru
+    newJadwal.splice(index, 0, movedItem);
+
+    simpanJadwal(newJadwal);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="card bg-white shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -105,7 +144,7 @@ export default function KelolaJadwal({
           </div>
 
           <p className="text-xs text-gray-500 mb-3">
-            💡 Edit jadwal untuk hari <strong>{hari}</strong>. Perubahan disimpan di Firestore.
+            💡 Edit jadwal untuk hari <strong>{hari}</strong>. Kamu bisa <strong>drag & drop</strong> (geser) untuk mengubah urutan.
           </p>
 
           {/* TOMBOL TAMBAH */}
@@ -187,42 +226,62 @@ export default function KelolaJadwal({
             </div>
           )}
 
-          {/* LIST JADWAL */}
+          {/* LIST JADWAL (DRAG & DROP AREA) */}
           <div className="space-y-2">
             {jadwal.length === 0 ? (
               <p className="text-sm text-gray-400 italic text-center py-4">
                 Belum ada kegiatan di hari ini.
               </p>
             ) : (
-              jadwal.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-2 p-2 rounded border border-gray-200 bg-gray-50"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-800">
-                      {item.label}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {item.waktuMulai} – {item.waktuSelesai} • {item.unit}
-                    </p>
+              jadwal.map((item, index) => {
+                const isBeingDragged = draggedIndex === index;
+                const isDragOver = dragOverIndex === index;
+
+                return (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex items-center gap-2 p-2 rounded border transition-all cursor-move
+                      ${isBeingDragged ? "opacity-50 border-dashed border-blue-400" : "border-gray-200 bg-gray-50 hover:bg-gray-100"}
+                      ${isDragOver && !isBeingDragged ? "border-t-4 border-t-blue-500 bg-blue-50" : ""}
+                    `}
+                  >
+                    {/* ICON DRAG HANDLE */}
+                    <div className="text-gray-400 px-1 cursor-grab active:cursor-grabbing">
+                      ⋮⋮
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-800">
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {item.waktuMulai} – {item.waktuSelesai} • {item.unit}
+                      </p>
+                    </div>
+
+                    {/* TOMBOL AKSI */}
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => handleEdit(item)}
+                      title="Edit"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-xs text-red-500"
+                      onClick={() => handleHapus(item.id)}
+                      title="Hapus"
+                    >
+                      🗑️
+                    </button>
                   </div>
-                  <button
-                    className="btn btn-ghost btn-xs"
-                    onClick={() => handleEdit(item)}
-                    title="Edit"
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-xs text-red-500"
-                    onClick={() => handleHapus(item.id)}
-                    title="Hapus"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
