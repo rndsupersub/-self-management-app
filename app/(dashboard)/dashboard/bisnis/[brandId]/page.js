@@ -105,6 +105,19 @@ export default function BisnisBrandPage() {
     await updateBrandData({ kegiatan: brand.kegiatan.filter((k) => k.id !== kegId) });
   };
 
+  // ========== TAMBAHAN BARU: FUNGSI TOGGLE STATUS ==========
+  const handleToggleStatusKegiatan = async (kegId) => {
+    const keg = brand.kegiatan.find((k) => k.id === kegId);
+    if (!keg) return;
+    const newStatus = keg.status === "selesai" ? "belum" : "selesai";
+    await updateBrandData({
+      kegiatan: brand.kegiatan.map((k) =>
+        k.id === kegId ? { ...k, status: newStatus, updatedAt: new Date().toISOString() } : k
+      )
+    });
+  };
+  // ========================================================
+
   const handleSimpanNamaBrand = async () => {
     if (!editNama.trim()) return;
     await simpanBrands(brands.map((b) => b.id === brandId ? { ...b, nama: editNama } : b));
@@ -174,17 +187,17 @@ export default function BisnisBrandPage() {
         {activeTab === "kalender" && (
           <>
             <KalenderPekerjaan 
-  kegiatan={brand.kegiatan || []} 
-  onAdd={handleTambahKegiatan} 
-  onClickKegiatan={(id) => router.push(`/dashboard/bisnis/${brandId}/${id}`)} 
-  onEditKegiatan={(keg) => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}
-  onDeleteKegiatan={handleHapusKegiatan}
-  onToggleStatusKegiatan={handleToggleStatusKegiatan}
-  prioritasList={prioritasList} 
-  sumberList={sumberList} 
-  kategoriList={kategoriList} 
-  onUpdateKategoriList={(u) => { setKategoriList(u); simpanSettings({ bisnisKategoriList: u }); }} 
-/>
+              kegiatan={brand.kegiatan || []} 
+              onAdd={handleTambahKegiatan} 
+              onClickKegiatan={(id) => router.push(`/dashboard/bisnis/${brandId}/${id}`)} 
+              onEditKegiatan={(keg) => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}
+              onDeleteKegiatan={handleHapusKegiatan}
+              onToggleStatusKegiatan={handleToggleStatusKegiatan}
+              prioritasList={prioritasList} 
+              sumberList={sumberList} 
+              kategoriList={kategoriList} 
+              onUpdateKategoriList={(u) => { setKategoriList(u); simpanSettings({ bisnisKategoriList: u }); }} 
+            />
             {brand.kegiatan && brand.kegiatan.length > 0 && (
               <div className="card bg-white shadow border border-gray-200 mt-4">
                 <div className="card-body p-4">
@@ -220,7 +233,7 @@ export default function BisnisBrandPage() {
         {activeTab === "laporan" && (
           <LaporanPekerjaan 
             kegiatanList={brand.kegiatan || []} 
-            vendorList={vendorList} // <-- TAMBAHAN PROP VENDOR
+            vendorList={vendorList}
             laporanData={brand.laporanData || {}} 
             onUpdateLaporan={(data) => updateBrandData({ laporanData: data })} 
             prioritasList={prioritasList} 

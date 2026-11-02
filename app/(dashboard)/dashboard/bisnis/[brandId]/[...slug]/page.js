@@ -3,10 +3,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import Sidebar from "@/components/Sidebar";
 import DetailKegiatan from "@/components/DetailKegiatan";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import {
@@ -15,6 +14,7 @@ import {
   DEFAULT_BISNIS_SUMBER,
   DEFAULT_BISNIS_SECTIONS,
 } from "@/lib/bisnisData";
+import { Home, Briefcase, Tag } from "lucide-react";
 
 export default function BisnisDetailKegiatanPage() {
   const [user, setUser] = useState(null);
@@ -22,7 +22,6 @@ export default function BisnisDetailKegiatanPage() {
   const [today, setToday] = useState("");
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [brands, setBrands] = useState(DEFAULT_BISNIS_BRANDS);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // ========== SETTINGS BISNIS ==========
   const [prioritasList, setPrioritasList] = useState(DEFAULT_BISNIS_PRIORITAS);
@@ -176,11 +175,6 @@ export default function BisnisDetailKegiatanPage() {
     router.push(`/dashboard/bisnis/${brandId}`);
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/login");
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -191,24 +185,17 @@ export default function BisnisDetailKegiatanPage() {
 
   if (!brand || !kegiatan) {
     return (
-      <div className="h-screen flex flex-col bg-base-200">
-        <div className="navbar bg-base-100 shadow px-4">
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">🌙 Self Management</h1>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="card bg-white shadow border border-gray-200">
-            <div className="card-body p-8 text-center text-gray-400">
-              <p className="text-3xl mb-2">📋</p>
-              <p className="text-sm mb-4">Kegiatan tidak ditemukan.</p>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => router.push(`/dashboard/bisnis/${brandId}`)}
-              >
-                ← Balik ke Brand
-              </button>
-            </div>
+      <div className="p-6 text-center">
+        <div className="card bg-white shadow border border-gray-200 max-w-md mx-auto">
+          <div className="card-body p-8 text-center text-gray-400">
+            <p className="text-3xl mb-2">📋</p>
+            <p className="text-sm mb-4">Kegiatan tidak ditemukan.</p>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => router.push(`/dashboard/bisnis/${brandId}`)}
+            >
+              ← Balik ke Brand
+            </button>
           </div>
         </div>
       </div>
@@ -216,82 +203,51 @@ export default function BisnisDetailKegiatanPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-base-200">
-      {/* Navbar */}
-      <div className="navbar bg-base-100 shadow px-4">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold">🌙 Self Management</h1>
-        </div>
-        <div className="flex gap-2 items-center">
-          <span className="text-sm font-mono">{today}</span>
-          <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            Logout
-          </button>
-        </div>
+    <div className="max-w-4xl mx-auto">
+      {/* Breadcrumb */}
+      <div className="text-sm breadcrumbs mb-4 text-gray-500">
+        <ul>
+          <li>
+            <a
+              onClick={() => router.push("/dashboard")}
+              className="cursor-pointer flex items-center gap-1 hover:text-primary"
+            >
+              <Home size={14} /> Dashboard
+            </a>
+          </li>
+          <li>
+            <a
+              onClick={() => router.push("/dashboard/bisnis")}
+              className="cursor-pointer flex items-center gap-1 hover:text-primary"
+            >
+              <Briefcase size={14} /> Bisnis
+            </a>
+          </li>
+          <li>
+            <a
+              onClick={() =>
+                router.push(`/dashboard/bisnis/${brandId}`)
+              }
+              className="cursor-pointer flex items-center gap-1 hover:text-primary"
+            >
+              <Tag size={14} /> {brand.nama}
+            </a>
+          </li>
+          <li>{kegiatan.judul}</li>
+        </ul>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div
-          className={`${
-            sidebarCollapsed ? "w-12" : "w-64"
-          } transition-all duration-300 bg-base-100`}
-        >
-          <Sidebar
-            activities={activities}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
-          />
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Breadcrumb */}
-          <div className="text-sm breadcrumbs mb-6">
-            <ul>
-              <li>
-                <a
-                  onClick={() => router.push("/dashboard")}
-                  className="cursor-pointer"
-                >
-                  🏠 Dashboard
-                </a>
-              </li>
-              <li>
-                <a
-                  onClick={() => router.push("/dashboard/bisnis")}
-                  className="cursor-pointer"
-                >
-                  💼 Bisnis
-                </a>
-              </li>
-              <li>
-                <a
-                  onClick={() =>
-                    router.push(`/dashboard/bisnis/${brandId}`)
-                  }
-                  className="cursor-pointer"
-                >
-                  🏷️ {brand.nama}
-                </a>
-              </li>
-              <li>{kegiatan.judul}</li>
-            </ul>
-          </div>
-
-          {/* Detail Kegiatan */}
-          <DetailKegiatan
-            kegiatan={kegiatan}
-            prioritasList={prioritasList}
-            sumberList={sumberList}
-            sections={sections}
-            onUpdate={handleUpdateKegiatan}
-            onDelete={handleDeleteKegiatan}
-            onToggleStatus={handleToggleStatus}
-            onEdit={handleEdit}
-          />
-        </div>
-      </div>
+      {/* Detail Kegiatan */}
+      <DetailKegiatan
+        kegiatan={kegiatan}
+        prioritasList={prioritasList}
+        sumberList={sumberList}
+        sections={sections}
+        onUpdate={handleUpdateKegiatan}
+        onDelete={handleDeleteKegiatan}
+        onToggleStatus={handleToggleStatus}
+        onEdit={handleEdit}
+      />
     </div>
   );
 }
