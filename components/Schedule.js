@@ -4,6 +4,14 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2, Clock, Pencil, ArrowUp, ArrowDown } from "lucide-react";
 
+// FUNGSI SAKTI UNTUK DAPET TANGGAL LOKAL (BUKAN UTC)
+const getLocalDateStr = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function Schedule({
   jadwalUser = { kerja: [], minggu: [] },
   onUpdateJadwal,
@@ -46,20 +54,21 @@ export default function Schedule({
     return d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   };
 
+  // PERBAIKAN: Pakai getLocalDateStr() biar nggak geser ke UTC
   const handlePrevDay = () => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() - 1);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    setSelectedDate(getLocalDateStr(d));
   };
 
   const handleNextDay = () => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + 1);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    setSelectedDate(getLocalDateStr(d));
   };
 
   const handleToday = () => {
-    setSelectedDate(new Date().toISOString().split("T")[0]);
+    setSelectedDate(getLocalDateStr());
   };
 
   const handleToggleSelesai = (actId) => {

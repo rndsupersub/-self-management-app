@@ -14,10 +14,18 @@ import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
 import { migrasiStatusVendorPekerjaan, migrasiStatusVendorBisnis } from "@/lib/vendorData";
 
+// FUNGSI SAKTI UNTUK DAPET TANGGAL LOKAL (BUKAN UTC)
+const getLocalDateStr = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
+  const [today, setToday] = useState(getLocalDateStr());
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
@@ -25,7 +33,9 @@ export default function Dashboard() {
   const [menusCustomLogHarian, setMenusCustomLogHarian] = useState({});
   const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  
+  // PERBAIKAN: Pakai getLocalDateStr() bukan toISOString()
+  const [selectedDate, setSelectedDate] = useState(getLocalDateStr());
   const [userData, setUserData] = useState(null);
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
   const [goalsList, setGoalsList] = useState(DEFAULT_GOALS);
@@ -60,13 +70,11 @@ export default function Dashboard() {
     }
 
     let jadwalBaru = data.jadwalUser;
-    // PERBAIKAN: Cek jika jadwalUser kurang lengkap, merge dengan DEFAULT_JADWAL jangan direset
     if (!jadwalBaru || !jadwalBaru.kerja || !jadwalBaru.minggu) {
       jadwalBaru = { ...DEFAULT_JADWAL, ...(jadwalBaru || {}) };
       updates.jadwalUser = jadwalBaru;
       perluSimpan = true;
     } else {
-      // Migrasi NPD ke Bedah Buku jika ada
       if (Array.isArray(jadwalBaru.kerja)) {
         const adaNpdJadwal = jadwalBaru.kerja.some((item) => item.id === "npd");
         if (adaNpdJadwal) {
@@ -171,7 +179,10 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => { setToday(new Date().toISOString().split("T")[0]); }, []);
+  // PERBAIKAN: Cukup panggil sekali saat mount, dan pastikan pakai local date
+  useEffect(() => { 
+    setToday(getLocalDateStr()); 
+  }, []);
 
   const updateProgress = async (date, field, value) => {
     if (!user) return;
@@ -185,7 +196,6 @@ export default function Dashboard() {
 
   const updateJadwal = async (newJadwal) => {
     if (!user) return;
-    // PERBAIKAN: Merge state agar key lain (minggu/kerja) tidak hilang
     const mergedJadwal = { ...jadwalUser, ...newJadwal };
     setJadwalUser(mergedJadwal);
     
@@ -201,7 +211,6 @@ export default function Dashboard() {
         <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />
       </div>
 
-      {/* TAMBAHIN W-FULL BIAR GAK GEPENG */}
       <div className="w-full max-w-5xl mx-auto space-y-6">
         <Schedule jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData} />
         <RingkasanKeuangan dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")} />
