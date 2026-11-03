@@ -23,6 +23,14 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
   const [kesimpulanText, setKesimpulanText] = useState(buku.kesimpulan || "");
   const [confirmHapus, setConfirmHapus] = useState(false);
 
+  // ========== STATE EDIT RIWAYAT ==========
+  const [editingRiwayat, setEditingRiwayat] = useState(null); // tanggal
+  const [editRiwayatForm, setEditRiwayatForm] = useState({
+    halamanMulai: 1,
+    halamanAkhir: 1,
+    catatan: "",
+  });
+
   const progress = getProgressBuku(buku);
   const sisa = getSisaHalaman(buku);
   const estimasi = getEstimasiSelesai(buku);
@@ -30,6 +38,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
   const totalHalamanBuku = getTotalHalamanBuku(buku);
   const halamanSelesai = buku.halamanSelesai || [];
   const bukuSelesai = cekBukuSelesai(buku);
+  const halamanMulai = buku.halamanMulai || 1;
 
   // ========== SIMPAN TARGET BARU ==========
   const handleSimpanTarget = () => {
@@ -62,11 +71,126 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
     }
   };
 
+  // ========== TOGGLE HALAMAN (PETA HALAMAN) ==========
+  const handleToggleHalaman = (h) => {
+    const sudah = halamanSelesai.includes(h);
+    const newHalamanSelesai = sudah
+      ? halamanSelesai.filter((x) => x !== h)
+      : [...halamanSelesai, h].sort((a, b) => a - b);
+
+    onUpdateBuku({ ...buku, halamanSelesai: newHalamanSelesai });
+  };
+
   // ========== RIWAYAT BACA ==========
-  // Sort dari tanggal terbaru
   const riwayatBaca = Object.entries(buku.progressHarian || {})
     .map(([tanggal, entry]) => ({ tanggal, ...entry }))
     .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
+
+  // ========== HAPUS RIWAYAT ==========
+  const handleHapusRiwayat = (tanggal) => {
+    if (
+      !confirm(
+        "Hapus riwayat baca ini? Halaman yang tercatat di riwayat ini akan dihapus dari Peta Halaman (kecuali tercatat di riwayat lain)."
+      )
+    )
+      return;
+
+    const entry = buku.progressHarian[tanggal];
+    if (!entry) return;
+
+    const pagesInEntry = new Set(
+      entry.halamanList || getHalamanRange(entry.halamanMulai, entry.halamanAkhir)
+    );
+
+    // Halaman yang juga tercatat di riwayat lain harus tetap hijau
+    const pagesInOtherEntries = new Set();
+    Object.entries(buku.progressHarian).forEach(([t, e]) => {
+      if (t !== tanggal) {
+        (e.halamanList || getHalamanRange(e.halamanMulai, e.halamanAkhir)).forEach(
+          (h) => pagesInOtherEntries.add(h)
+        );
+      }
+    });
+
+    const newHalamanSelesai = halamanSelesai.filter(
+      (h) => !pagesInEntry.has(h) || pagesInOtherEntries.has(h)
+    );
+
+    const newProgressHarian = { ...buku.progressHarian };
+    delete newProgressHarian[tanggal];
+
+    onUpdateBuku({
+      ...buku,
+      progressHarian: newProgressHarian,
+      halamanSelesai: newHalamanSelesai,
+    });
+  };
+
+  // ========== EDIT RIWAYAT ==========
+  const handleEditRiwayat = (entry) => {
+    setEditingRiwayat(entry.tanggal);
+    setEditRiwayatForm({
+      halamanMulai: entry.halamanMulai || 1,
+      halamanAkhir: entry.halamanAkhir || 1,
+      catatan: entry.catatan || "",
+    });
+  };
+
+  const handleSimpanEditRiwayat = () => {
+    if (!editingRiwayat) return;
+    const mulai = parseInt(editRiwayatForm.halamanMulai);
+    const akhir = parseInt(editRiwayatForm.halamanAkhir);
+    if (!mulai || !akhir || akhir < mulai) {
+      alert("Halaman akhir harus >= halaman mulai.");
+      return;
+    }
+
+    const oldEntry = buku.progressHarian[editingRiwayat];
+    if (!oldEntry) return;
+
+    const oldPages = new Set(
+      oldEntry.halamanList || getHalamanRange(oldEntry.halamanMulai, oldEntry.halamanAkhir)
+    );
+    const newPages = new Set(getHalamanRange(mulai, akhir));
+
+    const pagesToRemove = [...oldPages].filter((h) => !newPages.has(h));
+    const pagesToAdd = [...newPages].filter((h) => !oldPages.has(h));
+
+    // Halaman yang juga tercatat di riwayat lain harus tetap hijau
+    const pagesInOtherEntries = new Set();
+    Object.entries(buku.progressHarian).forEach(([t, e]) => {
+      if (t !== editingRiwayat) {
+        (e.halamanList || getHalamanRange(e.halamanMulai, e.halamanAkhir)).forEach(
+          (h) => pagesInOtherEntries.add(h)
+        );
+      }
+    });
+
+    let newHalamanSelesai = halamanSelesai.filter(
+      (h) => !pagesToRemove.includes(h) || pagesInOtherEntries.has(h)
+    );
+    newHalamanSelesai = [...new Set([...newHalamanSelesai, ...pagesToAdd])].sort(
+      (a, b) => a - b
+    );
+
+    const newProgressHarian = {
+      ...buku.progressHarian,
+      [editingRiwayat]: {
+        ...oldEntry,
+        halamanMulai: mulai,
+        halamanAkhir: akhir,
+        halamanList: getHalamanRange(mulai, akhir),
+        catatan: editRiwayatForm.catatan,
+      },
+    };
+
+    onUpdateBuku({
+      ...buku,
+      progressHarian: newProgressHarian,
+      halamanSelesai: newHalamanSelesai,
+    });
+    setEditingRiwayat(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -141,7 +265,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
               max="100"
             />
             <p className="text-xs text-gray-500 mt-1">
-              {halamanSelesai.length} / {totalHalamanBuku} hal
+              {halamanSelesai.filter((h) => h >= halamanMulai).length} / {totalHalamanBuku} hal
             </p>
           </div>
         </div>
@@ -268,24 +392,33 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
             📄 Peta Halaman
           </h3>
           <p className="text-xs text-gray-500 mb-3">
-            🟢 Udah dibaca • ⚪ Belum dibaca
+            🟢 Udah dibaca • ⚪ Belum dibaca • Klik halaman untuk toggle
           </p>
+          {halamanMulai > 1 && (
+            <p className="text-xs text-blue-600 mb-3">
+              ℹ️ Halaman 1–{halamanMulai - 1} adalah front matter, tidak dihitung dalam progress.
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-1">
-            {getHalamanRange(buku.halamanMulai || 1, buku.totalHalaman).map((h) => {
+            {getHalamanRange(1, buku.totalHalaman).map((h) => {
               const dibaca = halamanSelesai.includes(h);
+              const isFrontMatter = h < halamanMulai;
               return (
-                <div
+                <button
                   key={h}
-                  className={`w-7 h-7 rounded flex items-center justify-center text-[10px] font-semibold border ${
+                  onClick={() => handleToggleHalaman(h)}
+                  className={`w-7 h-7 rounded flex items-center justify-center text-[10px] font-semibold border transition ${
                     dibaca
-                      ? "bg-green-500 text-white border-green-600"
-                      : "bg-gray-100 text-gray-500 border-gray-200"
+                      ? "bg-green-500 text-white border-green-600 hover:bg-green-600"
+                      : isFrontMatter
+                      ? "bg-blue-50 text-blue-400 border-blue-200 hover:bg-blue-100"
+                      : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
                   }`}
-                  title={`Halaman ${h}${dibaca ? " (udah dibaca)" : ""}`}
+                  title={`Halaman ${h}${dibaca ? " (udah dibaca)" : ""}${isFrontMatter ? " (front matter)" : ""}`}
                 >
                   {h}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -380,10 +513,26 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
                     <p className="text-sm font-semibold text-gray-800">
                       📅 {formatTanggal(entry.tanggal, "pendek")}
                     </p>
-                    <span className="text-xs text-gray-500">
-                      Hal. {entry.halamanMulai}–{entry.halamanAkhir} (
-                      {entry.halamanList?.length || 0} hal)
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">
+                        Hal. {entry.halamanMulai}–{entry.halamanAkhir} (
+                        {entry.halamanList?.length || 0} hal)
+                      </span>
+                      <button
+                        className="btn btn-ghost btn-xs text-blue-500"
+                        onClick={() => handleEditRiwayat(entry)}
+                        title="Edit riwayat"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-xs text-red-500"
+                        onClick={() => handleHapusRiwayat(entry.tanggal)}
+                        title="Hapus riwayat"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
                   {entry.catatan && (
                     <p className="text-xs text-gray-700 whitespace-pre-wrap mt-1 bg-white p-2 rounded border border-gray-200">
@@ -418,6 +567,105 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
           )}
         </div>
       </div>
+
+      {/* ========== MODAL EDIT RIWAYAT ========== */}
+      {editingRiwayat && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card bg-white shadow-xl w-full max-w-md">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base font-bold text-gray-800">
+                  ✏️ Edit Riwayat Baca
+                </h3>
+                <button
+                  className="btn btn-ghost btn-sm text-gray-700"
+                  onClick={() => setEditingRiwayat(null)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p className="text-xs text-gray-500 mb-3">
+                📅 {formatTanggal(editingRiwayat, "pendek")}
+              </p>
+
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                      Halaman Mulai
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={buku.totalHalaman}
+                      className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                      value={editRiwayatForm.halamanMulai}
+                      onChange={(e) =>
+                        setEditRiwayatForm({
+                          ...editRiwayatForm,
+                          halamanMulai: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                      Halaman Akhir
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={buku.totalHalaman}
+                      className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                      value={editRiwayatForm.halamanAkhir}
+                      onChange={(e) =>
+                        setEditRiwayatForm({
+                          ...editRiwayatForm,
+                          halamanAkhir: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                    Catatan
+                  </label>
+                  <textarea
+                    className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white"
+                    rows="3"
+                    placeholder="Catatan baca hari ini..."
+                    value={editRiwayatForm.catatan}
+                    onChange={(e) =>
+                      setEditRiwayatForm({
+                        ...editRiwayatForm,
+                        catatan: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  className="btn btn-primary btn-sm flex-1"
+                  onClick={handleSimpanEditRiwayat}
+                >
+                  💾 Simpan
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm text-gray-700"
+                  onClick={() => setEditingRiwayat(null)}
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
