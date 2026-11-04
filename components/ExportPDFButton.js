@@ -27,27 +27,38 @@ export default function ExportPDFButton({
       const isTimeSchedule = element.innerHTML.includes("Time Schedule") || element.innerHTML.includes("TimeSchedule");
       const pdfOrientation = orientation === "auto" ? (isTimeSchedule ? "l" : "p") : orientation;
 
-      // Warna dasar abu-abu terang (mirip bg-slate-50)
-      const SAFE_BG_COLOR = "#f8fafc"; 
-
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: SAFE_BG_COLOR,
+        backgroundColor: "#ffffff", // Putih bersih
         logging: false,
         ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.getElementById(targetId);
           if (clonedElement) {
+            // 1. PAKSA LEBAR DESKTOP (1200px) BIAR GRID KALENDER GA HANCUR
+            clonedElement.style.width = "1200px";
+            clonedElement.style.maxWidth = "none";
+            clonedElement.style.padding = "20px";
+            clonedElement.style.backgroundColor = "#ffffff";
+            
+            // 2. BONGKAR SCROLL & FLEXBOX
             clonedElement.style.height = "auto";
             clonedElement.style.maxHeight = "none";
             clonedElement.style.overflow = "visible";
-            
-            // Bongkar scroll di Gantt Chart
+
+            let parent = clonedElement.parentElement;
+            while (parent && parent.tagName !== "BODY") {
+              parent.style.overflow = "visible";
+              parent.style.height = "auto";
+              parent.style.display = "block"; // Matiin flexbox
+              parent = parent.parentElement;
+            }
+
+            // 3. BONGKAR SCROLL PADA TABEL / GANTT CHART
             const scrollElements = clonedElement.querySelectorAll(".overflow-x-auto");
             scrollElements.forEach(el => {
               el.style.overflow = "visible";
-              el.style.width = "max-content";
             });
           }
         }
@@ -64,50 +75,38 @@ export default function ExportPDFButton({
       const pageHeightInCanvasPx = (pdfHeight * canvas.width) / imgWidth;
       
       let currentY = 0;
-      let pageNum = 1;
 
+      // LOGIKA POTONG PER HALAMAN (ANTI GEPENG & ANTI HITAM)
       while (currentY < imgHeight) {
-        if (pageNum > 1) pdf.addPage();
-
-        // Warnai background kertas pakai HEX
-        pdf.setFillColor(SAFE_BG_COLOR);
-        pdf.rect(0, 0, pdfWidth, pdfHeight, "F");
-
-        // Hitung tinggi potongan
-        let sliceHeight = pageHeightInCanvasPx;
-        let targetY = currentY + sliceHeight;
+        const remaining = imgHeight - currentY;
+        const sliceHeight = Math.min(pageHeightInCanvasPx, remaining);
         
-        // Cek apakah sliceHeight melebihi sisa gambar
-        if (targetY > imgHeight) {
-          sliceHeight = imgHeight - currentY;
-        }
-
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = canvas.width;
         tempCanvas.height = sliceHeight;
         const ctx = tempCanvas.getContext("2d");
         
-        // KUNCI PERBAIKAN: Isi background tempCanvas dengan warna abu-abu/putih
-        // Ini mencegah area transparan berubah jadi hitam saat di-convert ke JPEG
-        ctx.fillStyle = SAFE_BG_COLOR;
+        // Paksa background kertas putih biar ga ada kotak item
+        ctx.fillStyle = "#ffffff"; 
         ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
+        
+        // Gambar potongannya
         ctx.drawImage(canvas, 0, currentY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
 
         const slicedImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
         const renderHeight = (sliceHeight * imgWidth) / canvas.width;
         
+        if (currentY > 0) pdf.addPage();
         pdf.addImage(slicedImgData, "JPEG", 0, 0, imgWidth, renderHeight);
-
+        
         currentY += sliceHeight;
-        pageNum++;
       }
 
       // Footer
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        pdf.setFillColor(SAFE_BG_COLOR);
+        pdf.setFillColor("#ffffff");
         pdf.rect(0, pdfHeight - 10, pdfWidth, 10, 'F');
         pdf.setFontSize(8);
         pdf.setTextColor(150);
