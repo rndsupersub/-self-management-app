@@ -24,38 +24,39 @@ export default function ExportPDFButton({
     setIsExporting(true);
 
     try {
+      // Deteksi Landscape untuk Time Schedule
       const isTimeSchedule = element.innerHTML.includes("Time Schedule") || element.innerHTML.includes("TimeSchedule");
       const pdfOrientation = orientation === "auto" ? (isTimeSchedule ? "l" : "p") : orientation;
 
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: "#ffffff", // Putih bersih
+        backgroundColor: "#ffffff",
         logging: false,
         ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
+        
+        // KUNCI UTAMA: Paksa render selebar desktop dan setinggi konten
+        windowWidth: 1200, 
+        windowHeight: element.scrollHeight, 
+
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.getElementById(targetId);
           if (clonedElement) {
-            // 1. PAKSA LEBAR DESKTOP (1200px) BIAR GRID KALENDER GA HANCUR
-            clonedElement.style.width = "1200px";
-            clonedElement.style.maxWidth = "none";
-            clonedElement.style.padding = "20px";
-            clonedElement.style.backgroundColor = "#ffffff";
-            
-            // 2. BONGKAR SCROLL & FLEXBOX
+            // Hanya ubah tinggi dan overflow, JANGAN UBAH DISPLAY (biar flexbox ga ambruk)
             clonedElement.style.height = "auto";
             clonedElement.style.maxHeight = "none";
             clonedElement.style.overflow = "visible";
-
+            
+            // Bongkar scroll pada parent
             let parent = clonedElement.parentElement;
             while (parent && parent.tagName !== "BODY") {
               parent.style.overflow = "visible";
               parent.style.height = "auto";
-              parent.style.display = "block"; // Matiin flexbox
+              parent.style.maxHeight = "none";
               parent = parent.parentElement;
             }
 
-            // 3. BONGKAR SCROLL PADA TABEL / GANTT CHART
+            // Bongkar scroll pada tabel / Gantt Chart
             const scrollElements = clonedElement.querySelectorAll(".overflow-x-auto");
             scrollElements.forEach(el => {
               el.style.overflow = "visible";
@@ -69,40 +70,31 @@ export default function ExportPDFButton({
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
+      // Hitung rasio gambar
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      const pageHeightInCanvasPx = (pdfHeight * canvas.width) / imgWidth;
-      
-      let currentY = 0;
 
-      // LOGIKA POTONG PER HALAMAN (ANTI GEPENG & ANTI HITAM)
-      while (currentY < imgHeight) {
-        const remaining = imgHeight - currentY;
-        const sliceHeight = Math.min(pageHeightInCanvasPx, remaining);
-        
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = sliceHeight;
-        const ctx = tempCanvas.getContext("2d");
-        
-        // Paksa background kertas putih biar ga ada kotak item
-        ctx.fillStyle = "#ffffff"; 
-        ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-        
-        // Gambar potongannya
-        ctx.drawImage(canvas, 0, currentY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+      let heightLeft = imgHeight;
+      let position = 0;
 
-        const slicedImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
-        const renderHeight = (sliceHeight * imgWidth) / canvas.width;
+      // Cetak Halaman 1
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+
+      // Cetak Halaman Selanjutnya (Kalau datanya panjang)
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
         
-        if (currentY > 0) pdf.addPage();
-        pdf.addImage(slicedImgData, "JPEG", 0, 0, imgWidth, renderHeight);
+        // Isi background putih biar ga ada jurang item
+        pdf.setFillColor("#ffffff");
+        pdf.rect(0, 0, pdfWidth, pdfHeight, "F");
         
-        currentY += sliceHeight;
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
       }
 
-      // Footer
+      // Bikin Footer Halaman
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
