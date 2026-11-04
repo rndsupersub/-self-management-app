@@ -27,26 +27,13 @@ export default function ExportPDFButton({
       const isTimeSchedule = element.innerHTML.includes("Time Schedule") || element.innerHTML.includes("TimeSchedule");
       const pdfOrientation = orientation === "auto" ? (isTimeSchedule ? "l" : "p") : orientation;
 
-      // KITA GUNAKAN WARNA HEX STATIS (Aman buat jsPDF)
+      // Warna dasar abu-abu terang (mirip bg-slate-50)
       const SAFE_BG_COLOR = "#f8fafc"; 
-
-      // 1. Kumpulkan titik aman buat motong kertas
-      const safeBreakPoints = [];
-      const rows = element.querySelectorAll('.card, tr, .border, .flex.items-center');
-      rows.forEach(row => {
-        const rect = row.getBoundingClientRect();
-        const elementRect = element.getBoundingClientRect();
-        safeBreakPoints.push({
-          top: rect.top - elementRect.top,
-          bottom: rect.bottom - elementRect.top
-        });
-      });
-      safeBreakPoints.sort((a, b) => a.top - b.top);
 
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        backgroundColor: SAFE_BG_COLOR, // Pakai warna aman
+        backgroundColor: SAFE_BG_COLOR,
         logging: false,
         ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
         onclone: (clonedDoc) => {
@@ -56,17 +43,12 @@ export default function ExportPDFButton({
             clonedElement.style.maxHeight = "none";
             clonedElement.style.overflow = "visible";
             
-            // Bongkar scroll di Gantt Chart biar ke-capture semua
+            // Bongkar scroll di Gantt Chart
             const scrollElements = clonedElement.querySelectorAll(".overflow-x-auto");
             scrollElements.forEach(el => {
               el.style.overflow = "visible";
               el.style.width = "max-content";
             });
-
-            // Paksa teks hitam, anti pudar
-            const style = clonedDoc.createElement("style");
-            style.innerHTML = `* { color: #000 !important; text-shadow: none !important; opacity: 1 !important; }`;
-            clonedDoc.head.appendChild(style);
           }
         }
       });
@@ -87,28 +69,29 @@ export default function ExportPDFButton({
       while (currentY < imgHeight) {
         if (pageNum > 1) pdf.addPage();
 
-        // Warnai background kertas pakai HEX (Biar nyambung ga ada jurang putih)
+        // Warnai background kertas pakai HEX
         pdf.setFillColor(SAFE_BG_COLOR);
         pdf.rect(0, 0, pdfWidth, pdfHeight, "F");
 
-        // --- LOGIKA SMART PAGE BREAK (ANTI KEPOTONG) ---
+        // Hitung tinggi potongan
         let sliceHeight = pageHeightInCanvasPx;
         let targetY = currentY + sliceHeight;
         
-        const cutRow = safeBreakPoints.find(bp => 
-          targetY > bp.top && targetY < bp.bottom
-        );
-
-        if (cutRow) {
-          targetY = cutRow.top; 
-          sliceHeight = targetY - currentY;
+        // Cek apakah sliceHeight melebihi sisa gambar
+        if (targetY > imgHeight) {
+          sliceHeight = imgHeight - currentY;
         }
 
-        // Render potongan gambar
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = canvas.width;
         tempCanvas.height = sliceHeight;
         const ctx = tempCanvas.getContext("2d");
+        
+        // KUNCI PERBAIKAN: Isi background tempCanvas dengan warna abu-abu/putih
+        // Ini mencegah area transparan berubah jadi hitam saat di-convert ke JPEG
+        ctx.fillStyle = SAFE_BG_COLOR;
+        ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
         ctx.drawImage(canvas, 0, currentY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
 
         const slicedImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
