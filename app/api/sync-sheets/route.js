@@ -6,16 +6,10 @@ import { getFirestore } from "firebase-admin/firestore";
 
 // ========== CONSTANTS ==========
 const PASTEL_COLORS = [
-  { red: 0.85, green: 0.92, blue: 1.0 },
-  { red: 1.0, green: 0.95, blue: 0.8 },
-  { red: 0.9, green: 1.0, blue: 0.9 },
-  { red: 1.0, green: 0.9, blue: 0.9 },
-  { red: 0.95, green: 0.9, blue: 1.0 },
-  { red: 1.0, green: 0.92, blue: 0.85 },
-  { red: 0.85, green: 0.95, blue: 0.95 },
-  { red: 0.95, green: 0.85, blue: 0.95 },
-  { red: 0.9, green: 0.92, blue: 0.85 },
-  { red: 0.9, green: 0.88, blue: 0.85 },
+  { red: 0.85, green: 0.92, blue: 1.0 }, { red: 1.0, green: 0.95, blue: 0.8 },
+  { red: 0.9, green: 1.0, blue: 0.9 }, { red: 1.0, green: 0.9, blue: 0.9 },
+  { red: 0.95, green: 0.9, blue: 1.0 }, { red: 1.0, green: 0.92, blue: 0.85 },
+  { red: 0.85, green: 0.95, blue: 0.95 }, { red: 0.95, green: 0.85, blue: 0.95 },
 ];
 
 const STATUS_COLORS = {
@@ -54,28 +48,27 @@ function escapeForFormula(s) {
   return String(s).replace(/"/g, '""');
 }
 
-// Helper buat bikin progress bar teks (Anti error di Excel)
-function getProgressBar(pct, totalBlocks = 10) {
-  const filled = Math.round((pct / 100) * totalBlocks);
-  const empty = totalBlocks - filled;
-  return "█".repeat(filled) + "░".repeat(empty);
+// Helper buat bikin Time Schedule (Bar Chart karakter)
+function generateTimelineBar(start, end) {
+  if (!start) return "-";
+  const startDate = new Date(start);
+  const endDate = end ? new Date(end) : new Date(start);
+  const diffDays = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+  
+  // 1 hari = 1 blok, maksimal 20 blok biar ga kepanjangan
+  const blocks = Math.min(diffDays, 20);
+  const bar = "█".repeat(blocks);
+  return `${bar} (${diffDays} hari)`;
 }
 
 // ========== FIREBASE ADMIN ==========
 let adminApp = null;
 function getAdminApp() {
   if (adminApp) return adminApp;
-  if (getApps().length > 0) {
-    adminApp = getApps()[0];
-    return adminApp;
-  }
+  if (getApps().length > 0) { adminApp = getApps()[0]; return adminApp; }
   const privateKey = parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
   adminApp = initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey,
-    }),
+    credential: cert({ projectId: process.env.FIREBASE_PROJECT_ID, clientEmail: process.env.FIREBASE_CLIENT_EMAIL, privateKey }),
   });
   return adminApp;
 }
@@ -84,10 +77,7 @@ function getAdminApp() {
 function getAuth() {
   const privateKey = parsePrivateKey(process.env.GOOGLE_PRIVATE_KEY);
   return new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: privateKey,
-    },
+    credentials: { client_email: process.env.GOOGLE_CLIENT_EMAIL, private_key: privateKey },
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 }
@@ -99,18 +89,12 @@ const MENU_CONFIG = {
     hiddenCols: ["firestoreId", "updatedAt", "menu", "judul"],
     cfCol: "kategori",
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "kategori", width: 180 },
-      { name: "subKategori", width: 150 },
-      { name: "tool", width: 150 },
-      { name: "fitur", width: 200 },
-      { name: "part", width: 250 },
-      { name: "judul", width: 200 },
-      { name: "tanggal", width: 100 },
-      { name: "status", width: 80 },
-      { name: "catatan", width: 300 },
-      { name: "gdriveUrl", width: 250 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "kategori", width: 180 }, { name: "subKategori", width: 150 },
+      { name: "tool", width: 150 }, { name: "fitur", width: 200 },
+      { name: "part", width: 250 }, { name: "judul", width: 200 },
+      { name: "tanggal", width: 100 }, { name: "status", width: 80 },
+      { name: "catatan", width: 300 }, { name: "gdriveUrl", width: 250 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
@@ -121,14 +105,10 @@ const MENU_CONFIG = {
             (tool.fitur || []).forEach((fitur) => {
               if (fitur.parts && fitur.parts.length > 0) {
                 fitur.parts.forEach((part) => {
-                  rows.push({
-                    firestoreId: part.id, menu: "belajar", kategori: kat.nama, subKategori: sub.nama, tool: tool.nama, fitur: fitur.nama, part: part.nama, judul: part.nama, tanggal: "", status: "", catatan: part.catatan || "", gdriveUrl: part.gdriveUrl || "", updatedAt: part.updatedAt || "",
-                  });
+                  rows.push({ firestoreId: part.id, menu: "belajar", kategori: kat.nama, subKategori: sub.nama, tool: tool.nama, fitur: fitur.nama, part: part.nama, judul: part.nama, tanggal: "", status: "", catatan: part.catatan || "", gdriveUrl: part.gdriveUrl || "", updatedAt: part.updatedAt || "" });
                 });
               } else {
-                rows.push({
-                  firestoreId: fitur.id, menu: "belajar", kategori: kat.nama, subKategori: sub.nama, tool: tool.nama, fitur: fitur.nama, part: "", judul: fitur.nama, tanggal: "", status: "", catatan: fitur.catatan || "", gdriveUrl: fitur.gdriveUrl || "", updatedAt: fitur.updatedAt || "",
-                });
+                rows.push({ firestoreId: fitur.id, menu: "belajar", kategori: kat.nama, subKategori: sub.nama, tool: tool.nama, fitur: fitur.nama, part: "", judul: fitur.nama, tanggal: "", status: "", catatan: fitur.catatan || "", gdriveUrl: fitur.gdriveUrl || "", updatedAt: fitur.updatedAt || "" });
               }
             });
           });
@@ -142,14 +122,11 @@ const MENU_CONFIG = {
     hiddenCols: ["firestoreId", "updatedAt", "menu"],
     cfCol: "status",
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "pt", width: 150 },
-      { name: "brand", width: 150 },
-      { name: "judul", width: 250 },
-      { name: "tanggal", width: 100 },
-      { name: "status", width: 100 },
-      { name: "catatan", width: 300 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "pt", width: 150 }, { name: "brand", width: 150 },
+      { name: "judul", width: 250 }, { name: "tanggalMulai", width: 100 },
+      { name: "tanggalSelesai", width: 100 }, { name: "Timeline", width: 180 },
+      { name: "status", width: 100 }, { name: "catatan", width: 300 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
@@ -157,8 +134,12 @@ const MENU_CONFIG = {
       (data?.pekerjaan || []).forEach((pt) => {
         (pt.brands || []).forEach((brand) => {
           (brand.kegiatan || []).forEach((keg) => {
+            const start = keg.tanggalMulai || keg.tanggal || "";
+            const end = keg.tanggalSelesai || keg.tanggal || "";
             rows.push({
-              firestoreId: keg.id, menu: "pekerjaan", pt: pt.nama, brand: brand.nama, judul: keg.judul || "", tanggal: keg.tanggal || "", status: keg.status || "", catatan: keg.catatan || "", updatedAt: keg.updatedAt || "",
+              firestoreId: keg.id, menu: "pekerjaan", pt: pt.nama, brand: brand.nama, judul: keg.judul || "", 
+              tanggalMulai: start, tanggalSelesai: end, Timeline: generateTimelineBar(start, end),
+              status: keg.status || "", catatan: keg.catatan || "", updatedAt: keg.updatedAt || "",
             });
           });
         });
@@ -172,14 +153,10 @@ const MENU_CONFIG = {
     cfCol: "tipe",
     numCol: "jumlah",
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "tanggal", width: 100 },
-      { name: "tipe", width: 100 },
-      { name: "kategori", width: 150 },
-      { name: "jumlah", width: 120 },
-      { name: "dompet", width: 120 },
-      { name: "catatan", width: 300 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "tanggal", width: 100 }, { name: "tipe", width: 100 },
+      { name: "kategori", width: 150 }, { name: "jumlah", width: 120 },
+      { name: "dompet", width: 120 }, { name: "catatan", width: 300 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
@@ -187,9 +164,7 @@ const MENU_CONFIG = {
       const transaksi = data?.keuanganTransaksi || {};
       Object.keys(transaksi).forEach((tanggal) => {
         (transaksi[tanggal] || []).forEach((tx) => {
-          rows.push({
-            firestoreId: tx.id, menu: "keuangan", tanggal, tipe: tx.tipe || tx.jenis || "", kategori: tx.kategori || tx.kategoriId || "", jumlah: Number(tx.jumlah || tx.nominal || 0), dompet: tx.dompet || tx.walletId || "", catatan: tx.catatan || "", updatedAt: tx.updatedAt || "",
-          });
+          rows.push({ firestoreId: tx.id, menu: "keuangan", tanggal, tipe: tx.tipe || tx.jenis || "", kategori: tx.kategori || tx.kategoriId || "", jumlah: Number(tx.jumlah || tx.nominal || 0), dompet: tx.dompet || tx.walletId || "", catatan: tx.catatan || "", updatedAt: tx.updatedAt || "" });
         });
       });
       return rows;
@@ -199,12 +174,9 @@ const MENU_CONFIG = {
     sheetName: "Olahraga",
     hiddenCols: ["firestoreId", "updatedAt", "menu"],
     headers: [
-      { name: "firestoreId", width: 150 },
-      { name: "menu", width: 80 },
-      { name: "tanggal", width: 100 },
-      { name: "aktivitas", width: 150 },
-      { name: "durasi", width: 100 },
-      { name: "catatan", width: 300 },
+      { name: "firestoreId", width: 150 }, { name: "menu", width: 80 },
+      { name: "tanggal", width: 100 }, { name: "aktivitas", width: 150 },
+      { name: "durasi", width: 100 }, { name: "catatan", width: 300 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
@@ -212,9 +184,7 @@ const MENU_CONFIG = {
       const harian = data?.olahraga?.harian || {};
       Object.keys(harian).forEach((tanggal) => {
         const entry = harian[tanggal] || {};
-        rows.push({
-          firestoreId: `olahraga_${tanggal}`, menu: "olahraga", tanggal, aktivitas: entry.aktivitas || entry.jenis || "", durasi: entry.durasi || entry.jarak || entry.jumlah || "", catatan: entry.catatan || "", updatedAt: entry.updatedAt || "",
-        });
+        rows.push({ firestoreId: `olahraga_${tanggal}`, menu: "olahraga", tanggal, aktivitas: entry.aktivitas || entry.jenis || "", durasi: entry.durasi || entry.jarak || entry.jumlah || "", catatan: entry.catatan || "", updatedAt: entry.updatedAt || "" });
       });
       return rows;
     },
@@ -223,23 +193,17 @@ const MENU_CONFIG = {
     sheetName: "Hafalan",
     hiddenCols: ["firestoreId", "updatedAt", "menu"],
     headers: [
-      { name: "firestoreId", width: 150 },
-      { name: "menu", width: 80 },
-      { name: "tanggal", width: 100 },
-      { name: "suratId", width: 120 },
-      { name: "juzId", width: 100 },
-      { name: "halaman", width: 100 },
-      { name: "catatan", width: 300 },
-      { name: "updatedAt", width: 150 },
+      { name: "firestoreId", width: 150 }, { name: "menu", width: 80 },
+      { name: "tanggal", width: 100 }, { name: "suratId", width: 120 },
+      { name: "juzId", width: 100 }, { name: "halaman", width: 100 },
+      { name: "catatan", width: 300 }, { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
       const rows = [];
       const membaca = data?.hafalanMembaca || {};
       Object.keys(membaca).forEach((tanggal) => {
         const entry = membaca[tanggal] || {};
-        rows.push({
-          firestoreId: entry.id || `hafalan_${tanggal}`, menu: "hafalan", tanggal, suratId: entry.suratId || "", juzId: entry.juzId || "", halaman: `${entry.halamanMulai || 0}-${entry.halamanSelesai || 0}`, catatan: entry.catatan || "", updatedAt: entry.updatedAt || "",
-        });
+        rows.push({ firestoreId: entry.id || `hafalan_${tanggal}`, menu: "hafalan", tanggal, suratId: entry.suratId || "", juzId: entry.juzId || "", halaman: `${entry.halamanMulai || 0}-${entry.halamanSelesai || 0}`, catatan: entry.catatan || "", updatedAt: entry.updatedAt || "" });
       });
       return rows;
     },
@@ -249,21 +213,22 @@ const MENU_CONFIG = {
     hiddenCols: ["firestoreId", "updatedAt", "menu"],
     cfCol: "status",
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "brand", width: 150 },
-      { name: "judul", width: 250 },
-      { name: "tanggal", width: 100 },
-      { name: "status", width: 100 },
-      { name: "catatan", width: 300 },
-      { name: "updatedAt", width: 150 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "brand", width: 150 }, { name: "judul", width: 250 },
+      { name: "tanggalMulai", width: 100 }, { name: "tanggalSelesai", width: 100 },
+      { name: "Timeline", width: 180 }, { name: "status", width: 100 },
+      { name: "catatan", width: 300 }, { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
       const rows = [];
       (data?.bisnisBrands || []).forEach((brand) => {
         (brand.kegiatan || []).forEach((keg) => {
+          const start = keg.tanggalMulai || keg.tanggal || "";
+          const end = keg.tanggalSelesai || keg.tanggal || "";
           rows.push({
-            firestoreId: keg.id, menu: "bisnis", brand: brand.nama, judul: keg.judul || "", tanggal: keg.tanggal || "", status: keg.status || "", catatan: keg.catatan || "", updatedAt: keg.updatedAt || "",
+            firestoreId: keg.id, menu: "bisnis", brand: brand.nama, judul: keg.judul || "", 
+            tanggalMulai: start, tanggalSelesai: end, Timeline: generateTimelineBar(start, end),
+            status: keg.status || "", catatan: keg.catatan || "", updatedAt: keg.updatedAt || "",
           });
         });
       });
@@ -274,24 +239,17 @@ const MENU_CONFIG = {
     sheetName: "YouTube",
     hiddenCols: ["firestoreId", "updatedAt", "menu"],
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "channel", width: 120 },
-      { name: "judul", width: 250 },
-      { name: "tipe", width: 100 },
-      { name: "tanggal", width: 100 },
-      { name: "status", width: 100 },
-      { name: "linkYoutube", width: 250 },
-      { name: "gdriveUrl", width: 250 },
-      { name: "catatan", width: 300 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "channel", width: 120 }, { name: "judul", width: 250 },
+      { name: "tipe", width: 100 }, { name: "tanggal", width: 100 },
+      { name: "status", width: 100 }, { name: "linkYoutube", width: 250 },
+      { name: "gdriveUrl", width: 250 }, { name: "catatan", width: 300 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
       const rows = [];
       (data?.youtube_logs || []).forEach((log) => {
-        rows.push({
-          firestoreId: log.id, menu: "youtube", channel: log.channel || "", judul: log.judul || "", tipe: log.tipe || "", tanggal: log.tanggal || "", status: log.status || "", linkYoutube: log.linkYoutube || "", gdriveUrl: log.gdriveUrl || "", catatan: log.catatan || "", updatedAt: log.updatedAt || "",
-        });
+        rows.push({ firestoreId: log.id, menu: "youtube", channel: log.channel || "", judul: log.judul || "", tipe: log.tipe || "", tanggal: log.tanggal || "", status: log.status || "", linkYoutube: log.linkYoutube || "", gdriveUrl: log.gdriveUrl || "", catatan: log.catatan || "", updatedAt: log.updatedAt || "" });
       });
       return rows;
     },
@@ -300,22 +258,16 @@ const MENU_CONFIG = {
     sheetName: "BedahBuku",
     hiddenCols: ["firestoreId", "updatedAt", "menu"],
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "judul", width: 250 },
-      { name: "penulis", width: 150 },
-      { name: "kategoriId", width: 120 },
-      { name: "totalHalaman", width: 100 },
-      { name: "targetPerHari", width: 100 },
-      { name: "tanggalMulai", width: 100 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "judul", width: 250 }, { name: "penulis", width: 150 },
+      { name: "kategoriId", width: 120 }, { name: "totalHalaman", width: 100 },
+      { name: "targetPerHari", width: 100 }, { name: "tanggalMulai", width: 100 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
       const rows = [];
       (data?.bedahBuku?.buku || []).forEach((b) => {
-        rows.push({
-          firestoreId: b.id, menu: "bedahbuku", judul: b.judul || "", penulis: b.penulis || "", kategoriId: b.kategoriId || "", totalHalaman: b.totalHalaman || 0, targetPerHari: b.targetPerHari || 0, tanggalMulai: b.tanggalMulai || "", updatedAt: b.updatedAt || "",
-        });
+        rows.push({ firestoreId: b.id, menu: "bedahbuku", judul: b.judul || "", penulis: b.penulis || "", kategoriId: b.kategoriId || "", totalHalaman: b.totalHalaman || 0, targetPerHari: b.targetPerHari || 0, tanggalMulai: b.tanggalMulai || "", updatedAt: b.updatedAt || "" });
       });
       return rows;
     },
@@ -324,16 +276,11 @@ const MENU_CONFIG = {
     sheetName: "MenuCustom",
     hiddenCols: ["firestoreId", "updatedAt", "menu", "judul"],
     headers: [
-      { name: "firestoreId", width: 100 },
-      { name: "menu", width: 80 },
-      { name: "customId", width: 100 },
-      { name: "kategori", width: 150 },
-      { name: "subKategori", width: 150 },
-      { name: "tool", width: 150 },
-      { name: "fitur", width: 200 },
-      { name: "part", width: 250 },
-      { name: "judul", width: 200 },
-      { name: "catatan", width: 300 },
+      { name: "firestoreId", width: 100 }, { name: "menu", width: 80 },
+      { name: "customId", width: 100 }, { name: "kategori", width: 150 },
+      { name: "subKategori", width: 150 }, { name: "tool", width: 150 },
+      { name: "fitur", width: 200 }, { name: "part", width: 250 },
+      { name: "judul", width: 200 }, { name: "catatan", width: 300 },
       { name: "updatedAt", width: 150 },
     ],
     flatten: (data) => {
@@ -346,14 +293,10 @@ const MENU_CONFIG = {
             (tool.fitur || []).forEach((fitur) => {
               if (fitur.parts && fitur.parts.length > 0) {
                 fitur.parts.forEach((part) => {
-                  rows.push({
-                    firestoreId: part.id, menu: "custom", customId, kategori: menu.nama || "", subKategori: sub.nama || "", tool: tool.nama || "", fitur: fitur.nama || "", part: part.nama || "", judul: part.nama || "", catatan: part.catatan || "", updatedAt: part.updatedAt || "",
-                  });
+                  rows.push({ firestoreId: part.id, menu: "custom", customId, kategori: menu.nama || "", subKategori: sub.nama || "", tool: tool.nama || "", fitur: fitur.nama || "", part: part.nama || "", judul: part.nama || "", catatan: part.catatan || "", updatedAt: part.updatedAt || "" });
                 });
               } else {
-                rows.push({
-                  firestoreId: fitur.id, menu: "custom", customId, kategori: menu.nama || "", subKategori: sub.nama || "", tool: tool.nama || "", fitur: fitur.nama || "", part: "", judul: fitur.nama || "", catatan: fitur.catatan || "", updatedAt: fitur.updatedAt || "",
-                });
+                rows.push({ firestoreId: fitur.id, menu: "custom", customId, kategori: menu.nama || "", subKategori: sub.nama || "", tool: tool.nama || "", fitur: fitur.nama || "", part: "", judul: fitur.nama || "", catatan: fitur.catatan || "", updatedAt: fitur.updatedAt || "" });
               }
             });
           });
@@ -369,10 +312,8 @@ async function getOrCreateSheet(sheets, spreadsheetId, sheetName) {
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
   const existing = spreadsheet.data.sheets?.find((s) => s.properties?.title === sheetName);
   if (existing) return existing.properties.sheetId;
-
   const result = await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] },
+    spreadsheetId, requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] },
   });
   return result.data.replies?.[0]?.addSheet?.properties?.sheetId;
 }
@@ -382,8 +323,7 @@ function sortRows(rows) {
   return rows.slice().sort((a, b) => {
     const keys = ["kategori", "subKategori", "tool", "fitur"];
     for (const k of keys) {
-      const av = (a[k] || "").toString();
-      const bv = (b[k] || "").toString();
+      const av = (a[k] || "").toString(); const bv = (b[k] || "").toString();
       if (av !== bv) return av.localeCompare(bv);
     }
     return 0;
@@ -393,35 +333,19 @@ function sortRows(rows) {
 // ========== ENSURE HEADER ==========
 async function ensureHeader(sheets, spreadsheetId, sheetName, headers) {
   const headerValues = headers.map(h => h.name);
-  
   try {
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: `${sheetName}!A1:Z1`,
-    });
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${sheetName}!A1:Z1` });
     const firstRow = res.data.values?.[0] || [];
-    
-    // Cek apakah baris pertama sudah sesuai header yang diharapkan
-    const isHeaderCorrect = firstRow.length === headerValues.length && 
-      headerValues.every((val, i) => val === firstRow[i]);
-
+    const isHeaderCorrect = firstRow.length === headerValues.length && headerValues.every((val, i) => val === firstRow[i]);
     if (!isHeaderCorrect) {
-      // Kalau header salah/kosong, bersihin sheet dan tulis header baru
       await sheets.spreadsheets.values.clear({ spreadsheetId, range: `${sheetName}!A:Z` });
       await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!A1`,
-        valueInputOption: "USER_ENTERED",
-        requestBody: { values: [headerValues] },
+        spreadsheetId, range: `${sheetName}!A1`, valueInputOption: "USER_ENTERED", requestBody: { values: [headerValues] },
       });
     }
   } catch (e) {
-    // Kalau sheet baru banget (error karena kosong), tulis header
     await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${sheetName}!A1`,
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: [headerValues] },
+      spreadsheetId, range: `${sheetName}!A1`, valueInputOption: "USER_ENTERED", requestBody: { values: [headerValues] },
     });
   }
 }
@@ -431,62 +355,41 @@ async function replaceConditionalFormats(sheets, spreadsheetId, sheetId, targetC
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties,sheets.conditionalFormats" });
   const sheet = spreadsheet.data.sheets?.find((s) => s.properties?.sheetId === sheetId);
   const existingRules = sheet?.conditionalFormats || [];
-
   const deleteRequests = [];
   existingRules.forEach((rule, idx) => {
     const touches = (rule.ranges || []).some((r) => r.startColumnIndex === targetColIdx && r.endColumnIndex === targetColIdx + 1);
     if (touches) deleteRequests.push({ deleteConditionalFormatRule: { sheetId, index: idx } });
   });
   deleteRequests.sort((a, b) => b.deleteConditionalFormatRule.index - a.deleteConditionalFormatRule.index);
-
   const addRequests = newRules.map((rule) => ({ addConditionalFormatRule: { rule } }));
-
   if (deleteRequests.length === 0 && addRequests.length === 0) return;
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests: [...deleteRequests, ...addRequests] },
-  });
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: [...deleteRequests, ...addRequests] } });
 }
 
 function buildCFRule(sheetId, colIdx, value, color) {
   const colLetter = getColLetter(colIdx);
-  const rule = {
+  return {
     ranges: [{ sheetId, startRowIndex: 1, startColumnIndex: colIdx, endColumnIndex: colIdx + 1 }],
     booleanRule: {
-      condition: {
-        type: "CUSTOM_FORMULA",
-        values: [{ userEnteredValue: `=EXACT($${colLetter}2,"${escapeForFormula(value)}")` }],
-      },
+      condition: { type: "CUSTOM_FORMULA", values: [{ userEnteredValue: `=EXACT($${colLetter}2,"${escapeForFormula(value)}")` }] },
       format: { backgroundColor: color },
     },
   };
-  return rule;
 }
 
 async function applyConditionalFormatting(sheets, spreadsheetId, sheetId, config, newRows) {
   if (!config.cfCol) return;
   const colIdx = config.headers.findIndex((h) => h.name === config.cfCol);
   if (colIdx === -1) return;
-
   const rules = [];
-
   if (config.cfCol === "kategori") {
     const uniqueKategori = [...new Set(newRows.map((r) => r.kategori).filter(Boolean))].sort();
-    uniqueKategori.forEach((kat, idx) => {
-      const color = PASTEL_COLORS[idx % PASTEL_COLORS.length];
-      rules.push(buildCFRule(sheetId, colIdx, kat, color));
-    });
+    uniqueKategori.forEach((kat, idx) => rules.push(buildCFRule(sheetId, colIdx, kat, PASTEL_COLORS[idx % PASTEL_COLORS.length])));
   } else if (config.cfCol === "status") {
-    Object.keys(STATUS_COLORS).forEach((status) => {
-      rules.push(buildCFRule(sheetId, colIdx, status, STATUS_COLORS[status]));
-    });
+    Object.keys(STATUS_COLORS).forEach((status) => rules.push(buildCFRule(sheetId, colIdx, status, STATUS_COLORS[status])));
   } else if (config.cfCol === "tipe") {
-    Object.keys(TIPE_COLORS).forEach((tipe) => {
-      rules.push(buildCFRule(sheetId, colIdx, tipe, TIPE_COLORS[tipe]));
-    });
+    Object.keys(TIPE_COLORS).forEach((tipe) => rules.push(buildCFRule(sheetId, colIdx, tipe, TIPE_COLORS[tipe])));
   }
-
   await replaceConditionalFormats(sheets, spreadsheetId, sheetId, colIdx, rules);
 }
 
@@ -495,19 +398,16 @@ async function applyRupiahFormat(sheets, spreadsheetId, sheetId, config) {
   if (!config.numCol) return;
   const colIdx = config.headers.findIndex((h) => h.name === config.numCol);
   if (colIdx === -1) return;
-
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId,
     requestBody: {
-      requests: [
-        {
-          repeatCell: {
-            range: { sheetId, startRowIndex: 1, startColumnIndex: colIdx, endColumnIndex: colIdx + 1 },
-            cell: { userEnteredFormat: { numberFormat: { type: "CURRENCY", pattern: "\"Rp\"#,##0" } } },
-            fields: "userEnteredFormat.numberFormat",
-          },
+      requests: [{
+        repeatCell: {
+          range: { sheetId, startRowIndex: 1, startColumnIndex: colIdx, endColumnIndex: colIdx + 1 },
+          cell: { userEnteredFormat: { numberFormat: { type: "CURRENCY", pattern: "\"Rp\"#,##0" } } },
+          fields: "userEnteredFormat.numberFormat",
         },
-      ],
+      }],
     },
   });
 }
@@ -516,109 +416,62 @@ async function applyRupiahFormat(sheets, spreadsheetId, sheetId, config) {
 async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows, hiddenCols) {
   const sheetId = await getOrCreateSheet(sheets, spreadsheetId, sheetName);
   const headerNames = headers.map((h) => h.name);
-
-  // 1. Pastikan Header Benar
   await ensureHeader(sheets, spreadsheetId, sheetName, headers);
 
-  // 2. Read old data (dari Baris 2 ke bawah)
   let oldRows = [];
   try {
     const res = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${sheetName}!A2:Z` });
     oldRows = res.data.values || [];
   } catch (e) {}
 
-  // 3. Map old
   const oldMap = new Map();
-  oldRows.forEach((row, idx) => {
-    const id = row[0];
-    if (id) oldMap.set(id, { row, rowIndex: idx + 2 });
-  });
+  oldRows.forEach((row, idx) => { if (row[0]) oldMap.set(row[0], { row, rowIndex: idx + 2 }); });
 
   const newMap = new Map();
   newRows.forEach((r) => newMap.set(r.firestoreId, r));
 
-  const toAdd = [];
-  const toUpdate = [];
-  const toDelete = [];
+  const toAdd = [], toUpdate = [], toDelete = [];
 
   for (const [id, newRow] of newMap.entries()) {
     const values = headerNames.map((h) => newRow[h] ?? "");
     if (oldMap.has(id)) {
       const old = oldMap.get(id);
-      if (JSON.stringify(old.row) !== JSON.stringify(values)) {
-        toUpdate.push({ range: `${sheetName}!A${old.rowIndex}`, values: [values] });
-      }
-    } else {
-      toAdd.push(values);
-    }
+      if (JSON.stringify(old.row) !== JSON.stringify(values)) toUpdate.push({ range: `${sheetName}!A${old.rowIndex}`, values: [values] });
+    } else { toAdd.push(values); }
   }
 
-  for (const [id, old] of oldMap.entries()) {
-    if (!newMap.has(id)) toDelete.push({ rowIndex: old.rowIndex });
-  }
+  for (const [id, old] of oldMap.entries()) { if (!newMap.has(id)) toDelete.push({ rowIndex: old.rowIndex }); }
 
-  // 4. Delete (from bottom to top)
   toDelete.sort((a, b) => b.rowIndex - a.rowIndex);
   for (const del of toDelete) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: {
-        requests: [
-          { deleteDimension: { range: { sheetId, dimension: "ROWS", startIndex: del.rowIndex - 1, endIndex: del.rowIndex } } },
-        ],
-      },
+      spreadsheetId, requestBody: { requests: [{ deleteDimension: { range: { sheetId, dimension: "ROWS", startIndex: del.rowIndex - 1, endIndex: del.rowIndex } } }] },
     });
   }
 
-  // 5. Update
   if (toUpdate.length > 0) {
-    await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId,
-      requestBody: { valueInputOption: "USER_ENTERED", data: toUpdate },
-    });
+    await sheets.spreadsheets.values.batchUpdate({ spreadsheetId, requestBody: { valueInputOption: "USER_ENTERED", data: toUpdate } });
   }
-
-  // 6. Add
   if (toAdd.length > 0) {
     await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${sheetName}!A1`,
-      valueInputOption: "USER_ENTERED",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: { values: toAdd },
+      spreadsheetId, range: `${sheetName}!A1`, valueInputOption: "USER_ENTERED", insertDataOption: "INSERT_ROWS", requestBody: { values: toAdd },
     });
   }
 
-  // 7. Styling base (width, header, wrap, border, banding, freeze, hide)
   const widthRequests = headers.map((h, i) => ({
     updateDimensionProperties: {
       range: { sheetId, dimension: "COLUMNS", startIndex: i, endIndex: i + 1 },
-      properties: { pixelSize: h.width || 120 },
-      fields: "pixelSize",
+      properties: { pixelSize: h.width || 120 }, fields: "pixelSize",
     },
   }));
 
-  const hideRequests = (hiddenCols || [])
-    .map((colName) => headerNames.indexOf(colName))
-    .filter((idx) => idx !== -1)
-    .map((idx) => ({
-      updateDimensionProperties: {
-        range: { sheetId, dimension: "COLUMNS", startIndex: idx, endIndex: idx + 1 },
-        properties: { hiddenByUser: true },
-        fields: "hiddenByUser",
-      },
-    }));
+  const hideRequests = (hiddenCols || []).map((colName) => headerNames.indexOf(colName)).filter((idx) => idx !== -1).map((idx) => ({
+    updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: idx, endIndex: idx + 1 }, properties: { hiddenByUser: true }, fields: "hiddenByUser" },
+  }));
 
-  const showRequests = headerNames
-    .map((colName, idx) => ({ colName, idx }))
-    .filter(({ colName }) => !(hiddenCols || []).includes(colName))
-    .map(({ idx }) => ({
-      updateDimensionProperties: {
-        range: { sheetId, dimension: "COLUMNS", startIndex: idx, endIndex: idx + 1 },
-        properties: { hiddenByUser: false },
-        fields: "hiddenByUser",
-      },
-    }));
+  const showRequests = headerNames.map((colName, idx) => ({ colName, idx })).filter(({ colName }) => !(hiddenCols || []).includes(colName)).map(({ idx }) => ({
+    updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: idx, endIndex: idx + 1 }, properties: { hiddenByUser: false }, fields: "hiddenByUser" },
+  }));
 
   const totalDataRows = Math.max(oldRows.length, newRows.length) + 5;
 
@@ -656,22 +509,15 @@ async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows,
         {
           repeatCell: {
             range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
-            cell: {
-              userEnteredFormat: {
-                backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 },
-                textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } },
-                horizontalAlignment: "CENTER",
-                verticalAlignment: "MIDDLE",
-              },
-            },
+            cell: { userEnteredFormat: { backgroundColor: { red: 0.2, green: 0.4, blue: 0.6 }, textFormat: { bold: true, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE" } },
             fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)",
           },
         },
         {
           repeatCell: {
-            range: { sheetId, startRowIndex: 1 },
-            cell: { userEnteredFormat: { wrapStrategy: "WRAP", verticalAlignment: "TOP" } },
-            fields: "userEnteredFormat(wrapStrategy,verticalAlignment)",
+            range: { sheetId, startRowIndex: 1 }, // FIX BUG: Teks Hitam untuk data!
+            cell: { userEnteredFormat: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 } }, wrapStrategy: "WRAP", verticalAlignment: "MIDDLE" } },
+            fields: "userEnteredFormat(textFormat,wrapStrategy,verticalAlignment)",
           },
         },
         ...widthRequests, ...hideRequests, ...showRequests, borderRequest, ...deleteBandingRequests, addBandingRequest,
@@ -682,37 +528,42 @@ async function smartSyncRows(sheets, spreadsheetId, sheetName, headers, newRows,
   return sheetId;
 }
 
-// ========== DASHBOARD ==========
+// ========== DASHBOARD (DEADLINE TERDEKAT) ==========
 async function updateDashboardSheet(sheets, spreadsheetId, userData) {
   const sheetName = "Dashboard";
   const sheetId = await getOrCreateSheet(sheets, spreadsheetId, sheetName);
   const now = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
 
-  // ---- Summary ----
-  const totalBelajar = (userData.belajar?.kategori || []).reduce((acc, kat) => acc + (kat.subKategori || []).reduce((a2, sub) => a2 + (sub.tools || []).reduce((a3, tool) => a3 + (tool.fitur || []).reduce((a4, fitur) => a4 + (fitur.parts?.length || 0), 0), 0), 0), 0);
-  const totalPekerjaan = (userData.pekerjaan || []).reduce((acc, pt) => acc + (pt.brands || []).reduce((a2, brand) => a2 + (brand.kegiatan?.length || 0), 0), 0);
-  const totalKeuangan = Object.values(userData.keuanganTransaksi || {}).reduce((acc, list) => acc + (list?.length || 0), 0);
-  const totalHafalan = Object.keys(userData.hafalanMembaca || {}).length;
-  const totalOlahraga = Object.keys(userData.olahraga?.harian || {}).length;
-  const totalBisnis = (userData.bisnisBrands || []).reduce((acc, brand) => acc + (brand.kegiatan?.length || 0), 0);
-  const totalYoutube = (userData.youtube_logs || []).length;
-  const totalBedahBuku = (userData.bedahBuku?.buku || []).length;
-
-  // ---- Progress per kategori ----
-  const kategoriProgress = (userData.belajar?.kategori || []).map((kat) => {
-    let total = 0; let terisi = 0;
-    (kat.subKategori || []).forEach((sub) => {
-      (sub.tools || []).forEach((tool) => {
-        (tool.fitur || []).forEach((fitur) => {
-          (fitur.parts || []).forEach((part) => {
-            total++;
-            if ((part.catatan && part.catatan.trim() !== "") || (part.gdriveUrl && part.gdriveUrl.trim() !== "")) terisi++;
+  // ---- Kumpulkan Deadline Terdekat ----
+  const deadlines = [];
+  
+  // Dari Pekerjaan
+  (userData.pekerjaan || []).forEach((pt) => {
+    (pt.brands || []).forEach((brand) => {
+      (brand.kegiatan || []).forEach((keg) => {
+        if (keg.status !== "selesai" && (keg.tanggalSelesai || keg.tanggal)) {
+          deadlines.push({
+            tipe: "Pekerjaan", pt: pt.nama, brand: brand.nama, judul: keg.judul, tanggal: keg.tanggalSelesai || keg.tanggal
           });
-        });
+        }
       });
     });
-    return { nama: kat.nama || "Unknown", terisi, total };
   });
+
+  // Dari Bisnis
+  (userData.bisnisBrands || []).forEach((brand) => {
+    (brand.kegiatan || []).forEach((keg) => {
+      if (keg.status !== "selesai" && (keg.tanggalSelesai || keg.tanggal)) {
+        deadlines.push({
+          tipe: "Bisnis", pt: "-", brand: brand.nama, judul: keg.judul, tanggal: keg.tanggalSelesai || keg.tanggal
+        });
+      }
+    });
+  });
+
+  // Urutkan dari tanggal terdekat
+  deadlines.sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
+  const topDeadlines = deadlines.slice(0, 10); // Ambil 10 teratas
 
   // ---- Keuangan bulan ini ----
   const now2 = new Date();
@@ -736,31 +587,33 @@ async function updateDashboardSheet(sheets, spreadsheetId, userData) {
   values.push(["📊 SELF MANAGEMENT DASHBOARD", "", "", "", ""]);
   values.push([`Terakhir di-sync: ${now}`, "", "", "", ""]);
   values.push(["", "", "", "", ""]);
-  values.push(["📈 RINGKASAN", "", "", "", ""]);
-  values.push(["📚 Total Belajar (Part)", totalBelajar, "💼 Total Pekerjaan", totalPekerjaan, ""]);
-  values.push(["💰 Total Keuangan", totalKeuangan, "📖 Total Hafalan", totalHafalan, ""]);
-  values.push(["🏃 Total Olahraga", totalOlahraga, "🏢 Total Bisnis", totalBisnis, ""]);
-  values.push(["📺 Total YouTube", totalYoutube, "📚 Total Bedah Buku", totalBedahBuku, ""]);
-  values.push(["", "", "", "", ""]);
-  values.push(["📚 PROGRESS BELAJAR PER KATEGORI", "", "", "", ""]);
-  values.push(["Kategori", "Terisi", "Total", "%", "Progress"]);
-
-  const progressStartRow = 11; 
-  kategoriProgress.forEach((k) => {
-    const pctVal = k.total > 0 ? (k.terisi / k.total) : 0;
-    const pctStr = (pctVal * 100).toFixed(1) + "%";
-    const progressBar = k.total > 0 ? getProgressBar(pctVal * 100) : "-";
-    values.push([k.nama, k.terisi, k.total, pctStr, progressBar]);
+  
+  // Deadline Table
+  values.push(["📅 DEADLINE TERDEKAT (BELUM SELESAI)", "", "", "", ""]);
+  values.push(["Tipe", "PT / Brand", "Kegiatan", "Deadline", "Sisa Hari"]);
+  
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  topDeadlines.forEach((d) => {
+    const deadlineDate = new Date(d.tanggal);
+    deadlineDate.setHours(0,0,0,0);
+    const diffDays = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
+    
+    let statusHari = `H-${diffDays}`;
+    if (diffDays < 0) statusHari = `Lewat ${Math.abs(diffDays)} hari`;
+    else if (diffDays === 0) statusHari = `Hari Ini!`;
+    
+    values.push([d.tipe, `${d.pt} - ${d.brand}`, d.judul, d.tanggal, statusHari]);
   });
 
-  const progressEndRow = 11 + kategoriProgress.length;
+  const deadlineEndRow = 5 + topDeadlines.length;
 
   values.push(["", "", "", "", ""]);
-  const keuanganHeaderRow = progressEndRow + 2; 
+  const keuanganHeaderRow = deadlineEndRow + 2; 
   values.push([`💰 RINGKASAN KEUANGAN BULAN INI (${currentMonth})`, "", "", "", ""]);
   values.push(["Kategori", "Nominal", "% dari Masuk", "Progress", ""]);
 
-  const keuanganDataStart = progressEndRow + 4;
   const buildKeuanganRow = (label, nominal) => {
     const pctVal = masukBulan > 0 ? (nominal / masukBulan) : 0;
     const pctStr = (pctVal * 100).toFixed(1) + "%";
@@ -775,25 +628,19 @@ async function updateDashboardSheet(sheets, spreadsheetId, userData) {
   values.push(["", "", "", "", ""]);
   values.push(["Saldo Bersih", saldoBulan, "", "", ""]);
 
-  // Unmerge all cells in dashboard first
+  // Unmerge & Clear
   try {
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties,sheets.merges" });
     const sheet = spreadsheet.data.sheets?.find((s) => s.properties?.sheetId === sheetId);
-    const merges = sheet?.merges || [];
-    if (merges.length > 0) {
-      await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: merges.map((m) => ({ unmergeCells: { range: m } })) } });
+    if (sheet?.merges?.length > 0) {
+      await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests: sheet.merges.map((m) => ({ unmergeCells: { range: m } })) } });
     }
   } catch (e) {}
-
-  // Clear old content
   try { await sheets.spreadsheets.values.clear({ spreadsheetId, range: `${sheetName}!A:Z` }); } catch (e) {}
 
   // Write values
   await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${sheetName}!A1`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values },
+    spreadsheetId, range: `${sheetName}!A1`, valueInputOption: "USER_ENTERED", requestBody: { values },
   });
 
   // Styling
@@ -804,9 +651,7 @@ async function updateDashboardSheet(sheets, spreadsheetId, userData) {
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
-        cell: {
-          userEnteredFormat: { backgroundColor: { red: 0.1, green: 0.2, blue: 0.4 }, textFormat: { bold: true, fontSize: 16, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE", padding: { top: 12, bottom: 12 } },
-        },
+        cell: { userEnteredFormat: { backgroundColor: { red: 0.1, green: 0.2, blue: 0.4 }, textFormat: { bold: true, fontSize: 16, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE", padding: { top: 12, bottom: 12 } } },
         fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding)",
       },
     },
@@ -819,10 +664,10 @@ async function updateDashboardSheet(sheets, spreadsheetId, userData) {
     },
   ];
 
-  const sectionHeaderRows = [4, 10, keuanganHeaderRow + 1]; 
+  // Section Header Style
+  const sectionHeaderRows = [4, keuanganHeaderRow]; 
   sectionHeaderRows.forEach((row1Based) => {
     const rowIdx = row1Based - 1; 
-    if (rowIdx < 0 || rowIdx >= totalRows) return;
     requests.push({ mergeCells: { range: { sheetId, startRowIndex: rowIdx, endRowIndex: rowIdx + 1, startColumnIndex: 0, endColumnIndex: 5 }, mergeType: "MERGE_ALL" } });
     requests.push({
       repeatCell: {
@@ -833,14 +678,14 @@ async function updateDashboardSheet(sheets, spreadsheetId, userData) {
     });
   });
 
-  const tableHeaderRows = [10, keuanganHeaderRow + 2]; 
+  // Table Header Style
+  const tableHeaderRows = [5, keuanganHeaderRow + 1]; 
   tableHeaderRows.forEach((row1Based) => {
     const rowIdx = row1Based - 1;
-    if (rowIdx < 0 || rowIdx >= totalRows) return;
     requests.push({
       repeatCell: {
         range: { sheetId, startRowIndex: rowIdx, endRowIndex: rowIdx + 1, startColumnIndex: 0, endColumnIndex: 5 },
-        cell: { userEnteredFormat: { backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE", padding: { top: 6, bottom: 6 }, borders: { top: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } }, bottom: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } }, left: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } }, right: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } } } } },
+        cell: { userEnteredFormat: { backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 }, textFormat: { bold: true, fontSize: 10, foregroundColor: {red:0, green:0, blue:0} }, horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE", padding: { top: 6, bottom: 6 }, borders: { top: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } }, bottom: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } }, left: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } }, right: { style: "SOLID", color: { red: 0.6, green: 0.6, blue: 0.6 } } } } },
         fields: "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,padding,borders)",
       },
     });
@@ -848,9 +693,9 @@ async function updateDashboardSheet(sheets, spreadsheetId, userData) {
 
   requests.push(
     { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 1 }, properties: { pixelSize: 250 }, fields: "pixelSize" } },
-    { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: 2 }, properties: { pixelSize: 120 }, fields: "pixelSize" } },
-    { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 3 }, properties: { pixelSize: 100 }, fields: "pixelSize" } },
-    { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 3, endIndex: 4 }, properties: { pixelSize: 100 }, fields: "pixelSize" } },
+    { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: 2 }, properties: { pixelSize: 150 }, fields: "pixelSize" } },
+    { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 2, endIndex: 3 }, properties: { pixelSize: 200 }, fields: "pixelSize" } },
+    { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 3, endIndex: 4 }, properties: { pixelSize: 120 }, fields: "pixelSize" } },
     { updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: 4, endIndex: 5 }, properties: { pixelSize: 200 }, fields: "pixelSize" } }
   );
 
@@ -878,16 +723,13 @@ export async function POST(req) {
     const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
     if (!spreadsheetId) return NextResponse.json({ error: "GOOGLE_SHEETS_ID belum diset" }, { status: 500 });
 
-    // Update dashboard
     try { await updateDashboardSheet(sheets, spreadsheetId, userData); } catch (err) { console.error("[sync-sheets] dashboard error:", err.message); }
 
-    // Sync each sheet
     const results = [];
     for (const [menuKey, config] of Object.entries(MENU_CONFIG)) {
       try {
         const rawRows = config.flatten(userData);
         const sortedRows = sortRows(rawRows);
-        
         const sheetId = await smartSyncRows(sheets, spreadsheetId, config.sheetName, config.headers, sortedRows, config.hiddenCols || []);
 
         try { await applyConditionalFormatting(sheets, spreadsheetId, sheetId, config, sortedRows); } catch (e) { console.error(`[sync-sheets] CF error ${menuKey}:`, e.message); }
