@@ -10,7 +10,7 @@ export default function ExportPDFButton({
   targetId = "export-area", 
   fileName = "laporan.pdf", 
   title = "Laporan",
-  orientation = "auto" // "portrait", "landscape", atau "auto"
+  orientation = "auto" 
 }) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -24,61 +24,52 @@ export default function ExportPDFButton({
     setIsExporting(true);
 
     try {
-      // Auto-detect: Kalau di dalamnya ada teks "Time Schedule" atau tabel lebar, pakai Landscape
+      // 1. Deteksi orientasi kertas (Landscape buat Time Schedule)
       const isTimeSchedule = element.innerHTML.includes("Time Schedule") || element.innerHTML.includes("TimeSchedule");
-      const pdfOrientation = orientation === "auto" 
-        ? (isTimeSchedule ? "l" : "p") 
-        : orientation;
+      const pdfOrientation = orientation === "auto" ? (isTimeSchedule ? "l" : "p") : orientation;
+
+      // 2. Ambil warna background asli web lo (biar nyambung)
+      const bodyBg = window.getComputedStyle(document.body).backgroundColor;
+      const pdfBgColor = bodyBg === "rgba(0, 0, 0, 0)" ? "#f8fafc" : bodyBg; // Fallback ke slate-50
+
+      // 3. Kumpulkan titik-titik aman buat motong kertas (Anti Kepotong)
+      const safeBreakPoints = [];
+      const rows = element.querySelectorAll('.card, tr, .border, .flex.items-center');
+      rows.forEach(row => {
+        const rect = row.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+        // Simpan posisi Y relatif terhadap targetId
+        safeBreakPoints.push({
+          top: rect.top - elementRect.top,
+          bottom: rect.bottom - elementRect.top
+        });
+      });
+      safeBreakPoints.sort((a, b) => a.top - b.top);
 
       const canvas = await html2canvas(element, {
-        scale: 2, // Resolusi tinggi
+        scale: 2,
         useCORS: true,
-        backgroundColor: "#ffffff",
+        backgroundColor: pdfBgColor,
         logging: false,
         ignoreElements: (el) => el.hasAttribute("data-html2canvas-ignore"),
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.getElementById(targetId);
           if (clonedElement) {
-            // 1. Trik Biar Nggak Kepotong
             clonedElement.style.height = "auto";
             clonedElement.style.maxHeight = "none";
-            clonedElement.style.minHeight = "auto";
             clonedElement.style.overflow = "visible";
-            clonedElement.style.paddingBottom = "20mm";
             
-            // 2. Paksa elemen lebar (seperti Gantt Chart min-w-[800px]) jadi 100% biar masuk kertas
-            const wideElements = clonedElement.querySelectorAll(".min-w-\\[800px\\], .min-w-\\[600px\\], table");
-            wideElements.forEach(el => {
-              el.style.minWidth = "100%";
-              el.style.width = "100%";
+            // Trik biar Gantt Chart (yang ada scroll-nya) ke-capture semua
+            const scrollElements = clonedElement.querySelectorAll(".overflow-x-auto");
+            scrollElements.forEach(el => {
+              el.style.overflow = "visible";
+              el.style.width = "max-content";
             });
 
-            // 3. Trik Kecilin Font & Spasi Kalau Data Banyak (biar hemat tempat)
+            // Paksa warna teks jadi hitam biar ga pudar
             const style = clonedDoc.createElement("style");
-            style.innerHTML = `
-              .text-xs { font-size: 10px !important; }
-              .text-sm { font-size: 12px !important; }
-              .p-4 { padding: 8px !important; }
-              .p-3 { padding: 6px !important; }
-              .space-y-2 > * + * { margin-top: 4px !important; }
-              .space-y-1 > * + * { margin-top: 2px !important; }
-              
-              /* Anti Page Break: Jangan potong baris kegiatan jadi 2 */
-              .card, .border, tr, .flex.items-center { 
-                page-break-inside: avoid !important; 
-                break-inside: avoid !important; 
-              }
-            `;
+            style.innerHTML = `* { color: #000 !important; text-shadow: none !important; opacity: 1 !important; }`;
             clonedDoc.head.appendChild(style);
-
-            // Naikin semua parent jadi auto-height
-            let parent = clonedElement.parentElement;
-            while (parent && parent.tagName !== "BODY") {
-              parent.style.height = "auto";
-              parent.style.minHeight = "auto";
-              parent.style.overflow = "visible";
-              parent = parent.parentElement;
-            }
           }
         }
       });
@@ -88,29 +79,59 @@ export default function ExportPDFButton({
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Hitung rasio gambar biar proporsional nggak melar
       const imgWidth = pdfWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
-      let heightLeft = imgHeight;
-      let position = 0;
+      // Konversi tinggi kertas A4 ke skala pixel canvas
+      const pageHeightInCanvasPx = (pdfHeight * canvas.width) / imgWidth;
+      
+      let currentY = 0; // Posisi Y gambar yang udah di-print
+      let pageNum = 1;
 
-      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+      while (currentY < imgHeight) {
+        if (pageNum > 1) pdf.addPage();
 
-      // Slicing halaman kalau datanya panjang (Kasus Banyak Data)
-      while (heightLeft > 1) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+        // Warnai background kertas biar ga ada jurang putih
+        pdf.setFillColor(pdfBgColor);
+        pdf.rect(0, 0, pdfWidth, pdfHeight, "F");
+
+        // --- LOGIKA SMART PAGE BREAK ---
+        let sliceHeight = pageHeightInCanvasPx;
+        let targetY = currentY + sliceHeight;
+        
+        // Cari apakah ada baris yang kepotong di targetY
+        const cutRow = safeBreakPoints.find(bp => 
+          targetY > bp.top && targetY < bp.bottom
+        );
+
+        if (cutRow) {
+          // Kalau ada yang kepotong, potong garis di ATAS baris tersebut
+          targetY = cutRow.top; 
+          sliceHeight = targetY - currentY;
+        }
+
+        // Render potongan gambar
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = sliceHeight;
+        const ctx = tempCanvas.getContext("2d");
+        ctx.drawImage(canvas, 0, currentY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+
+        const slicedImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
+        const renderHeight = (sliceHeight * imgWidth) / canvas.width;
+        
+        pdf.addImage(slicedImgData, "JPEG", 0, 0, imgWidth, renderHeight);
+
+        // Pindah ke halaman berikutnya
+        currentY += sliceHeight;
+        pageNum++;
       }
 
-      // Bikin Footer (Halaman X dari Y)
+      // Bikin Footer
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         pdf.setPage(i);
-        pdf.setFillColor(255, 255, 255);
+        pdf.setFillColor(pdfBgColor);
         pdf.rect(0, pdfHeight - 10, pdfWidth, 10, 'F');
         pdf.setFontSize(8);
         pdf.setTextColor(150);
@@ -134,11 +155,7 @@ export default function ExportPDFButton({
       title="Export halaman ini ke PDF"
       data-html2canvas-ignore="true"
     >
-      {isExporting ? (
-        <span className="loading loading-spinner loading-xs" />
-      ) : (
-        <FileDown size={16} />
-      )}
+      {isExporting ? <span className="loading loading-spinner loading-xs" /> : <FileDown size={16} />}
       <span className="hidden md:inline">{isExporting ? "Exporting..." : "Export PDF"}</span>
     </button>
   );
