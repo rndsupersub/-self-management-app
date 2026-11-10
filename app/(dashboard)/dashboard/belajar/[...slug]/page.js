@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/belajar/[...slug]/page.js
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -28,6 +28,9 @@ export default function BelajarDetailPage() {
   const slug = params?.slug || [];
   const path = Array.isArray(slug) ? slug : [];
 
+  // Pengaman: biar tab nggak mental ke materi pas nambah catatan
+  const prevPathRef = useRef("");
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
@@ -50,18 +53,25 @@ export default function BelajarDetailPage() {
   }, [router]);
 
   useEffect(() => {
-    const result = findItem(kategori, path);
-    const itm = result?.item || null;
-    const lvl = path.length;
-    const hasParts = itm?.parts && Array.isArray(itm.parts) && itm.parts.length > 0;
-    const hasFitur = itm?.fitur && Array.isArray(itm.fitur) && itm.fitur.length > 0;
-    const isGroup = hasParts || hasFitur;
-    const isLeaf4 = lvl === 4 && !isGroup;
-    const isLeaf5Plus = lvl >= 5 && !isGroup;
-    if (isLeaf4 || isLeaf5Plus) setActiveTab("hasil-belajar");
-    else setActiveTab("materi");
-    setShowColorPicker(false);
-    setShowForm(false);
+    const currentPath = path.join("/");
+    // Cuma reset tab kalau URL berubah (pindah halaman), bukan pas data kategori berubah
+    if (prevPathRef.current !== currentPath) {
+      const result = findItem(kategori, path);
+      const itm = result?.item || null;
+      const lvl = path.length;
+      const hasParts = itm?.parts && Array.isArray(itm.parts) && itm.parts.length > 0;
+      const hasFitur = itm?.fitur && Array.isArray(itm.fitur) && itm.fitur.length > 0;
+      const isGroup = hasParts || hasFitur;
+      const isLeaf4 = lvl === 4 && !isGroup;
+      const isLeaf5Plus = lvl >= 5 && !isGroup;
+      
+      if (isLeaf4 || isLeaf5Plus) setActiveTab("hasil-belajar");
+      else setActiveTab("materi");
+      
+      setShowColorPicker(false);
+      setShowForm(false);
+      prevPathRef.current = currentPath;
+    }
   }, [path.join("/"), kategori]);
 
   const simpanKategori = async (newKategori) => {
