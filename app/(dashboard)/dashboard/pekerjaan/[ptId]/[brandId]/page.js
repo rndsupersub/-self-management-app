@@ -242,8 +242,7 @@ export default function BrandPage() {
               onUpdateKategoriList={(u) => { setKategoriPekerjaanList(u); simpanSettings({ kategoriPekerjaanList: u }); }} 
             />
             {brand.kegiatan && brand.kegiatan.length > 0 && (
-              // PERBAIKAN: Tambah data-html2canvas-ignore agar list bawah tidak ikut ke-print PDF
-              <div className="card bg-white shadow border border-gray-200 mt-4" data-html2canvas-ignore="true">
+              <div className="card bg-white shadow border border-gray-200 mt-4">
                 <div className="card-body p-4">
                   <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><ClipboardList size={18} /> Semua Kegiatan ({brand.kegiatan.length})</h3>
                   <div className="space-y-2">

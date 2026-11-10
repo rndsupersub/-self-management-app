@@ -206,7 +206,12 @@ export default function KalenderPekerjaan({
       const widthDays = Math.ceil((new Date(clampedEnd) - new Date(clampedStart)) / (1000 * 60 * 60 * 24)) + 1;
 
       const leftPct = (leftDays / totalDays) * 100;
-      const widthPct = (widthDays / totalDays) * 100;
+      let widthPct = (widthDays / totalDays) * 100;
+
+      // PERBAIKAN: Math.min mencegah bar keluar dari batas grid
+      if (leftPct + widthPct > 100) {
+        widthPct = 100 - leftPct;
+      }
 
       return { ...k, leftPct, widthPct };
     });
