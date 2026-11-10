@@ -208,7 +208,7 @@ export default function KalenderPekerjaan({
       const leftPct = (leftDays / totalDays) * 100;
       let widthPct = (widthDays / totalDays) * 100;
 
-      // PERBAIKAN: Math.min mencegah bar keluar dari batas grid
+      // PENGAMAN: Math.min mencegah bar keluar dari batas grid
       if (leftPct + widthPct > 100) {
         widthPct = 100 - leftPct;
       }
@@ -487,6 +487,23 @@ export default function KalenderPekerjaan({
                     })
                   )}
                 </div>
+
+                {/* LIST KEGIATAN (MUNCUL DI BAWAH GANTT CHART SAAT EXPORT PDF) */}
+                <div className="mt-8 space-y-2">
+                  {timeScheduleData.bars.map((k) => {
+                    const mulai = k.tanggalMulai || k.tanggal;
+                    const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
+                    return (
+                      <div key={k.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200">
+                        <div className="flex-1">
+                          <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
               </div>
             </div>
           )}

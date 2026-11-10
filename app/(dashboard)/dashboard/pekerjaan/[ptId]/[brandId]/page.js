@@ -15,7 +15,7 @@ import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, ClipboardList, Plus, X, CheckCircle2, Circle } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus, X } from "lucide-react";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -228,51 +228,18 @@ export default function BrandPage() {
         </div>
 
         {activeTab === "kalender" && (
-          <>
-            <KalenderPekerjaan 
-              kegiatan={brand.kegiatan || []} 
-              onAdd={handleTambahKegiatan} 
-              onClickKegiatan={(id) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${id}`)} 
-              onEditKegiatan={(keg) => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}
-              onDeleteKegiatan={handleHapusKegiatan}
-              onToggleStatusKegiatan={handleToggleStatusKegiatan}
-              prioritasList={prioritasList} 
-              sumberList={sumberList} 
-              kategoriList={kategoriPekerjaanList} 
-              onUpdateKategoriList={(u) => { setKategoriPekerjaanList(u); simpanSettings({ kategoriPekerjaanList: u }); }} 
-            />
-            {brand.kegiatan && brand.kegiatan.length > 0 && (
-              <div className="card bg-white shadow border border-gray-200 mt-4">
-                <div className="card-body p-4">
-                  <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><ClipboardList size={18} /> Semua Kegiatan ({brand.kegiatan.length})</h3>
-                  <div className="space-y-2">
-                    {brand.kegiatan.slice().sort((a, b) => a.tanggal.localeCompare(b.tanggal)).map((keg) => (
-                      <div key={keg.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200">
-                        <div data-html2canvas-ignore="true" className="mt-0.5">
-                          <button 
-                            className={`w-5 h-5 rounded-full flex items-center justify-center transition ${keg.status === "selesai" ? "bg-green-500 text-white" : "bg-gray-300 text-gray-500 hover:bg-gray-400"}`}
-                            onClick={() => handleToggleStatusKegiatan(keg.id)}
-                            title={keg.status === "selesai" ? "Tandai Belum Selesai" : "Tandai Selesai"}
-                          >
-                            {keg.status === "selesai" ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-                          </button>
-                        </div>
-
-                        <div className="flex-1 cursor-pointer" onClick={() => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${keg.id}`)}>
-                          <p className={`text-sm font-semibold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>{keg.judul}</p>
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-1"><Calendar size={12} /> {keg.tanggal} • {keg.status === "selesai" ? "Selesai" : "Belum"}</p>
-                        </div>
-                        <div className="flex gap-1" data-html2canvas-ignore="true">
-                          <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}><Pencil size={14} /></button>
-                          <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKegiatan(keg.id)}><Trash2 size={14} /></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
+          <KalenderPekerjaan 
+            kegiatan={brand.kegiatan || []} 
+            onAdd={handleTambahKegiatan} 
+            onClickKegiatan={(id) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${id}`)} 
+            onEditKegiatan={(keg) => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}
+            onDeleteKegiatan={handleHapusKegiatan}
+            onToggleStatusKegiatan={handleToggleStatusKegiatan}
+            prioritasList={prioritasList} 
+            sumberList={sumberList} 
+            kategoriList={kategoriPekerjaanList} 
+            onUpdateKategoriList={(u) => { setKategoriPekerjaanList(u); simpanSettings({ kategoriPekerjaanList: u }); }} 
+          />
         )}
 
         {activeTab === "vendor" && (
