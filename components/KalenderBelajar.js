@@ -4,7 +4,7 @@
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { getLabelKategoriById, getDefaultTargetByKategori, formatTanggal, getWarnaStyle, getWarnaToolByPath } from "@/lib/belajarData";
-import { Target, CheckCircle2, Pencil, Save, X, Link as LinkIcon, Calendar, FileText, ArrowRight, Info, MessageSquare, FolderOpen, AlertTriangle, Plus } from "lucide-react";
+import { Target, CheckCircle2, Pencil, Save, X, Link as LinkIcon, Calendar, FileText, ArrowRight, Info, MessageSquare, FolderOpen, AlertTriangle, Plus, Trash2 } from "lucide-react";
 
 export default function KalenderBelajar({
   kategoriId = "design",
@@ -71,6 +71,7 @@ export default function KalenderBelajar({
     Object.entries(logHarian || {}).forEach(([tanggal, list]) => {
       if (!tanggal.startsWith(prefix)) return;
       (list || []).forEach((log) => {
+        if (!log) return;
         if (log.kategoriId !== kategoriId) return;
         if (subKategoriId && log.subKategoriId !== subKategoriId) return;
         if (filterSubKategori !== "all" && log.subKategoriId !== filterSubKategori) return;
@@ -82,12 +83,13 @@ export default function KalenderBelajar({
   }, [logHarian, currentMonth, kategoriId, subKategoriId, filterSubKategori, filterTool]);
 
   const getLabelByLog = (log) => {
+    if (!log) return "-";
     const parts = [];
-    const sub = subKategoriList.find((s) => s.id === log.subKategoriId);
+    const sub = subKategoriList.find((s) => s && s.id === log.subKategoriId);
     if (sub) parts.push(sub.nama);
-    if (sub && log.toolId) { const tool = (sub.tools || []).find((t) => t.id === log.toolId); if (tool) parts.push(tool.nama); }
-    if (sub && log.toolId && log.fiturId) { const tool = (sub.tools || []).find((t) => t.id === log.toolId); const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId); if (fitur) parts.push(fitur.nama); }
-    if (log.partId) { const tool = (sub?.tools || []).find((t) => t.id === log.toolId); const fitur = (tool?.fitur || []).find((f) => f.id === log.fiturId); const part = (fitur?.parts || []).find((p) => p.id === log.partId); if (part) parts.push(part.nama); }
+    if (sub && log.toolId) { const tool = (sub.tools || []).find((t) => t && t.id === log.toolId); if (tool) parts.push(tool.nama); }
+    if (sub && log.toolId && log.fiturId) { const tool = (sub.tools || []).find((t) => t && t.id === log.toolId); const fitur = (tool?.fitur || []).find((f) => f && f.id === log.fiturId); if (fitur) parts.push(fitur.nama); }
+    if (log.partId) { const tool = (sub?.tools || []).find((t) => t && t.id === log.toolId); const fitur = (tool?.fitur || []).find((f) => f && f.id === log.fiturId); const part = (fitur?.parts || []).find((p) => p && p.id === log.partId); if (part) parts.push(part.nama); }
     return parts.join(" → ") || "-";
   };
 
@@ -100,28 +102,32 @@ export default function KalenderBelajar({
     setFormData({ subKategoriId: subKategoriId || subKategoriList[0]?.id || "", toolId: "", fiturId: "", partId: "", catatan: "", gdriveUrl: "" });
   };
 
-  const subKategoriTerpilih = subKategoriList.find((s) => s.id === formData.subKategoriId);
+  const subKategoriTerpilih = subKategoriList.find((s) => s && s.id === formData.subKategoriId);
   const toolList = subKategoriTerpilih?.tools || [];
-  const toolTerpilih = toolList.find((t) => t.id === formData.toolId);
+  const toolTerpilih = toolList.find((t) => t && t.id === formData.toolId);
   const fiturList = toolTerpilih?.fitur || [];
-  const fiturTerpilih = fiturList.find((f) => f.id === formData.fiturId);
+  const fiturTerpilih = fiturList.find((f) => f && f.id === formData.fiturId);
   const partList = fiturTerpilih?.parts || [];
 
   const handleBukaFormTambah = () => { resetFormData(); setEditingLogId(null); setErrorMsg(""); setShowForm(true); };
-  const handleEdit = (log) => { setFormData({ subKategoriId: log.subKategoriId || "", toolId: log.toolId || "", fiturId: log.fiturId || "", partId: log.partId || "", catatan: log.catatan || "", gdriveUrl: log.gdriveUrl || "" }); setEditingLogId(log.id); setErrorMsg(""); setShowForm(true); };
+  const handleEdit = (log) => { 
+    if (!log) return;
+    setFormData({ subKategoriId: log.subKategoriId || "", toolId: log.toolId || "", fiturId: log.fiturId || "", partId: log.partId || "", catatan: log.catatan || "", gdriveUrl: log.gdriveUrl || "" }); 
+    setEditingLogId(log.id); setErrorMsg(""); setShowForm(true); 
+  };
 
   const handleSimpan = () => {
     setErrorMsg("");
     if (!formData.subKategoriId) { setErrorMsg("Pilih sub-kategori dulu."); return; }
     if (!formData.toolId) { setErrorMsg("Pilih tool dulu."); return; }
-    if (!formData.catatan.trim() && !formData.gdriveUrl.trim()) { setErrorMsg("Isi catatan atau link GDrive."); return; }
+    if (!(formData.catatan || "").trim() && !(formData.gdriveUrl || "").trim()) { setErrorMsg("Isi catatan atau link GDrive."); return; }
 
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
     if (!updated[selectedDate]) updated[selectedDate] = [];
 
     const newLog = { id: editingLogId || `log_${Date.now()}`, kategoriId, subKategoriId: formData.subKategoriId, toolId: formData.toolId, fiturId: formData.fiturId || "", partId: formData.partId || "", catatan: formData.catatan, gdriveUrl: formData.gdriveUrl, telegramMessageId: "", sumber: "kalender", updatedAt: new Date().toISOString() };
 
-    if (editingLogId) updated[selectedDate] = updated[selectedDate].map((l) => l.id === editingLogId ? newLog : l);
+    if (editingLogId) updated[selectedDate] = updated[selectedDate].map((l) => (l && l.id === editingLogId) ? newLog : l);
     else updated[selectedDate].push(newLog);
 
     onUpdateLog(updated, { action: editingLogId ? "edit" : "add", log: newLog });
@@ -129,11 +135,14 @@ export default function KalenderBelajar({
   };
 
   const handleHapus = (log) => {
+    if (!log) return;
     if (!confirm("Hapus catatan belajar ini? Yang di halaman materi juga bakal kehapus.")) return;
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
-    updated[selectedDate] = (updated[selectedDate] || []).filter((l) => l.id !== log.id);
-    if (updated[selectedDate].length === 0) delete updated[selectedDate];
-    onUpdateLog(updated, { action: "delete", log });
+    if (updated[selectedDate]) {
+      updated[selectedDate] = updated[selectedDate].filter((l) => l && l.id !== log.id);
+      if (updated[selectedDate].length === 0) delete updated[selectedDate];
+      onUpdateLog(updated, { action: "delete", log });
+    }
   };
 
   const handleBukaEditTarget = () => { setTargetInput(currentTarget.target); setEditTargetMode(true); };
@@ -152,11 +161,12 @@ export default function KalenderBelajar({
 
   const getLogsByDate = (date) => {
     const logs = logHarian[date] || [];
-    return logs.filter((l) => l.kategoriId === kategoriId && (!subKategoriId || l.subKategoriId === subKategoriId));
+    return logs.filter((l) => l && l.kategoriId === kategoriId && (!subKategoriId || l.subKategoriId === subKategoriId));
   };
 
   const getWarnaLog = (log) => {
-    const path = [log.kategoriId, log.subKategoriId, log.toolId];
+    if (!log) return "gray";
+    const path = [log.kategoriId, log.subKategoriId, log.toolId].filter(Boolean);
     if (log.fiturId) path.push(log.fiturId);
     if (log.partId) path.push(log.partId);
     return getWarnaToolByPath(kategoriData, path);
@@ -302,7 +312,7 @@ export default function KalenderBelajar({
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">Sub-Kategori</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.subKategoriId} onChange={(e) => setFormData({ ...formData, subKategoriId: e.target.value, toolId: "", fiturId: "", partId: "" })}>
                     <option value="">-- Pilih Sub-Kategori --</option>
-                    {subKategoriList.map((s) => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                    {subKategoriList.map((s) => s && <option key={s.id} value={s.id}>{s.nama}</option>)}
                   </select>
                 </div>
 
@@ -311,7 +321,7 @@ export default function KalenderBelajar({
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Tool</label>
                     <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.toolId} onChange={(e) => setFormData({ ...formData, toolId: e.target.value, fiturId: "", partId: "" })}>
                       <option value="">-- Pilih Tool --</option>
-                      {toolList.map((t) => <option key={t.id} value={t.id}>{t.nama}</option>)}
+                      {toolList.map((t) => t && <option key={t.id} value={t.id}>{t.nama}</option>)}
                     </select>
                   </div>
                 )}
@@ -321,7 +331,7 @@ export default function KalenderBelajar({
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Fitur / Materi</label>
                     <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.fiturId} onChange={(e) => setFormData({ ...formData, fiturId: e.target.value, partId: "" })}>
                       <option value="">-- Pilih Fitur --</option>
-                      {fiturList.map((f) => <option key={f.id} value={f.id}>{f.nama}</option>)}
+                      {fiturList.map((f) => f && <option key={f.id} value={f.id}>{f.nama}</option>)}
                     </select>
                   </div>
                 )}
@@ -331,7 +341,7 @@ export default function KalenderBelajar({
                     <label className="text-xs font-semibold text-gray-600 mb-1 block">Part</label>
                     <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.partId} onChange={(e) => setFormData({ ...formData, partId: e.target.value })}>
                       <option value="">-- Pilih Part --</option>
-                      {partList.map((p) => <option key={p.id} value={p.id}>{p.nama}</option>)}
+                      {partList.map((p) => p && <option key={p.id} value={p.id}>{p.nama}</option>)}
                     </select>
                   </div>
                 )}
@@ -401,11 +411,11 @@ export default function KalenderBelajar({
               <span className="text-xs text-gray-500">Filter:</span>
               <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterSubKategori} onChange={(e) => { setFilterSubKategori(e.target.value); setFilterTool("all"); }}>
                 <option value="all">Semua Sub-Kategori</option>
-                {subKategoriList.map((s) => <option key={s.id} value={s.id}>{s.nama}</option>)}
+                {subKategoriList.map((s) => s && <option key={s.id} value={s.id}>{s.nama}</option>)}
               </select>
               <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterTool} onChange={(e) => setFilterTool(e.target.value)}>
                 <option value="all">Semua Tool</option>
-                {allToolsInKategori.filter((t) => filterSubKategori === "all" || t.subKategoriId === filterSubKategori).map((t) => <option key={t.id} value={t.id}>{t.nama}</option>)}
+                {allToolsInKategori.filter((t) => filterSubKategori === "all" || t.subKategoriId === filterSubKategori).map((t) => t && <option key={t.id} value={t.id}>{t.nama}</option>)}
               </select>
               {(filterSubKategori !== "all" || filterTool !== "all") && (
                 <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterSubKategori("all"); setFilterTool("all"); }}><X size={14} /> Reset</button>
