@@ -249,8 +249,8 @@ export default function KalenderPekerjaan({
 
   return (
     <div className="space-y-4">
-      {/* 1. FILTER & KELOLA KATEGORI */}
-      <div className="card bg-white shadow border border-gray-200">
+      {/* 1. FILTER & KELOLA KATEGORI (DI-IGNORE SAAT EXPORT) */}
+      <div className="card bg-white shadow border border-gray-200" data-html2canvas-ignore="true">
         <div className="card-body p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs font-semibold text-gray-500">Filter:</span>
@@ -281,8 +281,8 @@ export default function KalenderPekerjaan({
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           
-          {/* TOGGLE VIEW */}
-          <div className="flex justify-center mb-4">
+          {/* TOGGLE VIEW (DI-IGNORE) */}
+          <div className="flex justify-center mb-4" data-html2canvas-ignore="true">
             <div className="tabs tabs-boxed bg-gray-100 p-1 w-fit">
               <button className={`tab tab-sm ${viewMode === 'kalender' ? 'tab-active bg-white shadow text-gray-800 font-semibold' : 'text-gray-500'}`} onClick={() => setViewMode('kalender')}>
                 <Calendar size={14} className="mr-1"/> Kalender
@@ -293,8 +293,8 @@ export default function KalenderPekerjaan({
             </div>
           </div>
 
-          {/* NAVIGASI WAKTU */}
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+          {/* NAVIGASI WAKTU (DI-IGNORE) */}
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4" data-html2canvas-ignore="true">
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear}>«</button>
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevMonth}>‹</button>
@@ -329,7 +329,8 @@ export default function KalenderPekerjaan({
             </div>
           </div>
 
-          <div className="flex justify-center mb-3">
+          {/* TOMBOL HARI INI (DI-IGNORE) */}
+          <div className="flex justify-center mb-3" data-html2canvas-ignore="true">
             <button className="btn btn-outline btn-xs text-gray-700" onClick={goToToday}><Calendar size={14} className="mr-1"/> Hari Ini</button>
           </div>
 
@@ -390,7 +391,7 @@ export default function KalenderPekerjaan({
               </div>
 
               {selectStart && !selectEnd && (
-                <div className="mt-3 alert alert-info py-2 text-xs flex items-center gap-1">
+                <div className="mt-3 alert alert-info py-2 text-xs flex items-center gap-1" data-html2canvas-ignore="true">
                   <Info size={14} className="mr-1"/> Tanggal mulai: <strong>{selectStart}</strong>. Klik tanggal akhir, atau klik tanggal yang sama buat 1 hari.
                 </div>
               )}
@@ -400,11 +401,9 @@ export default function KalenderPekerjaan({
           {/* 4. AREA TAMPILAN: TIME SCHEDULE (GANTT CHART) */}
           {viewMode === 'timeschedule' && (
             <div className="overflow-x-auto pb-4 animate-fade-in">
-              {/* PERBAIKAN: min-w dilebarkan dari 800px ke 1000px biar timeline nggak kekecilan */}
               <div className="min-w-[1000px]">
                 {/* HEADER KOLOM */}
                 <div className="flex border-b border-gray-300 mb-2 pb-1">
-                  {/* PERBAIKAN: w-[200px] jadi w-[320px] */}
                   <div className="w-[320px] shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
                   <div className="flex-1 flex border-l border-gray-200">
                     {timeScheduleData.columns.map((col, i) => (
@@ -427,11 +426,9 @@ export default function KalenderPekerjaan({
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
                           {/* Info Kegiatan (Kiri) */}
-                          {/* PERBAIKAN: w-[200px] jadi w-[320px] */}
                           <div className="w-[320px] shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-2">
                             <div className="flex items-center gap-2 pr-2">
                                <div className={`w-2 h-2 rounded-full shrink-0 mt-1 self-start ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
-                               {/* PERBAIKAN: Truncate diganti dengan CSS 2 baris + Tooltip */}
                                <span 
                                  className={`text-xs font-semibold leading-tight ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}
                                  title={k.judul}
@@ -440,7 +437,7 @@ export default function KalenderPekerjaan({
                                  {k.judul}
                                </span>
                             </div>
-                            {/* TOMBOL AKSI KEGIATAN */}
+                            {/* TOMBOL AKSI KEGIATAN (DI-IGNORE) */}
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-html2canvas-ignore="true">
                               <button 
                                 className={`w-5 h-5 rounded-full flex items-center justify-center transition ${k.status === "selesai" ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
@@ -492,9 +489,9 @@ export default function KalenderPekerjaan({
         </div>
       </div>
 
-      {/* FORM TAMBAH KEGIATAN */}
+      {/* FORM TAMBAH KEGIATAN (DI-IGNORE) */}
       {showForm && selectStart && (
-        <div className="card bg-white shadow border border-blue-300">
+        <div className="card bg-white shadow border border-blue-300" data-html2canvas-ignore="true">
           <div className="card-body p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-2"><Pencil size={16} /> Tambah Kegiatan</h3>
@@ -542,9 +539,9 @@ export default function KalenderPekerjaan({
         </div>
       )}
 
-      {/* SEMUA KEGIATAN (List View) */}
+      {/* SEMUA KEGIATAN (List View) (DI-IGNORE) */}
       {filteredKegiatan.length > 0 && (
-        <div className="card bg-white shadow border border-gray-200">
+        <div className="card bg-white shadow border border-gray-200" data-html2canvas-ignore="true">
           <div className="card-body p-4">
             <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><FileText size={18} /> Semua Kegiatan ({filteredKegiatan.length})</h3>
             <div className="space-y-2">
@@ -575,7 +572,7 @@ export default function KalenderPekerjaan({
         </div>
       )}
 
-      {/* MODAL KELOLA KATEGORI */}
+      {/* MODAL KELOLA KATEGORI (DI-IGNORE) */}
       {showKelolaKategori && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
