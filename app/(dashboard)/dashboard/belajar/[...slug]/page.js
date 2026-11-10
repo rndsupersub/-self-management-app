@@ -25,8 +25,8 @@ export default function BelajarDetailPage() {
 
   const router = useRouter();
   const params = useParams();
-  const slug = params.slug || [];
-  const path = slug;
+  const slug = params?.slug || [];
+  const path = Array.isArray(slug) ? slug : [];
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -38,7 +38,7 @@ export default function BelajarDetailPage() {
         const data = docSnap.data();
         if (data.belajar && Array.isArray(data.belajar.kategori)) setKategori(data.belajar.kategori);
         else { await setDoc(docRef, { belajar: { kategori: DEFAULT_KATEGORI } }, { merge: true }); setKategori(DEFAULT_KATEGORI); }
-        if (data.belajarLogHarian) setLogHarian(data.belajarLogHarian);
+        if (data.belajarLogHarian && typeof data.belajarLogHarian === "object") setLogHarian(data.belajarLogHarian);
         if (data.belajarTargetHarian) setTargetHarian({ ...DEFAULT_TARGET_HARIAN, ...data.belajarTargetHarian });
       } else {
         await setDoc(docRef, { belajar: { kategori: DEFAULT_KATEGORI }, belajarLogHarian: {}, belajarTargetHarian: DEFAULT_TARGET_HARIAN });
@@ -53,8 +53,8 @@ export default function BelajarDetailPage() {
     const result = findItem(kategori, path);
     const itm = result?.item || null;
     const lvl = path.length;
-    const hasParts = itm?.parts && itm.parts.length > 0;
-    const hasFitur = itm?.fitur && itm.fitur.length > 0;
+    const hasParts = itm?.parts && Array.isArray(itm.parts) && itm.parts.length > 0;
+    const hasFitur = itm?.fitur && Array.isArray(itm.fitur) && itm.fitur.length > 0;
     const isGroup = hasParts || hasFitur;
     const isLeaf4 = lvl === 4 && !isGroup;
     const isLeaf5Plus = lvl >= 5 && !isGroup;
@@ -66,24 +66,23 @@ export default function BelajarDetailPage() {
 
   const simpanKategori = async (newKategori) => {
     setKategori(newKategori);
-    await setDoc(doc(db, "users", user.uid), { belajar: { kategori: newKategori } }, { merge: true });
+    if (user?.uid) await setDoc(doc(db, "users", user.uid), { belajar: { kategori: newKategori } }, { merge: true });
   };
 
   const handleUpdateLog = async (newLogHarian, meta = {}) => {
-    const { action, log } = meta;
+    const { action, log } = meta || {};
     let newKategori = kategori;
-    // PENGAMAN: Jangan jalanin sync kalau data kategori kosong/belum siap
     if ((action === "add" || action === "edit") && log && log.sumber !== "materi" && kategori) {
       newKategori = syncLogToMateri(kategori, log);
     }
     setLogHarian(newLogHarian);
     if (newKategori !== kategori) setKategori(newKategori);
-    await setDoc(doc(db, "users", user.uid), { belajarLogHarian: newLogHarian, belajar: { kategori: newKategori } }, { merge: true });
+    if (user?.uid) await setDoc(doc(db, "users", user.uid), { belajarLogHarian: newLogHarian, belajar: { kategori: newKategori } }, { merge: true });
   };
 
   const handleUpdateTarget = async (newTarget) => {
     setTargetHarian(newTarget);
-    await setDoc(doc(db, "users", user.uid), { belajarTargetHarian: newTarget }, { merge: true });
+    if (user?.uid) await setDoc(doc(db, "users", user.uid), { belajarTargetHarian: newTarget }, { merge: true });
   };
 
   const result = findItem(kategori, path);
@@ -107,14 +106,14 @@ export default function BelajarDetailPage() {
   };
 
   const handleHapus = async (itemId, e) => {
-    e.stopPropagation();
+    if (e && e.stopPropagation) e.stopPropagation();
     if (!confirm("Hapus item ini? Semua isi di dalamnya akan hilang.")) return;
     await simpanKategori(deleteItem(kategori, [...path, itemId]));
   };
 
   const handleRename = async (itemId, currentNama, e) => {
-    e.stopPropagation();
-    const newNama = window.prompt("Ganti nama jadi:", currentNama.replace(/^[^\w\s]+\s/, ''));
+    if (e && e.stopPropagation) e.stopPropagation();
+    const newNama = window.prompt("Ganti nama jadi:", (currentNama || "").replace(/^[^\w\s]+\s/, ''));
     if (!newNama || !newNama.trim() || newNama.trim() === currentNama) return;
     await simpanKategori(updateItem(kategori, [...path, itemId], { nama: newNama.trim() }));
   };
@@ -149,7 +148,7 @@ export default function BelajarDetailPage() {
       currentPath += `/${id}`;
       const subResult = findItem(kategori, path.slice(0, idx + 1));
       if (subResult?.item) {
-        const cleanName = subResult.item.nama.replace(/^[^\w\s]+\s/, '');
+        const cleanName = (subResult.item.nama || "").replace(/^[^\w\s]+\s/, '');
         items.push({ id, nama: cleanName, path: currentPath, icon: <Folder size={14} /> });
       }
     });
@@ -167,7 +166,8 @@ export default function BelajarDetailPage() {
   };
 
   const renderList = (items) => {
-    if (!items || items.length === 0) {
+    const arr = Array.isArray(items) ? items : [];
+    if (arr.length === 0) {
       return (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
@@ -179,11 +179,13 @@ export default function BelajarDetailPage() {
     }
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {items.map((sub) => {
-          const subPath = [...path, sub.id].join("/");
-          const cleanSubName = sub.nama.replace(/^[^\w\s]+\s/, '');
+        {arr.map((sub, idx) => {
+          if (!sub) return null;
+          const subId = sub.id || `item-${idx}`;
+          const subPath = [...path, subId].join("/");
+          const cleanSubName = (sub.nama || "").replace(/^[^\w\s]+\s/, '') || "(tanpa nama)";
           return (
-            <div key={sub.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/belajar/${subPath}`)}>
+            <div key={subId} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/belajar/${subPath}`)}>
               <div className="card-body p-4">
                 <div className="flex justify-between items-start gap-2">
                   <h2 className="card-title text-base text-gray-800 flex-1 flex items-center gap-2"><Folder size={18} className="text-blue-500"/> {cleanSubName}</h2>
@@ -275,7 +277,7 @@ export default function BelajarDetailPage() {
               {showColorPicker && (
                 <div className="card bg-white shadow border border-blue-300 mb-4">
                   <div className="card-body p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool "{item.nama.replace(/^[^\w\s]+\s/, '')}"</p>
+                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool "{(item.nama || "").replace(/^[^\w\s]+\s/, '')}"</p>
                     <div className="flex flex-wrap gap-2">
                       {WARNA_OPTIONS.map((w) => (
                         <button key={w.id} className={`w-8 h-8 rounded ${w.bg} border-2 ${warnaTool === w.id ? "border-gray-800 ring-2 ring-gray-400" : "border-white"}`} onClick={() => handleUpdateWarnaTool(w.id)} title={w.label} />
@@ -299,8 +301,8 @@ export default function BelajarDetailPage() {
     }
 
     if (level >= 4) {
-      const hasParts = item.parts && item.parts.length > 0;
-      const hasFitur = item.fitur && item.fitur.length > 0;
+      const hasParts = item.parts && Array.isArray(item.parts) && item.parts.length > 0;
+      const hasFitur = item.fitur && Array.isArray(item.fitur) && item.fitur.length > 0;
       const isGroup = hasParts || hasFitur;
 
       if (isGroup) {
@@ -341,9 +343,11 @@ export default function BelajarDetailPage() {
         </>
       );
     }
+
+    return null;
   };
 
-  const cleanItemName = item.nama.replace(/^[^\w\s]+\s/, '');
+  const cleanItemName = (item.nama || "").replace(/^[^\w\s]+\s/, '') || "(tanpa nama)";
 
   return (
     <div className="max-w-6xl mx-auto">
