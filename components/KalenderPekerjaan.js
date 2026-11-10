@@ -400,10 +400,12 @@ export default function KalenderPekerjaan({
           {/* 4. AREA TAMPILAN: TIME SCHEDULE (GANTT CHART) */}
           {viewMode === 'timeschedule' && (
             <div className="overflow-x-auto pb-4 animate-fade-in">
-              <div className="min-w-[800px]">
+              {/* PERBAIKAN: min-w dilebarkan dari 800px ke 1000px biar timeline nggak kekecilan */}
+              <div className="min-w-[1000px]">
                 {/* HEADER KOLOM */}
                 <div className="flex border-b border-gray-300 mb-2 pb-1">
-                  <div className="w-[200px] shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
+                  {/* PERBAIKAN: w-[200px] jadi w-[320px] */}
+                  <div className="w-[320px] shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
                   <div className="flex-1 flex border-l border-gray-200">
                     {timeScheduleData.columns.map((col, i) => (
                       <div key={i} className="text-center text-xs font-semibold text-gray-600 border-r border-gray-200 truncate px-1" style={{ width: `${(col.days / timeScheduleData.totalDays) * 100}%` }}>
@@ -425,10 +427,18 @@ export default function KalenderPekerjaan({
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
                           {/* Info Kegiatan (Kiri) */}
-                          <div className="w-[200px] shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-2">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                               <div className={`w-2 h-2 rounded-full shrink-0 ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
-                               <span className={`text-xs font-semibold truncate ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}>{k.judul}</span>
+                          {/* PERBAIKAN: w-[200px] jadi w-[320px] */}
+                          <div className="w-[320px] shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-2">
+                            <div className="flex items-center gap-2 pr-2">
+                               <div className={`w-2 h-2 rounded-full shrink-0 mt-1 self-start ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
+                               {/* PERBAIKAN: Truncate diganti dengan CSS 2 baris + Tooltip */}
+                               <span 
+                                 className={`text-xs font-semibold leading-tight ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}
+                                 title={k.judul}
+                                 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                               >
+                                 {k.judul}
+                               </span>
                             </div>
                             {/* TOMBOL AKSI KEGIATAN */}
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-html2canvas-ignore="true">
@@ -449,7 +459,7 @@ export default function KalenderPekerjaan({
                           </div>
 
                           {/* Timeline Bar (Kanan) */}
-                          <div className="flex-1 relative h-8 bg-gray-50/50 border-l border-gray-200">
+                          <div className="flex-1 relative h-10 bg-gray-50/50 border-l border-gray-200">
                             {/* Garis Grid Vertikal */}
                             <div className="absolute inset-0 flex pointer-events-none">
                               {timeScheduleData.columns.map((col, i) => (
