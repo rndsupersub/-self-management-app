@@ -131,13 +131,32 @@ export default function EvaluasiPekerjaan({
 
     if (laporanHarian.length === 0) { alert("Tidak ada laporan harian di periode ini."); return; }
 
-    const newReports = laporanHarian.map(lap => ({
-      tanggal: lap.tanggal,
-      ringkasan: lap.fields?.ringkasan || lap.konten || "",
-      kendala: lap.fields?.kendala || "",
-      solusi: lap.fields?.solusi || "",
-      gdriveUrl: lap.gdriveUrl || ""
-    }));
+    let newReports = [];
+    laporanHarian.forEach(lap => {
+      if (lap.reports && Array.isArray(lap.reports)) {
+        // BACA FORMAT BARU (Array of Cards)
+        lap.reports.forEach(rep => {
+          newReports.push({
+            tanggal: lap.tanggal,
+            ringkasan: `[${rep.judul}] \n${rep.fields?.ringkasan || ""}`,
+            kendala: rep.fields?.kendala || "",
+            solusi: rep.fields?.solusi || "",
+            gdriveUrl: rep.gdriveUrl || ""
+          });
+        });
+      } else if (lap.fields || lap.konten) {
+        // FALLBACK FORMAT LAMA
+        newReports.push({
+          tanggal: lap.tanggal,
+          ringkasan: lap.fields?.ringkasan || lap.konten || "",
+          kendala: lap.fields?.kendala || "",
+          solusi: lap.fields?.solusi || "",
+          gdriveUrl: lap.gdriveUrl || ""
+        });
+      }
+    });
+
+    if (newReports.length === 0) { alert("Tidak ada isi laporan yang bisa ditarik."); return; }
 
     setEvaluationReports(newReports);
     setEditingIndex(null);
@@ -162,7 +181,6 @@ export default function EvaluasiPekerjaan({
     setEditingIndex(evaluationReports.length); 
   };
 
-  // FUNGSI BATAL EDIT (Global)
   const handleBatalEdit = () => {
     if (evaluasiTersimpan?.reports) {
       setEvaluationReports(evaluasiTersimpan.reports);
@@ -222,7 +240,7 @@ export default function EvaluasiPekerjaan({
   const handleSimpanFrekuensi = () => {
     if (!frekuensiForm.label.trim()) return;
     if (frekuensiForm.tipe === "custom" && (!frekuensiForm.customStart || !frekuensiForm.customEnd)) { alert("Isi tanggal mulai & selesai untuk custom."); return; }
-    const newFreq = { id: editingFrekuensiId || generateId("freq"), label: frekuensiForm.label, tipe: frekuensiForm.tipe, customStart: frekuensiForm.tipe === "custom" ? frekuensiForm.customStart : "", customEnd: frekuensiForm.tipe === "custom" ? frekuensiForm.customEnd : "" };
+    const newFreq = { id: editingFrekuensiId || `freq_${Date.now()}`, label: frekuensiForm.label, tipe: frekuensiForm.tipe, customStart: frekuensiForm.tipe === "custom" ? frekuensiForm.customStart : "", customEnd: frekuensiForm.tipe === "custom" ? frekuensiForm.customEnd : "" };
     let updated = editingFrekuensiId ? periodeEvaluasiList.map((f) => (f.id === editingFrekuensiId ? newFreq : f)) : [...periodeEvaluasiList, newFreq];
     onUpdatePeriodeEvaluasi(updated); handleBukaTambahFrekuensi();
   };
