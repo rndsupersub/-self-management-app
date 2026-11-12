@@ -1,0 +1,49 @@
+/* app/print.css */
+@media print {
+  /* Sembunyikan elemen yang ada atribut ignore (Sidebar, Navbar, Tombol) */
+  [data-html2canvas-ignore="true"] {
+    display: none !important;
+  }
+
+  /* Sembunyikan navigasi utama */
+  nav, aside, header, footer, .sidebar, .navbar {
+    display: none !important;
+  }
+
+  /* Background putih bersih */
+  body, html {
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Area konten jadi lebar penuh */
+  main, #export-area {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* KUNCI ANTI-KEPOTONG: Cegah kotak/card terbelah di tengah halaman */
+  .card, .alert, details, table {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 1rem !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: none !important;
+  }
+
+  /* Pastikan warna tercetak jelas */
+  * {
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Set ukuran kertas A4 */
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+}

@@ -6,7 +6,7 @@ import { FileDown } from "lucide-react";
 
 export default function ExportPDFButton({ 
   targetId = "export-area", 
-  fileName = "laporan.pdf", // Props dipertahankan biar kompatibel
+  fileName = "laporan.pdf", 
   title = "Laporan",
   orientation = "auto" 
 }) {
