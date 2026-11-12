@@ -22,14 +22,14 @@ export default function ExportPDFButton({
     setIsExporting(true);
 
     try {
-      // Import html2pdf secara dinamis
-      const html2pdf = (await import("html2pdf.js")).default;
+      // Import html2pdf-pro secara dinamis
+      const html2pdf = (await import("html2pdf-pro")).default;
 
       const isTimeSchedule = element.innerHTML.includes("Time Schedule") || element.innerHTML.includes("TimeSchedule");
       const pdfOrientation = orientation === "auto" ? (isTimeSchedule ? "l" : "p") : orientation;
 
       const opt = {
-        margin:       [10, 0, 15, 0], 
+        margin:       [10, 5, 15, 5], // Top, Left, Bottom (buat footer), Right
         filename:     fileName,
         image:        { type: 'jpeg', quality: 1 },
         html2canvas:  { 
@@ -42,6 +42,7 @@ export default function ExportPDFButton({
           onclone: (clonedDoc) => {
             const clonedElement = clonedDoc.getElementById(targetId);
             if (clonedElement) {
+              // Bongkar scroll
               clonedElement.style.height = "auto";
               clonedElement.style.maxHeight = "none";
               clonedElement.style.overflow = "visible";
@@ -76,10 +77,11 @@ export default function ExportPDFButton({
           pdf.setFontSize(8);
           pdf.setTextColor(150);
           // Gambar teks footer tanpa kotak putih nutupin konten
-          pdf.text(`${title} — Halaman ${i} dari ${totalPages}`, 10, pdf.internal.pageSize.getHeight() - 5);
+          pdf.text(`${title} — Halaman ${i} dari ${totalPages}`, 5, pdf.internal.pageSize.getHeight() - 5);
         }
       });
 
+      // Simpan
       await worker.save();
 
     } catch (err) {
