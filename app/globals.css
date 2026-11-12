@@ -76,3 +76,55 @@ body {
   background: oklch(51% 0.262 277 / 0.2);
   color: oklch(21% 0.042 266);
 }
+
+/* =========================================
+   CSS KHUSUS UNTUK EXPORT PDF (PRINT BROWSER)
+   ========================================= */
+@media print {
+  /* 1. Sembunyikan semua elemen yang ada atribut ignore (Sidebar, Navbar, Tombol) */
+  [data-html2canvas-ignore="true"] {
+    display: none !important;
+  }
+
+  /* 2. Sembunyikan elemen navigasi utama biar bersih */
+  nav, aside, header, footer, .sidebar, .navbar {
+    display: none !important;
+  }
+
+  /* 3. Background putih bersih, hilangkan margin/padding yang aneh */
+  body, html {
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 4. Konten utama (Area Laporan) jadi lebar penuh */
+  main, #export-area {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* 5. KUNCI ANTI-KEPOTONG: Cegah kotak (Card) terbelah di tengah halaman */
+  .card, .alert, details, table {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 1rem !important;
+    border: 1px solid #e5e7eb !important; /* Garis pinggir biar rapi */
+    box-shadow: none !important; /* Hilangkan shadow biar hemat tinta */
+  }
+
+  /* 6. Pastikan teks hitam jelas & warna background tetap kecetak */
+  * {
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 7. Atur ukuran kertas A4 */
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+}
