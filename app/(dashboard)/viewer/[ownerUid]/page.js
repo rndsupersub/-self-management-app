@@ -6,7 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN, formatTanggal } from "@/lib/pekerjaanData";
+import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN, formatRentang } from "@/lib/pekerjaanData";
 import { ArrowLeft, Home, Building2, Tag, ClipboardList, Link as LinkIcon, Calendar, Folder, LogOut, Eye } from "lucide-react";
 
 export default function ViewerOwnerPage() {
@@ -54,7 +54,8 @@ export default function ViewerOwnerPage() {
         if (oData.prioritasList) setPrioritasList(oData.prioritasList);
         if (oData.sumberList) setSumberList(oData.sumberList);
         if (oData.sections) setSections(oData.sections);
-        if (oData.kategoriKegiatanList) setKategoriList(oData.kategoriKegiatanList);
+        if (oData.kategoriPekerjaanList) setKategoriList(oData.kategoriPekerjaanList);
+        else if (oData.kategoriKegiatanList) setKategoriList(oData.kategoriKegiatanList);
       } catch (err) {
         setError("Terjadi error: " + err.message);
       }
@@ -156,7 +157,7 @@ export default function ViewerOwnerPage() {
                   return (
                     <button key={keg.id} className="w-full text-left p-4 rounded-lg border bg-gray-50 hover:bg-gray-100 border-gray-200 transition" onClick={() => setSelectedKegiatan(keg)}>
                       <p className={`font-bold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>{keg.judul}</p>
-                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><Calendar size={12} /> {formatTanggal(keg.tanggal || keg.tanggalMulai, "pendek")}</p>
+                      <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><Calendar size={12} /> {formatRentang(keg.tanggalMulai || keg.tanggal, keg.tanggalSelesai || keg.tanggal, "pendek")}</p>
                       <div className="flex flex-wrap gap-1 mt-2">
                         {kategoriData && <span className={`text-[10px] px-2 py-0.5 rounded border ${getBadgeClass(kategoriData.warna)}`}>{kategoriData.label}</span>}
                         {prioritasData && <span className={`text-[10px] px-2 py-0.5 rounded border ${getBadgeClass(prioritasData.warna)}`}>{prioritasData.label}</span>}
@@ -183,7 +184,7 @@ export default function ViewerOwnerPage() {
                 {sumberList.find((s) => s.id === selectedKegiatan.sumber) && <span className={`text-xs px-2 py-1 rounded border ${getBadgeClass(sumberList.find((s) => s.id === selectedKegiatan.sumber)?.warna)}`}>{sumberList.find((s) => s.id === selectedKegiatan.sumber)?.label}</span>}
                 <span className={`text-xs px-2 py-1 rounded border ${selectedKegiatan.status === "selesai" ? "bg-green-100 text-green-700 border-green-300" : "bg-gray-100 text-gray-700 border-gray-300"}`}>{selectedKegiatan.status === "selesai" ? "✅ Selesai" : "⏳ Belum Selesai"}</span>
               </div>
-              <p className="text-sm text-gray-500 flex items-center gap-1"><Calendar size={14} /> {formatTanggal(selectedKegiatan.tanggal || selectedKegiatan.tanggalMulai)}</p>
+              <p className="text-sm text-gray-500 flex items-center gap-1"><Calendar size={14} /> {formatRentang(selectedKegiatan.tanggalMulai || selectedKegiatan.tanggal, selectedKegiatan.tanggalSelesai || selectedKegiatan.tanggal, "panjang")}</p>
               {selectedKegiatan.catatan && <p className="text-sm text-gray-700 mt-2 italic bg-gray-50 p-2 rounded">📝 {selectedKegiatan.catatan}</p>}
             </div>
           </div>

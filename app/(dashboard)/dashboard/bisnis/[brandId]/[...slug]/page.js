@@ -13,6 +13,7 @@ import {
   DEFAULT_BISNIS_PRIORITAS,
   DEFAULT_BISNIS_SUMBER,
   DEFAULT_BISNIS_SECTIONS,
+  DEFAULT_BISNIS_KATEGORI,
 } from "@/lib/bisnisData";
 import { Home, Briefcase, Tag } from "lucide-react";
 
@@ -27,6 +28,7 @@ export default function BisnisDetailKegiatanPage() {
   const [prioritasList, setPrioritasList] = useState(DEFAULT_BISNIS_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_BISNIS_SUMBER);
   const [sections, setSections] = useState(DEFAULT_BISNIS_SECTIONS);
+  const [kategoriList, setKategoriList] = useState(DEFAULT_BISNIS_KATEGORI);
 
   const router = useRouter();
   const params = useParams();
@@ -86,6 +88,9 @@ export default function BisnisDetailKegiatanPage() {
         if (data.bisnisSections && Array.isArray(data.bisnisSections)) {
           setSections(data.bisnisSections);
         }
+        if (data.bisnisKategoriList && Array.isArray(data.bisnisKategoriList)) {
+          setKategoriList(data.bisnisKategoriList);
+        }
       } else {
         // User baru
         await setDoc(docRef, {
@@ -136,8 +141,8 @@ export default function BisnisDetailKegiatanPage() {
   };
 
   // ========== HAPUS KEGIATAN ==========
+  // Konfirmasi ada di DetailKegiatan, jadi di sini nggak nanya dua kali.
   const handleDeleteKegiatan = async (kegId) => {
-    if (!confirm("Hapus kegiatan ini? Data akan masuk history.")) return;
     if (!brand) return;
 
     const keg = brand.kegiatan.find((k) => k.id === kegId);
@@ -170,9 +175,10 @@ export default function BisnisDetailKegiatanPage() {
     await handleUpdateKegiatan(kegId, { status: newStatus });
   };
 
-  // ========== EDIT KEGIATAN (balik ke halaman brand) ==========
-  const handleEdit = (keg) => {
-    router.push(`/dashboard/bisnis/${brandId}`);
+  // ========== KELOLA SECTION (level user, bukan per kegiatan) ==========
+  const handleUpdateSections = async (newSections) => {
+    setSections(newSections);
+    await setDoc(doc(db, "users", user.uid), { bisnisSections: newSections }, { merge: true });
   };
 
   if (loading) {
@@ -243,10 +249,11 @@ export default function BisnisDetailKegiatanPage() {
         prioritasList={prioritasList}
         sumberList={sumberList}
         sections={sections}
+        kategoriList={kategoriList}
         onUpdate={handleUpdateKegiatan}
         onDelete={handleDeleteKegiatan}
         onToggleStatus={handleToggleStatus}
-        onEdit={handleEdit}
+        onUpdateSections={handleUpdateSections}
       />
     </div>
   );

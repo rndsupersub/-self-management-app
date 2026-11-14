@@ -8,7 +8,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import DetailKegiatan from "@/components/DetailKegiatan";
 import ExportPDFButton from "@/components/ExportPDFButton";
-import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS } from "@/lib/pekerjaanData";
+import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { Home, Briefcase, Building2, Tag, ClipboardList, Loader2 } from "lucide-react";
 
 export default function DetailKegiatanPage() {
@@ -19,6 +19,7 @@ export default function DetailKegiatanPage() {
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_SUMBER);
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
+  const [kategoriList, setKategoriList] = useState(DEFAULT_KATEGORI_KEGIATAN);
   const [kegiatan, setKegiatan] = useState(null);
 
   const router = useRouter();
@@ -67,6 +68,13 @@ export default function DetailKegiatanPage() {
           setSections(data.sections);
         } else {
           await setDoc(docRef, { sections: DEFAULT_SECTIONS }, { merge: true });
+        }
+
+        if (data.kategoriPekerjaanList && Array.isArray(data.kategoriPekerjaanList)) {
+          setKategoriList(data.kategoriPekerjaanList);
+        } else if (data.kategoriKegiatanList && Array.isArray(data.kategoriKegiatanList)) {
+          // nama field lama
+          setKategoriList(data.kategoriKegiatanList);
         }
       } else {
         await setDoc(docRef, {
@@ -140,9 +148,8 @@ export default function DetailKegiatanPage() {
   };
 
   // ========== HAPUS KEGIATAN ==========
+  // Konfirmasi ada di DetailKegiatan, jadi di sini nggak nanya dua kali.
   const handleDelete = async (kegId) => {
-    if (!confirm("Hapus kegiatan ini? Data akan masuk history.")) return;
-
     const keg = kegiatan;
     if (!keg) return;
 
@@ -211,9 +218,10 @@ export default function DetailKegiatanPage() {
     setKegiatan(keg);
   };
 
-  // ========== EDIT KEGIATAN ==========
-  const handleEdit = (keg) => {
-    router.push(`/dashboard/pekerjaan/${ptId}/${brandId}`);
+  // ========== KELOLA SECTION (level user, bukan per kegiatan) ==========
+  const handleUpdateSections = async (newSections) => {
+    setSections(newSections);
+    await setDoc(doc(db, "users", user.uid), { sections: newSections }, { merge: true });
   };
 
   if (loading) {
@@ -282,10 +290,11 @@ export default function DetailKegiatanPage() {
           prioritasList={prioritasList}
           sumberList={sumberList}
           sections={sections}
+          kategoriList={kategoriList}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
-          onEdit={handleEdit}
+          onUpdateSections={handleUpdateSections}
         />
       </div>
     </div>

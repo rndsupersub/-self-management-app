@@ -15,7 +15,7 @@ import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus, X } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus } from "lucide-react";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -37,8 +37,6 @@ export default function BrandPage() {
   const [editMode, setEditMode] = useState(false);
   const [editNama, setEditNama] = useState("");
   const [confirmHapusBrand, setConfirmHapusBrand] = useState(false);
-  const [editingKegiatan, setEditingKegiatan] = useState(null);
-  const [editForm, setEditForm] = useState({ judul: "", prioritas: "", sumber: "", catatan: "", tanggal: "" });
   const [activeTab, setActiveTab] = useState("kalender");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
 
@@ -93,12 +91,7 @@ export default function BrandPage() {
     await simpanKeFirestore(updated);
   };
 
-  const handleSimpanEditKegiatan = async () => {
-    if (!editForm.judul.trim() || !editingKegiatan) return;
-    const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: b.kegiatan.map((k) => k.id === editingKegiatan.id ? { ...k, ...editForm, updatedAt: new Date().toISOString() } : k) } : b) } : p);
-    await simpanKeFirestore(updated);
-    setEditingKegiatan(null);
-  };
+  // Edit kegiatan sekarang cuma punya satu pintu: halaman detail (?edit=1).
 
   const handleToggleStatusKegiatan = async (kegId) => {
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: b.kegiatan.map((k) => k.id === kegId ? { ...k, status: k.status === "selesai" ? "belum" : "selesai", updatedAt: new Date().toISOString() } : k) } : b) } : p);
@@ -107,6 +100,18 @@ export default function BrandPage() {
 
   const handleHapusKegiatan = async (kegId) => {
     if (!confirm("Hapus kegiatan ini? Data akan masuk history.")) return;
+
+    // Arsipkan dulu ke history (prinsip: data nggak hilang).
+    const keg = brand?.kegiatan?.find((k) => k.id === kegId);
+    if (keg) {
+      const docRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(docRef);
+      const data = docSnap.data() || {};
+      const history = data.pekerjaanHistory || {};
+      history[`${keg.tanggal || keg.tanggalMulai}_${keg.id}`] = { ...keg, deletedAt: new Date().toISOString() };
+      await setDoc(docRef, { pekerjaanHistory: history }, { merge: true });
+    }
+
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: b.kegiatan.filter((k) => k.id !== kegId) } : b) } : p);
     await simpanKeFirestore(updated);
   };
@@ -232,13 +237,15 @@ export default function BrandPage() {
             kegiatan={brand.kegiatan || []} 
             onAdd={handleTambahKegiatan} 
             onClickKegiatan={(id) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${id}`)} 
-            onEditKegiatan={(keg) => { setEditingKegiatan(keg); setEditForm({ judul: keg.judul, prioritas: keg.prioritas, sumber: keg.sumber, catatan: keg.catatan || "", tanggal: keg.tanggal }); }}
+            onEditKegiatan={(keg) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${keg.id}?edit=1`)}
             onDeleteKegiatan={handleHapusKegiatan}
             onToggleStatusKegiatan={handleToggleStatusKegiatan}
             prioritasList={prioritasList} 
             sumberList={sumberList} 
             kategoriList={kategoriPekerjaanList} 
             onUpdateKategoriList={(u) => { setKategoriPekerjaanList(u); simpanSettings({ kategoriPekerjaanList: u }); }} 
+            onUpdatePrioritasList={(u) => { setPrioritasList(u); simpanSettings({ prioritasList: u }); }}
+            onUpdateSumberList={(u) => { setSumberList(u); simpanSettings({ sumberList: u }); }}
           />
         )}
 
@@ -265,33 +272,6 @@ export default function BrandPage() {
           <EvaluasiPekerjaan kegiatanList={brand.kegiatan || []} laporanData={brand.laporanData || {}} evaluasiData={brand.evaluasiData || {}} vendorList={vendorList} fieldEvaluasiList={fieldEvaluasiPekerjaanList} periodeEvaluasiList={periodeEvaluasiPekerjaanList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} onUpdateEvaluasi={handleUpdateEvaluasi} onUpdateFieldEvaluasi={(u) => { setFieldEvaluasiPekerjaanList(u); simpanSettings({ fieldEvaluasiPekerjaanList: u }); }} onUpdatePeriodeEvaluasi={(u) => { setPeriodeEvaluasiPekerjaanList(u); simpanSettings({ periodeEvaluasiPekerjaanList: u }); }} onUpdateFieldEvaluasiVendor={(u) => { setFieldEvaluasiVendorList(u); simpanSettings({ fieldEvaluasiVendorList: u }); }} />
         )}
       </div>
-
-      {editingKegiatan && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
-          <div className="card bg-white shadow-xl w-full max-w-md">
-            <div className="card-body p-4">
-              <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><Pencil size={18} /> Edit Kegiatan</h3>
-              <div className="space-y-2">
-                <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Judul kegiatan" value={editForm.judul} onChange={(e) => setEditForm({ ...editForm, judul: e.target.value })} />
-                <div className="flex gap-2">
-                  <select className="select select-bordered flex-1 text-gray-800 bg-white" value={editForm.prioritas} onChange={(e) => setEditForm({ ...editForm, prioritas: e.target.value })}>
-                    {prioritasList.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  </select>
-                  <select className="select select-bordered flex-1 text-gray-800 bg-white" value={editForm.sumber} onChange={(e) => setEditForm({ ...editForm, sumber: e.target.value })}>
-                    {sumberList.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
-                </div>
-                <input type="date" className="input input-bordered w-full text-gray-800 bg-white" value={editForm.tanggal} onChange={(e) => setEditForm({ ...editForm, tanggal: e.target.value })} />
-                <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="2" placeholder="Catatan" value={editForm.catatan} onChange={(e) => setEditForm({ ...editForm, catatan: e.target.value })} />
-              </div>
-              <div className="flex gap-2 mt-3">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpanEditKegiatan}>Simpan</button>
-                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setEditingKegiatan(null)}>Batal</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

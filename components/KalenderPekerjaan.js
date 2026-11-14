@@ -3,8 +3,9 @@
 
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
-import { generateId, DEFAULT_KATEGORI_KEGIATAN, WARNA_OPTIONS, getKategoriStyle } from "@/lib/pekerjaanData";
+import { generateId, DEFAULT_KATEGORI_KEGIATAN, WARNA_OPTIONS, getKategoriStyle, formatRentang } from "@/lib/pekerjaanData";
 import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, Folder, FileText, Save, AlertTriangle, List, Circle } from "lucide-react";
+import KelolaLabelKegiatan from "@/components/KelolaLabelKegiatan";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -17,10 +18,12 @@ export default function KalenderPekerjaan({
   sumberList = [],
   kategoriList = DEFAULT_KATEGORI_KEGIATAN,
   onUpdateKategoriList,
+  onUpdatePrioritasList,
+  onUpdateSumberList,
 }) {
   // STATE TAMPILAN (KALENDER vs TIME SCHEDULE)
   const [viewMode, setViewMode] = useState("kalender");
-  const [timeRange, setTimeRange] = useState("1-tahun"); // "1-bulan", "3-bulan", "6-bulan", "1-tahun"
+  const [timeRange, setTimeRange] = useState("1-tahun");
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectStart, setSelectStart] = useState(null);
@@ -114,7 +117,9 @@ export default function KalenderPekerjaan({
       catatan: formData.catatan,
       tanggalMulai, tanggalSelesai, tanggal: tanggalMulai,
       status: "belum",
-      sections: { analisis: [], desain: [], vendor: [], lainnya: [] },
+      // Section dibikin lazy per section id (lihat DetailKegiatan),
+      // jadi section baru otomatis kepake tanpa migrasi.
+      sections: {},
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     onAdd(newKegiatan);
@@ -124,12 +129,9 @@ export default function KalenderPekerjaan({
 
   const handleBatalSelect = () => { setSelectStart(null); setSelectEnd(null); setShowForm(false); };
 
-  const formatTanggalRange = (mulai, selesai) => {
-    if (!selesai || mulai === selesai) return new Date(mulai).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-    const d1 = new Date(mulai).toLocaleDateString("id-ID", { day: "numeric", month: "short" });
-    const d2 = new Date(selesai).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-    return `${d1} – ${d2}`;
-  };
+  // Format rentang tanggal: satu sumber logika, sama kayak halaman detail.
+  const formatTanggalRange = (mulai, selesai) =>
+    formatRentang(mulai, selesai, "pendek");
 
   const getKategoriData = (kategoriId) => kategoriList.find((k) => k.id === kategoriId) || kategoriList[0];
   const getPrioritasData = (prioritasId) => prioritasList.find((p) => p.id === prioritasId);
@@ -208,7 +210,6 @@ export default function KalenderPekerjaan({
       const leftPct = (leftDays / totalDays) * 100;
       let widthPct = (widthDays / totalDays) * 100;
 
-      // PENGAMAN: Math.min mencegah bar keluar dari batas grid
       if (leftPct + widthPct > 100) {
         widthPct = 100 - leftPct;
       }
@@ -216,7 +217,6 @@ export default function KalenderPekerjaan({
       return { ...k, leftPct, widthPct };
     });
 
-    // Generate Header Kolom
     const columns = [];
     if (timeRange === "1-bulan") {
       let temp = new Date(start);
@@ -254,7 +254,6 @@ export default function KalenderPekerjaan({
 
   return (
     <div className="space-y-4">
-      {/* 1. FILTER & KELOLA KATEGORI (DI-IGNORE SAAT EXPORT) */}
       <div className="card bg-white shadow border border-gray-200" data-html2canvas-ignore="true">
         <div className="card-body p-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -274,19 +273,24 @@ export default function KalenderPekerjaan({
             {(filterPrioritas !== "all" || filterSumber !== "all" || filterKategori !== "all") && (
               <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterPrioritas("all"); setFilterSumber("all"); setFilterKategori("all"); }}><X size={14} /> Reset</button>
             )}
-            <button className="btn btn-ghost btn-xs text-gray-600 ml-auto" onClick={() => setShowKelolaKategori(true)} title="Kelola Kategori">
-              <Settings size={14} className="mr-1" /> Kelola Kategori
-            </button>
+            <div className="ml-auto flex items-center gap-1">
+              <KelolaLabelKegiatan
+                prioritasList={prioritasList}
+                sumberList={sumberList}
+                onUpdatePrioritasList={onUpdatePrioritasList || (() => {})}
+                onUpdateSumberList={onUpdateSumberList || (() => {})}
+              />
+              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaKategori(true)} title="Kelola Kategori">
+                <Settings size={14} className="mr-1" /> Kelola Kategori
+              </button>
+            </div>
             <span className="text-xs text-gray-400">{filteredKegiatan.length} kegiatan</span>
           </div>
         </div>
       </div>
 
-      {/* 2. TOGGLE VIEW MODE & NAVIGASI WAKTU */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
-          
-          {/* TOGGLE VIEW (DI-IGNORE) */}
           <div className="flex justify-center mb-4" data-html2canvas-ignore="true">
             <div className="tabs tabs-boxed bg-gray-100 p-1 w-fit">
               <button className={`tab tab-sm ${viewMode === 'kalender' ? 'tab-active bg-white shadow text-gray-800 font-semibold' : 'text-gray-500'}`} onClick={() => setViewMode('kalender')}>
@@ -298,7 +302,6 @@ export default function KalenderPekerjaan({
             </div>
           </div>
 
-          {/* NAVIGASI WAKTU (DI-IGNORE) */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4" data-html2canvas-ignore="true">
             <div className="flex items-center gap-1">
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={prevYear}>«</button>
@@ -334,12 +337,10 @@ export default function KalenderPekerjaan({
             </div>
           </div>
 
-          {/* TOMBOL HARI INI (DI-IGNORE) */}
           <div className="flex justify-center mb-3" data-html2canvas-ignore="true">
             <button className="btn btn-outline btn-xs text-gray-700" onClick={goToToday}><Calendar size={14} className="mr-1"/> Hari Ini</button>
           </div>
 
-          {/* 3. AREA TAMPILAN: KALENDER */}
           {viewMode === 'kalender' && (
             <>
               <div className="grid grid-cols-7 gap-1 mb-1">
@@ -403,11 +404,9 @@ export default function KalenderPekerjaan({
             </>
           )}
 
-          {/* 4. AREA TAMPILAN: TIME SCHEDULE (GANTT CHART) */}
           {viewMode === 'timeschedule' && (
             <div className="overflow-x-auto pb-4 animate-fade-in">
               <div className="min-w-[1000px]">
-                {/* HEADER KOLOM */}
                 <div className="flex border-b border-gray-300 mb-2 pb-1">
                   <div className="w-[320px] shrink-0 font-bold text-gray-700 text-sm px-2">Nama Kegiatan</div>
                   <div className="flex-1 flex border-l border-gray-200">
@@ -419,7 +418,6 @@ export default function KalenderPekerjaan({
                   </div>
                 </div>
 
-                {/* BARIS KEGIATAN */}
                 <div className="space-y-1.5">
                   {timeScheduleData.bars.length === 0 ? (
                     <p className="text-sm text-center py-6 text-gray-500 italic">Tidak ada kegiatan di periode ini.</p>
@@ -430,7 +428,6 @@ export default function KalenderPekerjaan({
                       
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
-                          {/* Info Kegiatan (Kiri) */}
                           <div className="w-[320px] shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-2">
                             <div className="flex items-center gap-2 pr-2">
                                <div className={`w-2 h-2 rounded-full shrink-0 mt-1 self-start ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
@@ -442,7 +439,6 @@ export default function KalenderPekerjaan({
                                  {k.judul}
                                </span>
                             </div>
-                            {/* TOMBOL AKSI KEGIATAN (DI-IGNORE) */}
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-html2canvas-ignore="true">
                               <button 
                                 className={`w-5 h-5 rounded-full flex items-center justify-center transition ${k.status === "selesai" ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
@@ -460,16 +456,13 @@ export default function KalenderPekerjaan({
                             </div>
                           </div>
 
-                          {/* Timeline Bar (Kanan) */}
                           <div className="flex-1 relative h-10 bg-gray-50/50 border-l border-gray-200">
-                            {/* Garis Grid Vertikal */}
                             <div className="absolute inset-0 flex pointer-events-none">
                               {timeScheduleData.columns.map((col, i) => (
                                 <div key={i} className="border-r border-gray-200 border-dashed h-full" style={{ width: `${(col.days / timeScheduleData.totalDays) * 100}%` }} />
                               ))}
                             </div>
                             
-                            {/* Balok Kegiatan */}
                             <div 
                               className={`absolute top-1 bottom-1 rounded shadow-sm text-[10px] text-white flex items-center px-1.5 truncate z-10 ${style.isCustom ? '' : style.bg}`}
                               style={{ 
@@ -488,7 +481,6 @@ export default function KalenderPekerjaan({
                   )}
                 </div>
 
-                {/* LIST KEGIATAN (MUNCUL DI BAWAH GANTT CHART SAAT EXPORT PDF) */}
                 <div className="mt-8 space-y-2">
                   {timeScheduleData.bars.map((k) => {
                     const mulai = k.tanggalMulai || k.tanggal;
@@ -511,7 +503,6 @@ export default function KalenderPekerjaan({
         </div>
       </div>
 
-      {/* FORM TAMBAH KEGIATAN (DI-IGNORE) */}
       {showForm && selectStart && (
         <div className="card bg-white shadow border border-blue-300" data-html2canvas-ignore="true">
           <div className="card-body p-4">
@@ -561,7 +552,7 @@ export default function KalenderPekerjaan({
         </div>
       )}
 
-      {/* SEMUA KEGIATAN (List View) (DI-IGNORE) */}
+      {/* PERBAIKAN: List Semua Kegiatan dengan Tombol Edit & Hapus */}
       {filteredKegiatan.length > 0 && (
         <div className="card bg-white shadow border border-gray-200" data-html2canvas-ignore="true">
           <div className="card-body p-4">
@@ -573,19 +564,35 @@ export default function KalenderPekerjaan({
                 const mulai = keg.tanggalMulai || keg.tanggal;
                 const selesai = keg.tanggalSelesai || keg.tanggal || keg.tanggalMulai;
                 return (
-                  <div key={keg.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200 hover:bg-gray-100 cursor-pointer transition" onClick={() => onClickKegiatan(keg.id)}>
-                    <div className={`w-1 self-stretch rounded ${style.isCustom ? "" : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
-                    <div className="flex-1">
-                      <p className={`text-sm font-semibold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>{keg.judul}</p>
-                      <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(kategoriData?.warna || "gray")}`}>{kategoriData?.label || keg.kategori}</span>
-                        {getPrioritasData(keg.prioritas) && <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getPrioritasData(keg.prioritas)?.warna)}`}>{getPrioritasData(keg.prioritas)?.label}</span>}
-                        {getSumberData(keg.sumber) && <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getSumberData(keg.sumber)?.warna)}`}>{getSumberData(keg.sumber)?.label}</span>}
-                        {keg.status === "selesai" && <span className="text-xs px-2 py-0.5 rounded border bg-green-100 text-green-700 border-green-300 flex items-center gap-1"><CheckCircle2 size={12}/> Selesai</span>}
+                  <div key={keg.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200 hover:bg-gray-100 transition group">
+                    <div className="flex-1 cursor-pointer" onClick={() => onClickKegiatan(keg.id)}>
+                      <div className="flex items-start gap-3">
+                        <div className={`w-1 self-stretch rounded ${style.isCustom ? "" : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
+                        <div>
+                          <p className={`text-sm font-semibold text-gray-800 ${keg.status === "selesai" ? "line-through opacity-60" : ""}`}>{keg.judul}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(kategoriData?.warna || "gray")}`}>{kategoriData?.label || keg.kategori}</span>
+                            {getPrioritasData(keg.prioritas) && <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getPrioritasData(keg.prioritas)?.warna)}`}>{getPrioritasData(keg.prioritas)?.label}</span>}
+                            {getSumberData(keg.sumber) && <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getSumberData(keg.sumber)?.warna)}`}>{getSumberData(keg.sumber)?.label}</span>}
+                            {keg.status === "selesai" && <span className="text-xs px-2 py-0.5 rounded border bg-green-100 text-green-700 border-green-300 flex items-center gap-1"><CheckCircle2 size={12}/> Selesai</span>}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <span className="text-gray-400 text-sm"><ArrowRight size={16} /></span>
+                    
+                    {/* Tombol Aksi di List */}
+                    <div className="flex gap-1 shrink-0">
+                      <button className="btn btn-ghost btn-sm text-blue-500" onClick={() => onEditKegiatan(keg)} title="Edit Kegiatan">
+                        <Pencil size={16} />
+                      </button>
+                      <button className="btn btn-ghost btn-sm text-red-500" onClick={() => onDeleteKegiatan(keg.id)} title="Hapus Kegiatan">
+                        <Trash2 size={16} />
+                      </button>
+                      <button className="btn btn-ghost btn-sm text-gray-400 hover:text-primary" onClick={() => onClickKegiatan(keg.id)} title="Buka Detail">
+                        <ArrowRight size={16} />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -594,7 +601,6 @@ export default function KalenderPekerjaan({
         </div>
       )}
 
-      {/* MODAL KELOLA KATEGORI (DI-IGNORE) */}
       {showKelolaKategori && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
           <div className="card bg-white shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
