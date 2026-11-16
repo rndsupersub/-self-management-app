@@ -2,8 +2,8 @@
 import { NextResponse } from "next/server";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import { getAuth } from "firebase-admin/auth";
 import { generatePairingCode } from "@/lib/telegramData";
+import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
 
 const PAIRING_CODE_TTL_MS = 10 * 60 * 1000; // 10 menit
 
@@ -33,7 +33,7 @@ async function verifyUser(req) {
   const idToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!idToken) return null;
   try {
-    return await getAuth(getAdminApp()).verifyIdToken(idToken);
+    return await verifyFirebaseIdToken(idToken);
   } catch (err) {
     console.error("[generate-code] Token invalid:", err.message);
     return null;

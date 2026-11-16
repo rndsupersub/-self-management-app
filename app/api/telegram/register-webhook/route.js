@@ -2,37 +2,17 @@
 // Daftarin / perbaiki webhook Telegram dari dashboard (cukup login Firebase).
 // Jadi nggak perlu curl manual tiap kali domain atau kode webhook berubah.
 import { NextResponse } from "next/server";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { resolveWebhookUrl, getTelegramWebhookInfo, registerTelegramWebhook } from "@/lib/telegramWebhookSetup";
+import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
 
-let adminApp = null;
-function getAdminApp() {
-  if (adminApp) return adminApp;
-  if (getApps().length > 0) {
-    adminApp = getApps()[0];
-    return adminApp;
-  }
-  const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "")
-    .trim()
-    .replace(/^"|"$/g, "")
-    .replace(/\\n/g, "\n");
-  adminApp = initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey,
-    }),
-  });
-  return adminApp;
-}
-
+// Verifikasi token pakai lib/firebaseIdToken (bukan firebase-admin/auth yang
+// crash 500 di runtime Vercel).
 async function verifyUser(req) {
   const header = req.headers.get("authorization") || "";
   const idToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!idToken) return null;
   try {
-    return await getAuth(getAdminApp()).verifyIdToken(idToken);
+    return await verifyFirebaseIdToken(idToken);
   } catch (err) {
     console.error("[register-webhook] Token invalid:", err.message);
     return null;
