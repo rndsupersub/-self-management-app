@@ -5,15 +5,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, runTransaction, deleteField } from "firebase/firestore";
 import DashboardKeuangan from "@/components/DashboardKeuangan";
+import RiwayatKeuangan from "@/components/RiwayatKeuangan";
 import KalenderTransaksi from "@/components/KalenderTransaksi";
 import WalletManager from "@/components/WalletManager";
 import GoalsManager from "@/components/GoalsManager";
 import SettingKeuangan from "@/components/SettingKeuangan";
 import ExportPDFButton from "@/components/ExportPDFButton";
-import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_SUMBER_PEMASUKAN, DEFAULT_KATEGORI } from "@/lib/keuanganData";
-import { Home, Wallet, BarChart3, Pencil, Target, Settings, Inbox } from "lucide-react";
+import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_SUMBER_PEMASUKAN, DEFAULT_KATEGORI, getKategoriList, terapkanAksiTransaksi } from "@/lib/keuanganData";
+import { Home, Wallet, BarChart3, Pencil, Target, Settings, History } from "lucide-react";
 
 export default function KeuanganPage() {
   const [user, setUser] = useState(null);
@@ -45,7 +46,7 @@ export default function KeuanganPage() {
         if (data.keuanganTransaksi) setKeuanganTransaksi(data.keuanganTransaksi);
         if (data.keuanganSetting) setSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting });
         if (data.keuanganSumberPemasukan) setSumberPemasukanList(data.keuanganSumberPemasukan);
-        if (data.keuanganKategori) setKategoriList({ ...DEFAULT_KATEGORI, ...data.keuanganKategori });
+        if (data.keuanganKategori) setKategoriList(getKategoriList(data.keuanganKategori));
       }
       setLoading(false);
     });
@@ -55,6 +56,48 @@ export default function KeuanganPage() {
   const simpanKeuangan = async (updates) => {
     if (!user) return;
     await setDoc(doc(db, "users", user.uid), updates, { merge: true });
+  };
+
+  // Transaksi disimpan sebagai aksi di dalam transaksi Firestore, dibaca dari
+  // data TERBARU server. Ini yang bikin edit/hapus nggak balik ke angka lama:
+  // `merge: true` biasa mempertahankan key tanggal yang kita hapus, dan
+  // menulis peta penuh dari prop bisa menimpa perubahan yang lebih baru.
+  const simpanAksiTransaksi = async (aksi) => {
+    if (!user) return false;
+    const docRef = doc(db, "users", user.uid);
+    try {
+      let hasil = null;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(docRef);
+        const lama = snap.data()?.keuanganTransaksi || {};
+        hasil = terapkanAksiTransaksi(lama, aksi);
+
+        // Key tanggal yang jadi kosong harus dihapus eksplisit, karena merge
+        // cuma memperbarui field yang dikirim.
+        const payload = { ...hasil };
+        Object.keys(lama).forEach((tanggal) => {
+          if (!(tanggal in hasil)) payload[tanggal] = deleteField();
+        });
+
+        tx.set(docRef, { keuanganTransaksi: payload }, { merge: true });
+      });
+
+      if (hasil) setKeuanganTransaksi(hasil);
+      return true;
+    } catch (err) {
+      console.error("[keuangan] gagal simpan transaksi:", err);
+      // Jangan biarkan layar beda dengan server: tarik ulang data aslinya.
+      try {
+        const snap = await getDoc(docRef);
+        setKeuanganTransaksi(snap.data()?.keuanganTransaksi || {});
+      } catch (e) {
+        console.error("[keuangan] gagal ambil ulang data:", e);
+      }
+      alert(
+        `Transaksi gagal disimpan: ${err?.message || "koneksi bermasalah"}.\nData di layar sudah disamakan lagi dengan server.`
+      );
+      return false;
+    }
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -77,6 +120,7 @@ export default function KeuanganPage() {
         <button className={`tab ${activeTab === "transaksi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("transaksi")}><Pencil size={14} className="mr-1"/> Input Transaksi</button>
         <button className={`tab ${activeTab === "dompet" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dompet")}><Wallet size={14} className="mr-1"/> Kelola Dompet</button>
         <button className={`tab ${activeTab === "goals" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("goals")}><Target size={14} className="mr-1"/> Kelola Goals</button>
+        <button className={`tab ${activeTab === "riwayat" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("riwayat")}><History size={14} className="mr-1"/> Riwayat</button>
         <button className={`tab ${activeTab === "setting" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("setting")}><Settings size={14} className="mr-1"/> Setting</button>
       </div>
 
@@ -85,8 +129,9 @@ export default function KeuanganPage() {
           <ExportPDFButton targetId="export-area" fileName={`Keuangan_${activeTab}_${today}.pdf`} title={`Keuangan - ${activeTab}`} />
         </div>
 
-        {activeTab === "dashboard" && <DashboardKeuangan dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={setting} />}
-        {activeTab === "transaksi" && <KalenderTransaksi keuanganTransaksi={keuanganTransaksi} dompetList={dompetList} kategoriList={kategoriList} onUpdateTransaksi={(u) => { setKeuanganTransaksi(u); simpanKeuangan({ keuanganTransaksi: u }); }} />}
+        {activeTab === "dashboard" && <DashboardKeuangan dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={setting} kategoriList={kategoriList} />}
+        {activeTab === "transaksi" && <KalenderTransaksi keuanganTransaksi={keuanganTransaksi} dompetList={dompetList} kategoriList={kategoriList} onSimpanTransaksi={simpanAksiTransaksi} />}
+        {activeTab === "riwayat" && <RiwayatKeuangan keuanganTransaksi={keuanganTransaksi} kategoriList={kategoriList} dompetList={dompetList} />}
         {activeTab === "dompet" && <WalletManager dompetList={dompetList} onUpdateDompetList={(u) => { setDompetList(u); simpanKeuangan({ keuanganDompet: u }); }} />}
         {activeTab === "goals" && <GoalsManager goalsList={goalsList} dompetList={dompetList} keuanganTransaksi={keuanganTransaksi} onUpdateGoalsList={(u) => { setGoalsList(u); simpanKeuangan({ keuanganGoals: u }); }} />}
         {activeTab === "setting" && <SettingKeuangan setting={setting} sumberPemasukanList={sumberPemasukanList} kategoriList={kategoriList} onUpdateSetting={(u) => { setSetting(u); simpanKeuangan({ keuanganSetting: u }); }} onUpdateSumberPemasukan={(u) => { setSumberPemasukanList(u); simpanKeuangan({ keuanganSumberPemasukan: u }); }} onUpdateKategori={(u) => { setKategoriList(u); simpanKeuangan({ keuanganKategori: u }); }} />}

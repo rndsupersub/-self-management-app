@@ -25,7 +25,7 @@ export default function VendorManager({
   const [filterStatus, setFilterStatus] = useState("all");
 
   const [formData, setFormData] = useState({
-    nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "netral", catatan: "", pertanyaanAwal: [],
+    nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "silver", catatan: "", pertanyaanAwal: [],
   });
 
   const [newKategori, setNewKategori] = useState("");
@@ -47,7 +47,7 @@ export default function VendorManager({
 
   const resetForm = () => {
     setFormData({
-      nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "netral", catatan: "",
+      nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "silver", catatan: "",
       pertanyaanAwal: pertanyaanVendorList.map((q) => ({ id: q.id, pertanyaan: q.pertanyaan, tipe: q.tipe, jawaban: q.tipe === "checkbox" ? false : "" })),
     });
     setShowKategoriBaru(false); setShowSatuanBaru(false);

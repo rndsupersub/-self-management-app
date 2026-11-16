@@ -10,7 +10,7 @@ export default function KalenderTransaksi({
   keuanganTransaksi = {},
   dompetList = DEFAULT_DOMPET,
   kategoriList = DEFAULT_KATEGORI,
-  onUpdateTransaksi,
+  onSimpanTransaksi,
 }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(getTanggalHariIni());
@@ -19,6 +19,7 @@ export default function KalenderTransaksi({
 
   const [formData, setFormData] = useState({ jenis: "keluar", kategori: "", nominal: "", metode: "Cash", catatan: "" });
   const [errorMsg, setErrorMsg] = useState("");
+  const [menyimpan, setMenyimpan] = useState(false);
 
   const generateCalendar = () => {
     const year = currentMonth.getFullYear();
@@ -52,32 +53,40 @@ export default function KalenderTransaksi({
   const handleBukaForm = () => { setFormData({ jenis: "keluar", kategori: "", nominal: "", metode: "Cash", catatan: "" }); setEditingId(null); setErrorMsg(""); setShowForm(true); };
   const handleBukaEdit = (trx) => { setFormData({ jenis: trx.jenis, kategori: trx.kategoriId || "", nominal: trx.nominal || "", metode: trx.metode || "Cash", catatan: trx.catatan || "" }); setEditingId(trx.id); setErrorMsg(""); setShowForm(true); };
 
-  const handleSimpan = () => {
+  // Simpan dikirim sebagai AKSI (tambah/edit/hapus), bukan peta penuh.
+  // Halaman yang menerapkannya ke data terbaru server, jadi edit/hapus
+  // nggak bisa ketimpa tulisan lain yang telat.
+  const handleSimpan = async () => {
     setErrorMsg("");
     if (!formData.kategori) { setErrorMsg("Pilih kategori dulu."); return; }
     const nominal = parseInt(formData.nominal);
     if (!nominal || nominal <= 0) { setErrorMsg("Nominal harus lebih dari 0."); return; }
+    if (menyimpan) return;
 
     const walletId = getWalletId(formData.jenis, formData.kategori);
-    const updated = JSON.parse(JSON.stringify(keuanganTransaksi || {}));
-    if (!updated[selectedDate]) updated[selectedDate] = [];
+    const sekarang = new Date().toISOString();
+    const trx = { jenis: formData.jenis, kategoriId: formData.kategori, nominal, metode: formData.metode, catatan: formData.catatan, walletId, updatedAt: sekarang };
+    if (editingId) trx.id = editingId;
+    else { trx.id = generateId("trx"); trx.createdAt = sekarang; }
 
-    const newTrx = { id: editingId || generateId("trx"), jenis: formData.jenis, kategoriId: formData.kategori, nominal, metode: formData.metode, catatan: formData.catatan, walletId, updatedAt: new Date().toISOString() };
-
-    if (editingId) updated[selectedDate] = updated[selectedDate].map((t) => t.id === editingId ? { ...t, ...newTrx } : t);
-    else updated[selectedDate].push(newTrx);
-
-    onUpdateTransaksi(updated); setShowForm(false); setEditingId(null);
+    setMenyimpan(true);
+    const ok = await onSimpanTransaksi?.({
+      aksi: editingId ? "edit" : "tambah",
+      tanggal: selectedDate,
+      trx,
+      id: editingId,
+    });
+    setMenyimpan(false);
+    if (ok === false) return; // pesan gagal sudah ditampilkan halaman
+    setShowForm(false); setEditingId(null);
   };
 
-  const handleHapus = (id) => {
+  const handleHapus = async (id) => {
     if (!confirm("Hapus transaksi ini?")) return;
-    const updated = JSON.parse(JSON.stringify(keuanganTransaksi || {}));
-    if (updated[selectedDate]) {
-      updated[selectedDate] = updated[selectedDate].filter((t) => t.id !== id);
-      if (updated[selectedDate].length === 0) delete updated[selectedDate];
-    }
-    onUpdateTransaksi(updated);
+    if (menyimpan) return;
+    setMenyimpan(true);
+    await onSimpanTransaksi?.({ aksi: "hapus", tanggal: selectedDate, id });
+    setMenyimpan(false);
   };
 
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
@@ -234,8 +243,8 @@ export default function KalenderTransaksi({
               </div>
               {errorMsg && <div className="alert alert-error py-2 text-xs flex items-center gap-1"><AlertTriangle size={14}/> {errorMsg}</div>}
               <div className="flex gap-2">
-                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan}>{editingId ? <><Save size={16} className="mr-1"/> Simpan</> : <><Plus size={16} className="mr-1"/> Tambah</>}</button>
-                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => { setShowForm(false); setEditingId(null); }}>Batal</button>
+                <button className="btn btn-primary btn-sm flex-1" onClick={handleSimpan} disabled={menyimpan}>{menyimpan ? "Menyimpan..." : editingId ? <><Save size={16} className="mr-1"/> Simpan</> : <><Plus size={16} className="mr-1"/> Tambah</>}</button>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => { setShowForm(false); setEditingId(null); }} disabled={menyimpan}>Batal</button>
               </div>
             </div>
           )}
@@ -247,21 +256,21 @@ export default function KalenderTransaksi({
             </div>
           ) : (
             <div className="space-y-2">
-              {transaksiHariIni.slice().sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).map((trx) => {
+              {transaksiHariIni.slice().sort((a, b) => String(b.createdAt || b.updatedAt || "").localeCompare(String(a.createdAt || a.updatedAt || ""))).map((trx) => {
                 const kategori = getKategoriObj(trx.jenis, trx.kategoriId);
                 return (
                   <div key={trx.id} className={`flex items-start gap-3 p-3 rounded border ${getJenisColor(trx.jenis)}`}>
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <p className="text-sm font-semibold">{getJenisLabel(trx.jenis)}</p>
-                        <p className="text-sm font-bold">{trx.jenis === "masuk" ? "+" : "-"}{formatRupiah(trx.nominal)}</p>
+                        <p className="text-sm font-bold">{trx.jenis === "masuk" ? "+" : "-"}{formatRupiah(Number(trx.nominal ?? trx.jumlah ?? 0))}</p>
                       </div>
-                      <p className="text-xs mt-0.5">{kategori?.nama || trx.kategoriId}</p>
+                      <p className="text-xs mt-0.5">{kategori?.nama || trx.kategori || trx.kategoriId || "Tanpa Kategori"}</p>
                       {trx.catatan && <p className="text-xs mt-1 italic opacity-80 flex items-center gap-1"><MessageSquare size={12}/> {trx.catatan}</p>}
                     </div>
                     <div className="flex gap-1" data-html2canvas-ignore="true">
-                      <button className="btn btn-ghost btn-xs" onClick={() => handleBukaEdit(trx)}><Pencil size={14} /></button>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(trx.id)}><Trash2 size={14} /></button>
+                      <button className="btn btn-ghost btn-xs" onClick={() => handleBukaEdit(trx)} disabled={menyimpan}><Pencil size={14} /></button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(trx.id)} disabled={menyimpan}><Trash2 size={14} /></button>
                     </div>
                   </div>
                 );

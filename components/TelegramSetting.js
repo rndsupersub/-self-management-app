@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Bot, Link2, Unlink, X, RefreshCw } from "lucide-react";
+import { auth } from "@/lib/firebase";
 
 export default function TelegramSetting({ user }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,20 +11,64 @@ export default function TelegramSetting({ user }) {
   const [status, setStatus] = useState(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [webhook, setWebhook] = useState(null);
+  const [webhookBusy, setWebhookBusy] = useState(false);
+  const [webhookMsg, setWebhookMsg] = useState(null);
+
+  const authHeaders = async () => {
+    const current = auth.currentUser || user;
+    if (!current) throw new Error("Sesi login nggak ditemukan");
+    const token = await current.getIdToken();
+    return { Authorization: `Bearer ${token}` };
+  };
 
   const cekStatus = async () => {
     if (!user?.uid) return;
     try {
-      const res = await fetch(`/api/telegram/generate-code?uid=${user.uid}`);
-      const data = await res.json(); setStatus(data);
+      const headers = await authHeaders();
+      const res = await fetch(`/api/telegram/generate-code?uid=${user.uid}`, { headers });
+      const data = await res.json();
+      setStatus(res.ok ? data : { linked: false, error: data.error });
     } catch (e) { console.error(e); }
+  };
+
+  const cekWebhook = async () => {
+    if (!user?.uid) return;
+    try {
+      const headers = await authHeaders();
+      const res = await fetch("/api/telegram/register-webhook", { headers });
+      const data = await res.json();
+      setWebhook(res.ok ? data : { error: data.error || "Gagal cek webhook" });
+    } catch (e) { setWebhook({ error: e.message }); }
+  };
+
+  const perbaikiWebhook = async () => {
+    setWebhookBusy(true);
+    setWebhookMsg(null);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch("/api/telegram/register-webhook", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json();
+      if (data.ok) setWebhookMsg({ type: "success", msg: "✅ Webhook aktif dan pakai secret token." });
+      else setWebhookMsg({ type: "error", msg: `❌ ${data.error || data.description || "Gagal daftarin webhook"}` });
+      await cekWebhook();
+    } catch (e) {
+      setWebhookMsg({ type: "error", msg: `❌ ${e.message}` });
+    } finally {
+      setWebhookBusy(false);
+    }
   };
 
   const generateCode = async () => {
     if (!user?.uid) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/telegram/generate-code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uid: user.uid }) });
+      const headers = await authHeaders();
+      const res = await fetch("/api/telegram/generate-code", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ uid: user.uid }) });
       const data = await res.json();
       if (data.ok) { setCode(data.code); setToast({ type: "success", msg: `✅ Kode: ${data.code}` }); }
       else setToast({ type: "error", msg: `❌ ${data.error}` });
@@ -34,12 +79,13 @@ export default function TelegramSetting({ user }) {
   const handleUnlink = async () => {
     if (!confirm("Disconnect Telegram?")) return;
     try {
-      const res = await fetch("/api/telegram/generate-code", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uid: user.uid }) });
+      const headers = await authHeaders();
+      const res = await fetch("/api/telegram/generate-code", { method: "DELETE", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ uid: user.uid }) });
       if (res.ok) { setToast({ type: "success", msg: "✅ Telegram di-disconnect." }); setStatus({ linked: false }); }
     } catch (e) { setToast({ type: "error", msg: `❌ ${e.message}` }); }
   };
 
-  useEffect(() => { if (isOpen) { cekStatus(); setCode(""); } }, [isOpen]);
+  useEffect(() => { if (isOpen) { cekStatus(); cekWebhook(); setCode(""); setWebhookMsg(null); } }, [isOpen]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 8000); return () => clearTimeout(t); }, [toast]);
 
   return (
@@ -104,6 +150,45 @@ export default function TelegramSetting({ user }) {
                     )}
                   </>
                 )}
+
+                {/* STATUS WEBHOOK: tanpa ini bot bisa diam total tanpa kelihatan error di web. */}
+                <div className="border-t border-gray-200 pt-3">
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-xs font-semibold text-gray-700 flex items-center gap-1"><RefreshCw size={12} /> Webhook Bot</p>
+                    {webhook && !webhook.error && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                        webhook.terdaftar && webhook.cocok
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : webhook.terdaftar
+                          ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                          : "bg-red-50 text-red-700 border-red-200"
+                      }`}>
+                        {webhook.terdaftar && webhook.cocok ? "Aktif" : webhook.terdaftar ? "URL Beda" : "Belum Aktif"}
+                      </span>
+                    )}
+                  </div>
+
+                  {webhook?.error && <p className="text-xs text-red-600">{webhook.error}</p>}
+
+                  {webhook && !webhook.error && (
+                    <div className="bg-base-200 p-2 rounded text-[11px] space-y-1">
+                      <p className="break-all"><b>URL:</b> {webhook.url || "(kosong)"}</p>
+                      {webhook.expectedUrl && webhook.url && webhook.url !== webhook.expectedUrl && (
+                        <p className="break-all text-yellow-700"><b>Harusnya:</b> {webhook.expectedUrl}</p>
+                      )}
+                      {webhook.lastErrorMessage && (
+                        <p className="text-red-600 break-all"><b>Error terakhir:</b> {webhook.lastErrorMessage}</p>
+                      )}
+                      <p><b>Pending update:</b> {webhook.pendingUpdateCount ?? 0}</p>
+                    </div>
+                  )}
+
+                  <button className="btn btn-outline btn-xs w-full mt-2 gap-1" onClick={perbaikiWebhook} disabled={webhookBusy}>
+                    {webhookBusy ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw size={12} />} Aktifkan / Perbaiki Webhook
+                  </button>
+                  <p className="text-[10px] text-gray-500 mt-1">Klik ini kalau bot nggak merespon. Webhook didaftarin ulang + secret token biar aman.</p>
+                  {webhookMsg && <p className={`text-[11px] mt-1 ${webhookMsg.type === "success" ? "text-green-700" : "text-red-600"}`}>{webhookMsg.msg}</p>}
+                </div>
               </div>
             </div>
           </div>

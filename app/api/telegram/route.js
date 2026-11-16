@@ -24,24 +24,150 @@ import {
   today,
   besok,
   kemarin,
+  vendorLists,
 } from "@/lib/telegramWizard";
 import {
   REMINDER_CONFIG,
   buildStatusReminderText,
   buildStatusReminderButtons,
   parseReminderCallback,
+  getReminderConfig,
   todayStr,
 } from "@/lib/telegramReminder";
 
 // === TAMBAHAN BARU: Import helper buat reminder proyek ===
-import { todayStr as todayStrProyek, REMINDER_PROYEK_CONFIG } from "@/lib/telegramReminderProyek";
-import { deriveWalletId } from "@/lib/keuanganData";
+import { REMINDER_PROYEK_CONFIG } from "@/lib/telegramReminderProyek";
+import { verifyTelegramWebhook } from "@/lib/telegramSecurity";
+import { deriveWalletId, getKategoriList, terapkanAksiTransaksi } from "@/lib/keuanganData";
+import { getMingguRange, getBulanRange } from "@/lib/laporanData";
+import { getPeriodeRange } from "@/lib/evaluasiData";
+
+// ========== ADAPTER: TELEGRAM → SKEMA WEB ==========
+// Web membaca laporan sebagai { reports:[{id,judul,fields:{ringkasan,kendala,solusi},gdriveUrl}], updatedAt }
+// dan evaluasi sebagai { ...range, reports:[{tanggal,ringkasan,kendala,solusi,gdriveUrl}], updatedAt }.
+// Data lama (single object) dimigrasikan tanpa ngehapus report yang udah ada di web.
+function reportsLaporan(existing) {
+  if (Array.isArray(existing?.reports)) return [...existing.reports];
+  if (existing?.fields) {
+    return [
+      {
+        id: `rep_migrasi_${Date.now()}`,
+        judul: existing.judul || "Laporan",
+        fields: existing.fields,
+        gdriveUrl: existing.gdriveUrl || "",
+      },
+    ];
+  }
+  if (typeof existing?.konten === "string" && existing.konten.trim()) {
+    return [
+      {
+        id: `rep_migrasi_${Date.now()}`,
+        judul: existing.judul || "Laporan",
+        fields: { ringkasan: existing.konten, kendala: "", solusi: "" },
+        gdriveUrl: existing.gdriveUrl || "",
+      },
+    ];
+  }
+  return [];
+}
+
+function simpanLaporanKeBrand(brand, f) {
+  if (!brand.laporanData) brand.laporanData = {};
+
+  const report = (judul) => ({
+    id: `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    judul,
+    fields: { ringkasan: f.konten || "", kendala: "", solusi: "" },
+    gdriveUrl: f.gdriveUrl || "",
+  });
+
+  if (f.periode === "harian") {
+    if (!brand.laporanData.harian) brand.laporanData.harian = {};
+    const prev = brand.laporanData.harian[f.tanggal] || {};
+    brand.laporanData.harian[f.tanggal] = {
+      ...prev,
+      tanggal: f.tanggal,
+      reports: [...reportsLaporan(prev), report(`📋 Laporan ${f.tanggal}`)],
+      updatedAt: new Date().toISOString(),
+    };
+  } else if (f.periode === "mingguan") {
+    const r = getMingguRange(f.tanggal);
+    if (!brand.laporanData.mingguan) brand.laporanData.mingguan = {};
+    const prev = brand.laporanData.mingguan[r.tanggalMulai] || {};
+    // Key mingguan = hari Senin (sama kayak web), bukan tanggal pilihan.
+    brand.laporanData.mingguan[r.tanggalMulai] = {
+      ...prev,
+      tanggalMulai: r.tanggalMulai,
+      tanggalSelesai: r.tanggalSelesai,
+      mingguKe: r.mingguKe,
+      tahun: r.tahun,
+      reports: [...reportsLaporan(prev), report(`📋 Laporan ${r.label}`)],
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    const r = getBulanRange(f.tanggal);
+    const key = `${r.tahun}-${String(r.bulan).padStart(2, "0")}`;
+    if (!brand.laporanData.bulanan) brand.laporanData.bulanan = {};
+    const prev = brand.laporanData.bulanan[key] || {};
+    brand.laporanData.bulanan[key] = {
+      ...prev,
+      tahun: r.tahun,
+      bulan: r.bulan,
+      namaBulan: r.namaBulan,
+      reports: [...reportsLaporan(prev), report(`📋 Laporan ${r.label}`)],
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+function simpanEvaluasiKeBrand(brand, f) {
+  const range = getPeriodeRange(f.periode, f.tanggal);
+  if (!range) throw new Error("Periode evaluasi nggak valid");
+
+  if (!brand.evaluasiData) brand.evaluasiData = {};
+  if (!brand.evaluasiData[f.periode]) brand.evaluasiData[f.periode] = {};
+
+  const ringkasanParts = [];
+  if (f.efektivitas) ringkasanParts.push(`Efektivitas: ${f.efektivitas}`);
+  if (f.efisiensi) ringkasanParts.push(`Efisiensi: ${f.efisiensi}`);
+  if (f.energi) ringkasanParts.push(`Energi: ${f.energi}/10`);
+  if (f.mood) ringkasanParts.push(`Mood: ${f.mood}`);
+  if (f.catatanBebas) ringkasanParts.push(f.catatanBebas);
+
+  const prev = brand.evaluasiData[f.periode][range.key] || {};
+  const reports = Array.isArray(prev.reports) ? [...prev.reports] : [];
+  reports.push({
+    tanggal: f.tanggal,
+    ringkasan: ringkasanParts.join("\n") || "Evaluasi dari Telegram",
+    kendala: f.kendala || "",
+    solusi: f.solusi || "",
+    gdriveUrl: "",
+  });
+
+  brand.evaluasiData[f.periode][range.key] = {
+    ...prev,
+    ...range,
+    reports,
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 // === TAMBAHAN BARU: Helper UI Reminder Proyek ===
 function settingsProyek(userData) {
   return {
     ...REMINDER_PROYEK_CONFIG,
     ...(userData?.reminderProyekSettings || {}),
+  };
+}
+
+function snoozeUntil(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function simpanSnoozeProyek(userData, reminderId, days) {
+  return {
+    ...(userData.reminderProyekSnooze || {}),
+    [reminderId]: snoozeUntil(days),
   };
 }
 
@@ -132,19 +258,51 @@ async function clearState(firestore, chatId) {
 async function handleLink(firestore, chatId, code, fromData) {
   const codeUpper = code.toUpperCase().trim();
   const codeRef = firestore.collection("pairingCodes").doc(codeUpper);
-  const codeSnap = await codeRef.get();
-  if (!codeSnap.exists) {
+
+  // Baca + hapus kode dalam satu transaksi biar nggak bisa dipakai dua kali
+  // (race condition), dan tolak kode yang udah kedaluwarsa.
+  let result;
+  try {
+    result = await firestore.runTransaction(async (tx) => {
+      const codeSnap = await tx.get(codeRef);
+      if (!codeSnap.exists) return { status: "invalid" };
+
+      const data = codeSnap.data();
+      const createdAt = data.createdAt ? new Date(data.createdAt).getTime() : 0;
+      const expiresAt = data.expiresAt
+        ? new Date(data.expiresAt).getTime()
+        : createdAt + 10 * 60 * 1000;
+
+      if (!expiresAt || expiresAt < Date.now()) {
+        tx.delete(codeRef);
+        return { status: "expired" };
+      }
+
+      const userRef = firestore.collection("users").doc(data.uid);
+      tx.update(userRef, {
+        telegramChatId: Number(chatId),
+        telegramUsername: fromData?.username || "",
+        telegramFirstName: fromData?.first_name || "",
+        telegramLinkedAt: new Date().toISOString(),
+      });
+      tx.delete(codeRef);
+      return { status: "ok", uid: data.uid };
+    });
+  } catch (err) {
+    console.error("[handleLink] Error:", err.message);
+    await sendTelegramMessage(chatId, `❌ Gagal link akun. Coba generate kode baru di web.`);
+    return;
+  }
+
+  if (result.status === "invalid") {
     await sendTelegramMessage(chatId, `❌ Kode <b>${codeUpper}</b> nggak valid atau udah kepake.`);
     return;
   }
-  const uid = codeSnap.data().uid;
-  await firestore.collection("users").doc(uid).update({
-    telegramChatId: Number(chatId),
-    telegramUsername: fromData?.username || "",
-    telegramFirstName: fromData?.first_name || "",
-    telegramLinkedAt: new Date().toISOString(),
-  });
-  await codeRef.delete();
+  if (result.status === "expired") {
+    await sendTelegramMessage(chatId, `⌛ Kode <b>${codeUpper}</b> udah kedaluwarsa. Generate kode baru di web.`);
+    return;
+  }
+
   await setBotCommands(BOT_COMMANDS);
   const { text, keyboard } = buildHelpView("root");
   await sendTelegramMessage(chatId, `<b>✅ Berhasil di-link!</b>\n\nSekarang bot siap dipakai.`);
@@ -469,41 +627,9 @@ async function saveWizard(firestore, userData, state) {
     const brandIdx = (pekerjaan[ptIdx].brands || []).findIndex((b) => b.id === f.brandId);
     if (brandIdx === -1) throw new Error("Brand nggak ketemu");
     const brand = pekerjaan[ptIdx].brands[brandIdx];
-    if (!brand.laporanData) brand.laporanData = { harian: {}, mingguan: {}, bulanan: {} };
 
-    if (f.periode === "harian") {
-      if (!brand.laporanData.harian) brand.laporanData.harian = {};
-      brand.laporanData.harian[f.tanggal] = {
-        id: `lap_${Date.now()}`,
-        tanggal: f.tanggal,
-        konten: f.konten || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    } else if (f.periode === "mingguan") {
-      if (!brand.laporanData.mingguan) brand.laporanData.mingguan = {};
-      brand.laporanData.mingguan[f.tanggal] = {
-        id: `lap_${Date.now()}`,
-        tanggalMulai: f.tanggal,
-        tanggalSelesai: f.tanggal,
-        mingguKe: 1,
-        konten: f.konten || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    } else if (f.periode === "bulanan") {
-      if (!brand.laporanData.bulanan) brand.laporanData.bulanan = {};
-      const key = f.tanggal.substring(0, 7);
-      brand.laporanData.bulanan[key] = {
-        id: `lap_${Date.now()}`,
-        tahun: parseInt(f.tanggal.substring(0, 4)),
-        bulan: parseInt(f.tanggal.substring(5, 7)),
-        namaBulan: new Date(f.tanggal).toLocaleDateString("id-ID", { month: "long" }),
-        konten: f.konten || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    }
+    // Simpan pakai skema yang dibaca web (reports[]), bukan format lama.
+    simpanLaporanKeBrand(brand, f);
     await userRef.update({ pekerjaan });
     return;
   }
@@ -516,26 +642,9 @@ async function saveWizard(firestore, userData, state) {
     const brandIdx = (pekerjaan[ptIdx].brands || []).findIndex((b) => b.id === f.brandId);
     if (brandIdx === -1) throw new Error("Brand nggak ketemu");
     const brand = pekerjaan[ptIdx].brands[brandIdx];
-    if (!brand.evaluasiData) brand.evaluasiData = {};
 
-    const periodeKey = f.tanggal.substring(0, 7);
-    if (!brand.evaluasiData[f.periode]) brand.evaluasiData[f.periode] = {};
-    brand.evaluasiData[f.periode][periodeKey] = {
-      periodeMulai: f.tanggal,
-      periodeSelesai: f.tanggal,
-      label: f.periode,
-      tipe: f.periode,
-      fields: {
-        efektivitas: f.efektivitas || "",
-        efisiensi: f.efisiensi || "",
-        kendala: f.kendala || "",
-        solusi: f.solusi || "",
-        energi: parseInt(f.energi) || 5,
-        mood: f.mood || "",
-        catatanBebas: f.catatanBebas || "",
-      },
-      updatedAt: new Date().toISOString(),
-    };
+    // Simpan pakai skema yang dibaca web (reports[] per periode).
+    simpanEvaluasiKeBrand(brand, f);
     await userRef.update({ pekerjaan });
     return;
   }
@@ -572,41 +681,8 @@ async function saveWizard(firestore, userData, state) {
     const bIdx = brands.findIndex((b) => b.id === f.brandId);
     if (bIdx === -1) throw new Error("Brand nggak ketemu");
     const brand = brands[bIdx];
-    if (!brand.laporanData) brand.laporanData = { harian: {}, mingguan: {}, bulanan: {} };
 
-    if (f.periode === "harian") {
-      if (!brand.laporanData.harian) brand.laporanData.harian = {};
-      brand.laporanData.harian[f.tanggal] = {
-        id: `lap_${Date.now()}`,
-        tanggal: f.tanggal,
-        konten: f.konten || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    } else if (f.periode === "mingguan") {
-      if (!brand.laporanData.mingguan) brand.laporanData.mingguan = {};
-      brand.laporanData.mingguan[f.tanggal] = {
-        id: `lap_${Date.now()}`,
-        tanggalMulai: f.tanggal,
-        tanggalSelesai: f.tanggal,
-        mingguKe: 1,
-        konten: f.konten || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    } else if (f.periode === "bulanan") {
-      if (!brand.laporanData.bulanan) brand.laporanData.bulanan = {};
-      const key = f.tanggal.substring(0, 7);
-      brand.laporanData.bulanan[key] = {
-        id: `lap_${Date.now()}`,
-        tahun: parseInt(f.tanggal.substring(0, 4)),
-        bulan: parseInt(f.tanggal.substring(5, 7)),
-        namaBulan: new Date(f.tanggal).toLocaleDateString("id-ID", { month: "long" }),
-        konten: f.konten || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    }
+    simpanLaporanKeBrand(brand, f);
     await userRef.update({ bisnisBrands: brands });
     return;
   }
@@ -617,26 +693,8 @@ async function saveWizard(firestore, userData, state) {
     const bIdx = brands.findIndex((b) => b.id === f.brandId);
     if (bIdx === -1) throw new Error("Brand nggak ketemu");
     const brand = brands[bIdx];
-    if (!brand.evaluasiData) brand.evaluasiData = {};
 
-    const periodeKey = f.tanggal.substring(0, 7);
-    if (!brand.evaluasiData[f.periode]) brand.evaluasiData[f.periode] = {};
-    brand.evaluasiData[f.periode][periodeKey] = {
-      periodeMulai: f.tanggal,
-      periodeSelesai: f.tanggal,
-      label: f.periode,
-      tipe: f.periode,
-      fields: {
-        efektivitas: f.efektivitas || "",
-        efisiensi: f.efisiensi || "",
-        kendala: f.kendala || "",
-        solusi: f.solusi || "",
-        energi: parseInt(f.energi) || 5,
-        mood: f.mood || "",
-        catatanBebas: f.catatanBebas || "",
-      },
-      updatedAt: new Date().toISOString(),
-    };
+    simpanEvaluasiKeBrand(brand, f);
     await userRef.update({ bisnisBrands: brands });
     return;
   }
@@ -683,20 +741,33 @@ async function saveWizard(firestore, userData, state) {
   // KEUANGAN
   if (menuId === "keuangan") {
     const tanggalTrx = f.tanggal || todayStr;
-    const transaksi = userData.keuanganTransaksi || {};
-    if (!transaksi[tanggalTrx]) transaksi[tanggalTrx] = [];
-    transaksi[tanggalTrx].push({
+    const kategoriList = getKategoriList(userData.keuanganKategori);
+    const trxBaru = {
       id: `trx_${Date.now()}`,
       jenis: f.jenis,
       nominal: parseInt(f.nominal) || 0,
       kategoriId: f.kategoriId || "",
       // Dompet diturunkan dari kategori (sama kayak web), bukan ditanya manual.
-      walletId: deriveWalletId(userData.keuanganKategori || {}, f.jenis, f.kategoriId),
+      walletId: deriveWalletId(kategoriList, f.jenis, f.kategoriId),
       metode: f.metode || "Cash",
       catatan: f.catatan || "",
+      sumber: "telegram",
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+    };
+    // Baca data terbaru di dalam transaksi + terapkan sebagai delta, biar
+    // transaksi Telegram nggak menimpa edit/hapus yang baru dilakukan di web.
+    await firestore.runTransaction(async (tx) => {
+      const snap = await tx.get(userRef);
+      const transaksi = snap.data()?.keuanganTransaksi || {};
+      tx.update(userRef, {
+        keuanganTransaksi: terapkanAksiTransaksi(transaksi, {
+          aksi: "tambah",
+          tanggal: tanggalTrx,
+          trx: trxBaru,
+        }),
+      });
     });
-    await userRef.update({ keuanganTransaksi: transaksi });
     return;
   }
 
@@ -787,7 +858,8 @@ async function saveWizard(firestore, userData, state) {
 const VENDOR_MENUS = ["pekerjaan_vendor", "bisnis_vendor"];
 
 async function startVendorWizard(firestore, chatId, menuId, userData, extraFields = {}) {
-  let questions = userData.vendorPertanyaanList || [];
+  // Vendor Pekerjaan & Bisnis punya daftar kategori/pertanyaan sendiri.
+  let questions = vendorLists(userData, menuId).pertanyaan;
 
   const fields = { ...extraFields };
   const config = { steps: getVendorFieldsSteps(menuId) };
@@ -1446,14 +1518,14 @@ async function saveVendorWizard(firestore, userData, state) {
     throw new Error(`Menu "${menuId}" bukan vendor.`);
   }
 
-  const oldQs = userData.vendorPertanyaanList || [];
+  const oldQs = vendorLists(userData, menuId).pertanyaan;
   const oldIds = oldQs.map((q) => q.id).sort().join(",");
   const newIds = questions.map((q) => q.id).sort().join(",");
   const oldText = oldQs.map((q) => `${q.id}:${q.pertanyaan}:${q.tipe}`).join("|");
   const newText = questions.map((q) => `${q.id}:${q.pertanyaan}:${q.tipe}`).join("|");
 
   if (oldIds !== newIds || oldText !== newText) {
-    await userRef.update({ vendorPertanyaanList: questions });
+    await userRef.update({ [vendorLists(userData, menuId).keyPertanyaan]: questions });
   }
 }
 
@@ -1536,6 +1608,14 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     }
   }
 
+  if (state && state.mode === "submenu" && !text.startsWith("/")) {
+    await sendTelegramMessage(
+      chatId,
+      `⚠️ Pilih dari tombol di atas ya (PT → Brand → menu). Kalau mau batal, kirim /help.`
+    );
+    return;
+  }
+
   if (state && !state.phase && state.awaiting && !text.startsWith("/")) {
     if (state.awaiting === "date_manual") {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -1573,7 +1653,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     await sendTelegramMessage(chatId, `🤖 Halo! Kirim /help atau /menu_list.`);
     return;
   }
-  const { command: rawCommand, payload, catatan } = parsed;
+  const { command: rawCommand, payload, catatan, autoChoice } = parsed;
   // Alias underscore (dari menu "/") → command asli yang pakai tanda hubung.
   const command = COMMAND_ALIAS[rawCommand] || rawCommand;
 
@@ -1728,11 +1808,21 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   // ==== KARYA ====
   if (command === "karya") {
-    if (!payload) { await sendTelegramMessage(chatId, `⚠️ Format: <code>/karya [tool] | [link] | [catatan]</code>`); return; }
-    const parts = payload.split("|").map((p) => p.trim());
-    const toolName = parts[0];
-    const linkTiktok = catatan || "";
-    const catatanKarya = parts[1] || "";
+    const FORMAT_KARYA = `<code>/karya [tool] | [link] | [judul]</code>`;
+    if (!payload) { await sendTelegramMessage(chatId, `⚠️ Format: ${FORMAT_KARYA}`); return; }
+    const toolName = payload.trim();
+    // parseCommand: segmen ke-2 = catatan/link, segmen ke-3 = autoChoice/judul.
+    // Judul WAJIB karena web (KaryaMingguan) nampilin `judul` sebagai nama karya.
+    // Dulu bot nyimpen tanpa judul → kartu karya di web kosong.
+    const linkTiktok = (catatan || "").trim();
+    const judulKarya = (autoChoice || "").trim();
+    if (!judulKarya) {
+      await sendTelegramMessage(
+        chatId,
+        `⚠️ <b>Judul karya belum diisi.</b>\n\nFormat: ${FORMAT_KARYA}\nContoh: <code>/karya Blender | https://tiktok.com/@lo/video/123 | Review SolidWorks</code>`
+      );
+      return;
+    }
 
     const kategoriArr = userData.belajar?.kategori || [];
     const { resolveNestedPath } = await import("@/lib/telegramData");
@@ -1754,14 +1844,15 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     }
     if (!found) { await sendTelegramMessage(chatId, `❌ Tool nggak ketemu.`); return; }
     if (!found.karyaMingguan) found.karyaMingguan = [];
+    // Web (KaryaMingguan.js) baca { id, judul, link, tanggal }.
     found.karyaMingguan.push({
-      id: `kw_${Date.now()}`,
-      tanggal: today(),
-      linkTiktok,
-      catatan: catatanKarya,
+      id: `karya_${Date.now()}`,
+      judul: judulKarya,
+      link: linkTiktok,
+      tanggal: new Date().toISOString(),
     });
     await userRef.update({ belajar: { kategori } });
-    await sendTelegramMessage(chatId, `✅ Karya mingguan ditambah ke ${result.labels.join(" → ")}.`);
+    await sendTelegramMessage(chatId, `✅ Karya "${judulKarya}" ditambah ke ${result.labels.join(" → ")}.`);
     return;
   }
 
@@ -1997,10 +2088,11 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
     if (remAction === "rem_toggle" && menuId) {
       const settings = userData.reminderSettings || {};
-      const current = settings[menuId]?.enabled ?? REMINDER_CONFIG[menuId]?.enabled ?? true;
+      const settingKey = getReminderConfig(menuId)?.id || menuId;
+      const current = settings[settingKey]?.enabled ?? true;
       const newSettings = {
         ...settings,
-        [menuId]: { ...(settings[menuId] || {}), enabled: !current },
+        [settingKey]: { ...(settings[settingKey] || {}), enabled: !current },
       };
       await firestore.collection("users").doc(userData._uid).set(
         { reminderSettings: newSettings },
@@ -2044,16 +2136,26 @@ async function handleCallback(callbackQuery, userData, firestore) {
       return;
     }
 
+    // Tombol lama pakai ID config (blender), tombol baru pakai ID jadwal
+    // (blender_solidworks). Resolve dua-duanya ke key yang sama.
+    const remInfo = getReminderConfig(menuId);
+    const reminderKey = remInfo?.id || menuId;
+    const scheduleKey = remInfo?.config?.scheduleId || menuId;
+    const reminderLabel = remInfo?.config?.label || menuId;
+    const reminderIds = [...new Set([reminderKey, scheduleKey])];
+
     if (remAction === "rem_mulai" && menuId) {
       const todayLocal = todayStr();
+      const progressHariIni = (userData.dailyProgress || {})[todayLocal] || {};
       await firestore.collection("users").doc(userData._uid).set(
         {
           dailyProgress: {
             ...(userData.dailyProgress || {}),
             [todayLocal]: {
-              ...((userData.dailyProgress || {})[todayLocal] || {}),
-              [menuId]: {
-                ...(((userData.dailyProgress || {})[todayLocal] || {})[menuId] || {}),
+              ...progressHariIni,
+              // Web baca progress pakai ID jadwal.
+              [scheduleKey]: {
+                ...(progressHariIni[scheduleKey] || {}),
                 mulai: true,
                 mulaiAt: new Date().toISOString(),
                 override: true,
@@ -2064,7 +2166,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
             ...(userData.reminderLog || {}),
             [todayLocal]: {
               ...((userData.reminderLog || {})[todayLocal] || {}),
-              [menuId]: { 1: true, 2: true, 3: true, 4: true },
+              ...Object.fromEntries(reminderIds.map((id) => [id, { 1: true, 2: true, 3: true, 4: true }])),
             },
           },
         },
@@ -2073,7 +2175,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
       await editTelegramMessage(
         chatId,
         messageId,
-        `✅ <b>Mantap!</b>\n\nLo udah mulai <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b>.\n\n📝 Jangan lupa isi log-nya di web ya.\n\n<i>Reminder buat aktivitas ini dimatiin.</i>`
+        `✅ <b>Mantap!</b>\n\nLo udah mulai <b>${reminderLabel}</b>.\n\n📝 Jangan lupa isi log-nya di web ya.\n\n<i>Reminder buat aktivitas ini dimatiin.</i>`
       );
       return;
     }
@@ -2082,7 +2184,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
       await editTelegramMessage(
         chatId,
         messageId,
-        `🚫 <b>Oke, dicatat.</b>\n\nReminder buat <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b> bakal dikirim lagi nanti.\n\n<i>Semangat, bos!</i>`
+        `🚫 <b>Oke, dicatat.</b>\n\nReminder buat <b>${reminderLabel}</b> bakal dikirim lagi nanti.\n\n<i>Semangat, bos!</i>`
       );
       return;
     }
@@ -2091,7 +2193,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
       await editTelegramMessage(
         chatId,
         messageId,
-        `✅ <b>Oke!</b>\n\nLo mau isi <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b> sekarang.\n\n📝 Silakan buka web: <b>self-management-app</b>\n\n<i>Reminder dimatiin.</i>`
+        `✅ <b>Oke!</b>\n\nLo mau isi <b>${reminderLabel}</b> sekarang.\n\n📝 Silakan buka web: <b>self-management-app</b>\n\n<i>Reminder dimatiin.</i>`
       );
       const todayLocal = todayStr();
       await firestore.collection("users").doc(userData._uid).set(
@@ -2100,7 +2202,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
             ...(userData.reminderLog || {}),
             [todayLocal]: {
               ...((userData.reminderLog || {})[todayLocal] || {}),
-              [menuId]: { 1: true, 2: true, 3: true, 4: true },
+              ...Object.fromEntries(reminderIds.map((id) => [id, { 1: true, 2: true, 3: true, 4: true }])),
             },
           },
         },
@@ -2117,7 +2219,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
             ...(userData.reminderLog || {}),
             [todayLocal]: {
               ...((userData.reminderLog || {})[todayLocal] || {}),
-              [menuId]: { 1: true, 2: true, 3: true, 4: true },
+              ...Object.fromEntries(reminderIds.map((id) => [id, { 1: true, 2: true, 3: true, 4: true }])),
             },
           },
         },
@@ -2126,7 +2228,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
       await editTelegramMessage(
         chatId,
         messageId,
-        `🚫 <b>Oke, skip hari ini.</b>\n\nReminder buat <b>${REMINDER_CONFIG[menuId]?.label || menuId}</b> dimatiin sampai besok.\n\n<i>Jangan lupa besok ya, bos!</i>`
+        `🚫 <b>Oke, skip hari ini.</b>\n\nReminder buat <b>${reminderLabel}</b> dimatiin sampai besok.\n\n<i>Jangan lupa besok ya, bos!</i>`
       );
       return;
     }
@@ -2136,8 +2238,6 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
   // ==== REMINDER PROYEK CALLBACK ====
   if (action.startsWith("proyek_")) {
-    const todayLocal = todayStrProyek();
-
     if (action === "proyek_toggle_deadline") {
       const settings = settingsProyek(userData);
       const newSettings = { ...settings, deadlineH7: settings.deadlineH7 === false, deadlineH3: settings.deadlineH7 === false, deadlineH1: settings.deadlineH7 === false, deadlineLewat: settings.deadlineH7 === false };
@@ -2206,6 +2306,13 @@ async function handleCallback(callbackQuery, userData, firestore) {
       }
 
       if (updated) {
+        const reminderId = isPekerjaan ? `pekerjaan_${kegId}` : `bisnis_${kegId}`;
+        const snooze = { ...(userData.reminderProyekSnooze || {}) };
+        delete snooze[reminderId];
+        await firestore.collection("users").doc(userData._uid).set(
+          { reminderProyekSnooze: snooze },
+          { merge: true }
+        );
         await editTelegramMessage(chatId, messageId, `✅ <b>Mantap!</b>\n\nKegiatan berhasil ditandai <b>Selesai</b>.`);
       } else {
         await editTelegramMessage(chatId, messageId, `⚠️ Gagal update, kegiatan nggak ketemu.`);
@@ -2216,19 +2323,12 @@ async function handleCallback(callbackQuery, userData, firestore) {
     if (action === "proyek_tunda") {
       const tipeData = parts[1];
       const idData = parts[2];
+      const reminderId = tipeData === "pekerjaan_deadline" ? `pekerjaan_${idData}` : `bisnis_${idData}`;
       await firestore.collection("users").doc(userData._uid).set(
-        {
-          reminderProyekLog: {
-            ...(userData.reminderProyekLog || {}),
-            [todayLocal]: {
-              ...((userData.reminderProyekLog || {})[todayLocal] || {}),
-              [`${tipeData}_${idData}`]: true,
-            },
-          },
-        },
+        { reminderProyekSnooze: simpanSnoozeProyek(userData, reminderId, 1) },
         { merge: true }
       );
-      await editTelegramMessage(chatId, messageId, `⏳ Oke, reminder buat kegiatan ini ditunda.`);
+      await editTelegramMessage(chatId, messageId, `⏳ Oke, reminder buat kegiatan ini ditunda 1 hari.`);
       return;
     }
 
@@ -2238,17 +2338,11 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (action === "proyek_vendor_tunda") {
+      const tipeData = parts[1];
       const vendorId = parts[2];
+      const reminderId = tipeData === "vendor_followup" ? `vendor_${vendorId}` : `vendor_bisnis_${vendorId}`;
       await firestore.collection("users").doc(userData._uid).set(
-        {
-          reminderProyekLog: {
-            ...(userData.reminderProyekLog || {}),
-            [todayLocal]: {
-              ...((userData.reminderProyekLog || {})[todayLocal] || {}),
-              [`vendor_tunda_${vendorId}`]: true,
-            },
-          },
-        },
+        { reminderProyekSnooze: simpanSnoozeProyek(userData, reminderId, 7) },
         { merge: true }
       );
       await editTelegramMessage(chatId, messageId, `⏳ Oke, reminder vendor ini ditunda 1 minggu.`);
@@ -2288,6 +2382,16 @@ async function handleCallback(callbackQuery, userData, firestore) {
         if (updated) await firestore.collection("users").doc(userData._uid).set({ bisnisBrands: brands }, { merge: true });
       }
 
+      if (updated) {
+        const reminderId = isPekerjaan ? `vendor_${vendorId}` : `vendor_bisnis_${vendorId}`;
+        const snooze = { ...(userData.reminderProyekSnooze || {}) };
+        delete snooze[reminderId];
+        await firestore.collection("users").doc(userData._uid).set(
+          { reminderProyekSnooze: snooze },
+          { merge: true }
+        );
+      }
+
       await editTelegramMessage(chatId, messageId, `🚫 Oke, vendor ini ditandai <b>Belum Digunakan</b>.\n\nDatanya tetap aman, cuma reminder-nya yang mati.`);
       return;
     }
@@ -2325,6 +2429,9 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
 // ========== MAIN HANDLER ==========
 export async function POST(req) {
+  if (!verifyTelegramWebhook(req)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const update = await req.json();
     const message = update.message || update.callback_query?.message;

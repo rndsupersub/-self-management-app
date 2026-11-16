@@ -14,6 +14,7 @@ import {
   todayStr as todayStrProyek
 } from "@/lib/telegramReminderProyek";
 import { sendTelegramWithButtons } from "@/lib/telegramData";
+import { safeEqual } from "@/lib/telegramSecurity";
 
 let adminApp = null;
 function getAdminApp() {
@@ -39,10 +40,20 @@ function getAdminApp() {
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));
-    const secret = body?.secret || req.headers.get("x-cron-secret");
+    const secret =
+      body?.secret ||
+      req.headers.get("x-cron-secret") ||
+      new URL(req.url).searchParams.get("secret");
     const expectedSecret = process.env.CRON_SECRET;
 
-    if (expectedSecret && secret !== expectedSecret) {
+    // Fail closed: cron reminder nggak boleh bisa dipanggil siapa aja.
+    if (!expectedSecret) {
+      return NextResponse.json(
+        { ok: false, error: "CRON_SECRET belum diset" },
+        { status: 503 }
+      );
+    }
+    if (!safeEqual(secret, expectedSecret)) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
@@ -82,13 +93,18 @@ export async function POST(req) {
         for (const rem of remindersPribadi) {
           try {
             // PERUBAHAN PENTING: Kirim rem.jamMulai dan rem.deadline ke fungsi
-            await kirimReminder(chatId, rem.menuId, rem.lapis, rem.config, rem.jamMulai, rem.deadline);
+            await kirimReminder(chatId, rem.scheduleId, rem.lapis, rem.config, rem.jamMulai, rem.deadline);
 
-            logPribadiHariIni[rem.menuId] = {
-              ...(logPribadiHariIni[rem.menuId] || {}),
-              [rem.lapis]: true,
-            };
-            sentPribadi.push({ menuId: rem.menuId, lapis: rem.lapis });
+            // Tulis log pakai ID jadwal + ID config lama. Jadi web yang nulis
+            // progress dengan ID jadwal tetap kebaca, dan setting lama tetap aman.
+            const ids = [...new Set([rem.reminderId, rem.scheduleId])];
+            ids.forEach((id) => {
+              logPribadiHariIni[id] = {
+                ...(logPribadiHariIni[id] || {}),
+                [rem.lapis]: true,
+              };
+            });
+            sentPribadi.push({ menuId: rem.reminderId, scheduleId: rem.scheduleId, lapis: rem.lapis });
           } catch (err) {
             console.error(`[reminder] Gagal kirim pribadi:`, err.message);
           }

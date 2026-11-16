@@ -2,10 +2,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungPengeluaranMingguIni, hitungHealthScore, hitungProgressWallet, getWalletStatus, hitungProgressGoal, generateSmartAlert, flattenTransaksi, getBulanRange, hitungTotalByJenis, getTanggalHariIni } from "@/lib/keuanganData";
+import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_KATEGORI, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungPengeluaranMingguIni, hitungHealthScore, hitungProgressWallet, getWalletStatus, hitungProgressGoal, generateSmartAlert, flattenTransaksi, getBulanRange, hitungTotalByJenis, getTanggalHariIni, namaKategoriTransaksi } from "@/lib/keuanganData";
 import { Wallet, ArrowUpRight, Calendar, Activity, HeartPulse, Target, Landmark, MessageSquare, TrendingUp, BarChart3, Bell, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 
-export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsList = DEFAULT_GOALS, keuanganTransaksi = {}, setting = DEFAULT_SETTING }) {
+export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsList = DEFAULT_GOALS, keuanganTransaksi = {}, setting = DEFAULT_SETTING, kategoriList = DEFAULT_KATEGORI }) {
   const [timeRange, setTimeRange] = useState("6-bulan"); // "1-bulan", "3-bulan", "6-bulan", "1-tahun"
 
   const cash = useMemo(() => hitungCash(keuanganTransaksi), [keuanganTransaksi]);
@@ -31,14 +31,17 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
   const topPengeluaran = useMemo(() => {
     const bulanIni = getBulanRange(getTanggalHariIni()).bulan;
     const flat = flattenTransaksi(keuanganTransaksi).filter((t) => (t.jenis === "keluar" || t.jenis === "sedekah") && t.tanggal.startsWith(bulanIni));
+
+    // Resolusi kategori satu sumber: lib/keuanganData
+    // (kategoriId → kategori lama → nama dompet), sama seperti tab Riwayat.
     const grouped = {};
     flat.forEach((t) => {
-      const key = t.kategori || "Lainnya";
+      const key = namaKategoriTransaksi(t, kategoriList, dompetList);
       if (!grouped[key]) grouped[key] = 0;
       grouped[key] += parseInt(t.nominal) || 0;
     });
     return Object.entries(grouped).map(([kategori, total]) => ({ kategori, total })).sort((a, b) => b.total - a.total).slice(0, 5);
-  }, [keuanganTransaksi]);
+  }, [keuanganTransaksi, kategoriList, dompetList]);
 
   const analyticsBulanan = useMemo(() => {
     const today = new Date();

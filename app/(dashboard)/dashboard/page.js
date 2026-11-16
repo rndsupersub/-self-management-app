@@ -165,7 +165,11 @@ export default function Dashboard() {
 
         if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet); else { await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true }); setDompetList(DEFAULT_DOMPET); }
         if (data.keuanganGoals && Array.isArray(data.keuanganGoals)) setGoalsList(data.keuanganGoals); else { await setDoc(docRef, { keuanganGoals: DEFAULT_GOALS }, { merge: true }); setGoalsList(DEFAULT_GOALS); }
-        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi)) setKeuanganTransaksi(data.keuanganTransaksi); else { await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true }); setKeuanganTransaksi({}); }
+        // Jangan timpa data: kalau field-nya cuma belum ada, baru diinisialisasi.
+        // (Versi lama menimpa jadi {} setiap tipe datanya aneh → transaksi bisa hilang.)
+        if (data.keuanganTransaksi && typeof data.keuanganTransaksi === "object" && !Array.isArray(data.keuanganTransaksi)) setKeuanganTransaksi(data.keuanganTransaksi);
+        else if (data.keuanganTransaksi === undefined || data.keuanganTransaksi === null) { await setDoc(docRef, { keuanganTransaksi: {} }, { merge: true }); setKeuanganTransaksi({}); }
+        else setKeuanganTransaksi({});
         if (data.keuanganSetting && typeof data.keuanganSetting === "object") setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting }); else { await setDoc(docRef, { keuanganSetting: DEFAULT_SETTING }, { merge: true }); setKeuanganSetting(DEFAULT_SETTING); }
 
       } else {

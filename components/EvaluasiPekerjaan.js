@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { getPeriodeRange, formatTanggalPendek } from "@/lib/evaluasiData";
+import { getPeriodeRange, formatTanggalPendek, normalizeEvaluasiData } from "@/lib/evaluasiData";
 import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor, FolderOpen } from "lucide-react";
 import { getLabelHasil, getBadgeClass, getWarnaHasil, formatTanggal } from "@/lib/vendorData"; 
 
@@ -73,10 +73,14 @@ export default function EvaluasiPekerjaan({
 
   const key = periodeAktif?.key;
 
+  // Data lama (single `fields`) & data Telegram lama (key bulanan untuk semua
+  // periode) dinormalisasi biar kebaca dengan skema `reports` + key yang benar.
+  const evaluasiDataNormalized = useMemo(() => normalizeEvaluasiData(evaluasiData), [evaluasiData]);
+
   const evaluasiTersimpan = useMemo(() => {
     if (!key) return null;
-    return evaluasiData?.[activePeriode]?.[key] || null;
-  }, [evaluasiData, activePeriode, key]);
+    return evaluasiDataNormalized?.[activePeriode]?.[key] || null;
+  }, [evaluasiDataNormalized, activePeriode, key]);
 
   // Load data & Migrasi data lama
   useEffect(() => {
@@ -194,7 +198,7 @@ export default function EvaluasiPekerjaan({
 
   const handleSimpan = () => {
     if (!onUpdateEvaluasi || !periodeAktif) return;
-    const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
+    const newData = JSON.parse(JSON.stringify(evaluasiDataNormalized || {}));
     if (!newData[activePeriode]) newData[activePeriode] = {};
     
     newData[activePeriode][periodeAktif.key] = { 
@@ -225,7 +229,7 @@ export default function EvaluasiPekerjaan({
 
   const handleHapusHistoryPekerjaan = (periodeKey) => {
     if (!confirm("Hapus history evaluasi pekerjaan periode ini?")) return;
-    const newData = JSON.parse(JSON.stringify(evaluasiData || {}));
+    const newData = JSON.parse(JSON.stringify(evaluasiDataNormalized || {}));
     if (newData[activePeriode] && newData[activePeriode][periodeKey]) {
       delete newData[activePeriode][periodeKey];
       onUpdateEvaluasi(newData);
@@ -252,9 +256,9 @@ export default function EvaluasiPekerjaan({
   };
 
   const historyList = useMemo(() => {
-    const data = evaluasiData?.[activePeriode] || {};
+    const data = evaluasiDataNormalized?.[activePeriode] || {};
     return Object.entries(data).map(([k, val]) => ({ key: k, ...val })).sort((a, b) => b.key.localeCompare(a.key));
-  }, [evaluasiData, activePeriode]);
+  }, [evaluasiDataNormalized, activePeriode]);
 
   const vendorInsights = useMemo(() => {
     if (!periodeAktif) return [];

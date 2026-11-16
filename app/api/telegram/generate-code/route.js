@@ -2,7 +2,10 @@
 import { NextResponse } from "next/server";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 import { generatePairingCode } from "@/lib/telegramData";
+
+const PAIRING_CODE_TTL_MS = 10 * 60 * 1000; // 10 menit
 
 let adminApp = null;
 function getAdminApp() {
@@ -25,11 +28,33 @@ function getAdminApp() {
   return adminApp;
 }
 
+async function verifyUser(req) {
+  const header = req.headers.get("authorization") || "";
+  const idToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!idToken) return null;
+  try {
+    return await getAuth(getAdminApp()).verifyIdToken(idToken);
+  } catch (err) {
+    console.error("[generate-code] Token invalid:", err.message);
+    return null;
+  }
+}
+
+function unauthorized() {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
 // POST { uid } → generate pairing code
 export async function POST(req) {
   try {
-    const { uid } = await req.json();
-    if (!uid) return NextResponse.json({ error: "uid wajib" }, { status: 400 });
+    const decoded = await verifyUser(req);
+    if (!decoded) return unauthorized();
+
+    const body = await req.json().catch(() => ({}));
+    const uid = body.uid || decoded.uid;
+    if (uid !== decoded.uid) {
+      return NextResponse.json({ error: "UID nggak cocok" }, { status: 403 });
+    }
 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
@@ -49,13 +74,14 @@ export async function POST(req) {
       return NextResponse.json({ error: "Gagal generate code, coba lagi" }, { status: 500 });
     }
 
-    // Simpen code
+    // Simpen code + masa berlaku. Kode sekali pakai & expired otomatis.
     await firestore.collection("pairingCodes").doc(code).set({
       uid,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + PAIRING_CODE_TTL_MS).toISOString(),
     });
 
-    return NextResponse.json({ ok: true, code });
+    return NextResponse.json({ ok: true, code, expiresAt: new Date(Date.now() + PAIRING_CODE_TTL_MS).toISOString() });
   } catch (err) {
     console.error("[generate-code] Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -65,9 +91,14 @@ export async function POST(req) {
 // GET { uid } → cek status link
 export async function GET(req) {
   try {
+    const decoded = await verifyUser(req);
+    if (!decoded) return unauthorized();
+
     const { searchParams } = new URL(req.url);
-    const uid = searchParams.get("uid");
-    if (!uid) return NextResponse.json({ error: "uid wajib" }, { status: 400 });
+    const uid = searchParams.get("uid") || decoded.uid;
+    if (uid !== decoded.uid) {
+      return NextResponse.json({ error: "UID nggak cocok" }, { status: 403 });
+    }
 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);
@@ -94,8 +125,14 @@ export async function GET(req) {
 // DELETE { uid } → unlink
 export async function DELETE(req) {
   try {
-    const { uid } = await req.json();
-    if (!uid) return NextResponse.json({ error: "uid wajib" }, { status: 400 });
+    const decoded = await verifyUser(req);
+    if (!decoded) return unauthorized();
+
+    const body = await req.json().catch(() => ({}));
+    const uid = body.uid || decoded.uid;
+    if (uid !== decoded.uid) {
+      return NextResponse.json({ error: "UID nggak cocok" }, { status: 403 });
+    }
 
     const admin = getAdminApp();
     const firestore = getFirestore(admin);

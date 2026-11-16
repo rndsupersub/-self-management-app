@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { formatTanggalPanjang, formatTanggalPendek, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan } from "@/lib/laporanData";
+import { formatTanggalPanjang, formatTanggalPendek, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, normalizeLaporanData } from "@/lib/laporanData";
 import { Info, Calendar, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 
 const DEFAULT_FIELDS = [
@@ -49,7 +49,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const [editingFieldId, setEditingFieldId] = useState(null);
   const [fieldForm, setFieldForm] = useState({ label: "", tipe: "long" });
 
-  const fields = useMemo(() => laporanData?.fields || DEFAULT_FIELDS, [laporanData]);
+  // Normalisasi data lama (single object / `konten`) biar kebaca di UI baru.
+  const laporanDataNormalized = useMemo(() => normalizeLaporanData(laporanData), [laporanData]);
+  const fields = useMemo(() => laporanDataNormalized?.fields || DEFAULT_FIELDS, [laporanDataNormalized]);
 
   const periodeHarian = useMemo(() => ({ tanggal: selectedDate }), [selectedDate]);
   const periodeMingguan = useMemo(() => getMingguRange(selectedDate), [selectedDate]);
@@ -60,10 +62,10 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const keyBulanan = `${periodeBulanan.tahun}-${String(periodeBulanan.bulan).padStart(2, "0")}`;
 
   const laporanTersimpan = useMemo(() => {
-    if (activeTab === "harian") return laporanData?.harian?.[keyHarian] || null;
-    if (activeTab === "mingguan") return laporanData?.mingguan?.[keyMingguan] || null;
-    return laporanData?.bulanan?.[keyBulanan] || null;
-  }, [activeTab, laporanData, keyHarian, keyMingguan, keyBulanan]);
+    if (activeTab === "harian") return laporanDataNormalized?.harian?.[keyHarian] || null;
+    if (activeTab === "mingguan") return laporanDataNormalized?.mingguan?.[keyMingguan] || null;
+    return laporanDataNormalized?.bulanan?.[keyBulanan] || null;
+  }, [activeTab, laporanDataNormalized, keyHarian, keyMingguan, keyBulanan]);
 
   // Load data
   useEffect(() => {
@@ -199,7 +201,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     if (!onUpdateLaporan) return;
     setIsSaving(true);
     
-    const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
+    const newLaporanData = JSON.parse(JSON.stringify(laporanDataNormalized || {}));
     newLaporanData.fields = fields; 
 
     const payload = { reports: reports, updatedAt: new Date().toISOString() };
@@ -235,7 +237,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
 
   const handleHapusLaporan = (key) => {
     if (!confirm("Hapus laporan ini?")) return;
-    const newLaporanData = JSON.parse(JSON.stringify(laporanData || {}));
+    const newLaporanData = JSON.parse(JSON.stringify(laporanDataNormalized || {}));
     if (newLaporanData[activeTab] && newLaporanData[activeTab][key]) {
       delete newLaporanData[activeTab][key];
       onUpdateLaporan(newLaporanData);
@@ -253,7 +255,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     const newField = { id: editingFieldId || `field_${Date.now()}`, label: fieldForm.label, tipe: fieldForm.tipe };
     let updatedFields = editingFieldId ? fields.map(f => f.id === editingFieldId ? newField : f) : [...fields, newField];
     
-    const newLaporanData = { ...laporanData, fields: updatedFields };
+    const newLaporanData = { ...laporanDataNormalized, fields: updatedFields };
     await onUpdateLaporan(newLaporanData);
     
     // Update local report state biar field baru langsung muncul
@@ -268,18 +270,18 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const handleHapusField = async (id) => {
     if (!confirm("Hapus field ini? Data laporan yang udah keisi bakal ilang dari tampilan.")) return;
     const updatedFields = fields.filter(f => f.id !== id);
-    const newLaporanData = { ...laporanData, fields: updatedFields };
+    const newLaporanData = { ...laporanDataNormalized, fields: updatedFields };
     await onUpdateLaporan(newLaporanData);
   };
 
   const historyList = useMemo(() => {
-    const data = laporanData?.[activeTab] || {};
+    const data = laporanDataNormalized?.[activeTab] || {};
     return Object.entries(data).map(([key, val]) => ({ key, ...val })).sort((a, b) => {
       const aDate = a.tanggal || a.tanggalMulai || `${a.tahun}-${String(a.bulan || 1).padStart(2, "0")}-01`;
       const bDate = b.tanggal || b.tanggalMulai || `${b.tahun}-${String(b.bulan || 1).padStart(2, "0")}-01`;
       return bDate.localeCompare(aDate);
     });
-  }, [laporanData, activeTab]);
+  }, [laporanDataNormalized, activeTab]);
 
   return (
     <div className="space-y-4">
