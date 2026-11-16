@@ -15,10 +15,13 @@ import {
   CheckCircle2,
   Info,
   Banknote,
+  Scale,
 } from "lucide-react";
 import { DEFAULT_KATEGORI, DEFAULT_DOMPET, formatRupiah } from "@/lib/keuanganData";
 import { PERIODE_RIWAYAT, analisisRiwayat } from "@/lib/riwayatKeuangan";
 import { parseTanggalLokal } from "@/lib/tanggalLokal";
+import GrafikBatang from "@/components/GrafikBatang";
+import PerbandinganPeriode from "@/components/PerbandinganPeriode";
 
 const GAYA_INSIGHT = {
   danger: "bg-red-50 border-red-200 text-red-800",
@@ -64,8 +67,7 @@ function Selisih({ nilai, naikBagus = false }) {
         bagus ? "text-green-600" : "text-red-600"
       }`}
     >
-      <Icon size={12} /> {nilai.persen > 0 ? "+" : ""}
-      {nilai.persen}% vs periode lalu
+      <Icon size={12} /> {Math.abs(nilai.persen)}% vs periode lalu
     </span>
   );
 }
@@ -74,7 +76,9 @@ function Kartu({ judul, nominal, ikon, selisih, naikBagus, warna, catatan }) {
   return (
     <div className="card bg-white shadow border border-gray-200">
       <div className="card-body p-4">
-        <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">{ikon} {judul}</p>
+        <p className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+          {ikon} {judul}
+        </p>
         <p className={`text-xl font-bold ${warna}`}>{formatRupiah(nominal)}</p>
         {catatan && <p className="text-[11px] text-gray-400 mt-1">{catatan}</p>}
         <div className="mt-1">
@@ -99,9 +103,16 @@ export default function RiwayatKeuangan({
 
   const { sekarang, banding, segmen, top, insight } = analisis;
   const keluarTotal = sekarang.total.keluar + sekarang.total.sedekah;
-  const maxSegmen = Math.max(
-    ...segmen.map((s) => Math.max(s.masuk, s.keluar)),
-    100000
+
+  const dataGrafik = useMemo(
+    () =>
+      segmen.map((s) => ({
+        label: s.label,
+        a: s.masuk,
+        b: s.keluar + s.sedekah,
+        keterangan: `Net ${formatRupiah(s.net)} · ${s.jumlahTrx} transaksi`,
+      })),
+    [segmen]
   );
 
   const perTanggal = useMemo(() => {
@@ -138,7 +149,11 @@ export default function RiwayatKeuangan({
               {PERIODE_RIWAYAT.map((p) => (
                 <button
                   key={p.kunci}
-                  className={`tab tab-xs ${kunci === p.kunci ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`}
+                  className={`tab tab-xs ${
+                    kunci === p.kunci
+                      ? "tab-active bg-blue-600 text-white font-semibold"
+                      : "text-gray-600"
+                  }`}
                   onClick={() => setKunci(p.kunci)}
                 >
                   {p.label}
@@ -149,7 +164,8 @@ export default function RiwayatKeuangan({
           <p className="text-xs text-gray-500 mt-2">
             <span className="font-semibold text-gray-700">{analisis.labelPeriode}</span>
             {" · "}dibanding {analisis.labelPembanding}
-            {sekarang.hariAktif > 0 && ` · ${sekarang.jumlahTrx} transaksi di ${sekarang.hariAktif} hari`}
+            {sekarang.jumlahTrx > 0 &&
+              ` · ${sekarang.jumlahTrx} transaksi di ${sekarang.hariAktif} hari`}
           </p>
         </div>
       </div>
@@ -161,7 +177,9 @@ export default function RiwayatKeuangan({
           return (
             <div
               key={idx}
-              className={`rounded p-2 border text-xs flex items-start gap-2 ${GAYA_INSIGHT[item.tipe] || GAYA_INSIGHT.info}`}
+              className={`rounded p-2 border text-xs flex items-start gap-2 ${
+                GAYA_INSIGHT[item.tipe] || GAYA_INSIGHT.info
+              }`}
             >
               <Icon size={14} className="mt-0.5 shrink-0" />
               <span>{item.pesan}</span>
@@ -209,56 +227,45 @@ export default function RiwayatKeuangan({
         />
       </div>
 
-      {/* GRAFIK PER SEGMEN */}
-      {segmen.length > 0 && (
+      {/* TREN */}
+      {dataGrafik.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
-            <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1">
-              <BarChart3 size={16} /> Perkembangan per{" "}
-              {analisis.periode.granularitas === "hari"
-                ? "hari"
-                : analisis.periode.granularitas === "minggu"
-                  ? "minggu"
-                  : "bulan"}
-            </h3>
-            <div className="flex items-end justify-between gap-1 sm:gap-2 h-40 overflow-x-auto pb-2">
-              {segmen.map((s) => (
-                <div key={`${s.mulai}-${s.selesai}`} className="flex-1 min-w-[34px] flex flex-col items-center gap-1">
-                  <div className="flex-1 w-full flex flex-col justify-end gap-0.5">
-                    <div
-                      className="bg-green-500 rounded-t w-full"
-                      style={{
-                        height: `${(s.masuk / maxSegmen) * 100}%`,
-                        minHeight: s.masuk > 0 ? "2px" : "0",
-                      }}
-                      title={`Masuk: ${formatRupiah(s.masuk)}`}
-                    />
-                    <div
-                      className="bg-red-500 rounded-b w-full"
-                      style={{
-                        height: `${(s.keluar + s.sedekah) / maxSegmen * 100}%`,
-                        minHeight: s.keluar + s.sedekah > 0 ? "2px" : "0",
-                      }}
-                      title={`Keluar: ${formatRupiah(s.keluar + s.sedekah)}`}
-                    />
-                  </div>
-                  <span className="text-[10px] text-gray-500 text-center leading-tight">{s.label}</span>
-                </div>
-              ))}
+            <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+              <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                <BarChart3 size={16} /> Tren per{" "}
+                {analisis.periode.granularitas === "hari"
+                  ? "hari"
+                  : analisis.periode.granularitas === "minggu"
+                    ? "minggu"
+                    : "bulan"}
+              </h3>
+              <p className="text-[11px] text-gray-500">
+                Total masuk {formatRupiah(sekarang.total.masuk)} · keluar {formatRupiah(keluarTotal)}
+              </p>
             </div>
-            <div className="flex gap-4 mt-3 text-xs text-gray-600 justify-center">
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-green-500" />
-                <span>Masuk</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded bg-red-500" />
-                <span>Keluar + Sedekah</span>
-              </div>
-            </div>
+            <GrafikBatang data={dataGrafik} labelB="Keluar + Sedekah" />
           </div>
         </div>
       )}
+
+      {/* HEAD TO HEAD */}
+      <div className="card bg-white shadow border border-gray-200">
+        <div className="card-body p-4">
+          <h3 className="text-sm font-bold text-gray-800 mb-1 flex items-center gap-1">
+            <Scale size={16} /> Head to Head
+          </h3>
+          <p className="text-[11px] text-gray-500 mb-3">
+            {analisis.labelPeriode} vs {analisis.labelPembanding}
+          </p>
+          <PerbandinganPeriode
+            sekarang={sekarang}
+            lalu={analisis.lalu}
+            labelSekarang={analisis.labelPeriode}
+            labelLalu={analisis.labelPembanding}
+          />
+        </div>
+      </div>
 
       {/* TOP KATEGORI */}
       {top.length > 0 && (
@@ -306,20 +313,20 @@ export default function RiwayatKeuangan({
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
               {perTanggal.map(([tanggal, list]) => {
-                const totalHari = list.reduce(
-                  (acc, t) => {
-                    acc[t.jenis] = (acc[t.jenis] || 0) + t.nominal;
-                    return acc;
-                  },
-                  {}
-                );
+                const totalHari = list.reduce((acc, t) => {
+                  acc[t.jenis] = (acc[t.jenis] || 0) + t.nominal;
+                  return acc;
+                }, {});
                 return (
                   <div key={tanggal}>
                     <div className="flex flex-wrap justify-between items-baseline gap-1 mb-1">
                       <p className="text-xs font-semibold text-gray-700">{labelTanggal(tanggal)}</p>
                       <p className="text-[10px] text-gray-500">
                         {Object.entries(totalHari)
-                          .map(([jenis, total]) => `${LABEL_JENIS[jenis] || jenis} ${formatRupiah(total)}`)
+                          .map(
+                            ([jenis, total]) =>
+                              `${LABEL_JENIS[jenis] || jenis} ${formatRupiah(total)}`
+                          )
                           .join(" · ")}
                       </p>
                     </div>
@@ -327,7 +334,9 @@ export default function RiwayatKeuangan({
                       {list.map((trx) => (
                         <div
                           key={trx.id || `${trx.jenis}-${trx.nominal}-${trx.catatan}`}
-                          className={`flex justify-between items-start gap-2 p-2 rounded border text-xs ${WARNA_JENIS[trx.jenis] || "bg-gray-50 border-gray-200 text-gray-700"}`}
+                          className={`flex justify-between items-start gap-2 p-2 rounded border text-xs ${
+                            WARNA_JENIS[trx.jenis] || "bg-gray-50 border-gray-200 text-gray-700"
+                          }`}
                         >
                           <div className="min-w-0">
                             <p className="font-semibold">

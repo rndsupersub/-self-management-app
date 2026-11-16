@@ -265,6 +265,9 @@ export default function BrandPage() {
             onUpdateLaporan={handleUpdateLaporan} 
             prioritasList={prioritasList} 
             sumberList={sumberList} 
+            kategoriList={kategoriPekerjaanList}
+            ptNama={pt?.nama || ""}
+            brandNama={brand?.nama || ""}
           />
         )}
 

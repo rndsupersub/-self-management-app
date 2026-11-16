@@ -225,6 +225,8 @@ export default function BisnisBrandPage() {
             onUpdateLaporan={(data) => updateBrandData({ laporanData: data })} 
             prioritasList={prioritasList} 
             sumberList={sumberList} 
+            kategoriList={kategoriList}
+            brandNama={brand?.nama || ""}
           />
         )}
 

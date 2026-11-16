@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { formatTanggalPanjang, formatTanggalPendek, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, normalizeLaporanData } from "@/lib/laporanData";
+import { formatTanggalPanjang, formatTanggalPendek, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, normalizeLaporanData, narasiKegiatan, narasiKunjunganVendor, narasiRingkasanPeriode } from "@/lib/laporanData";
 import { Info, Calendar, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
 
 const DEFAULT_FIELDS = [
@@ -33,7 +33,7 @@ const adjustDate = (dateStr, type, amount) => {
   return `${newY}-${newM}-${newD}`;
 };
 
-export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan }) {
+export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], laporanData = {}, onUpdateLaporan, ptNama = "", brandNama = "", prioritasList = [], sumberList = [], kategoriList = [] }) {
   const [activeTab, setActiveTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   
@@ -103,51 +103,74 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     return periodeBulanan.label;
   }, [activeTab, selectedDate, periodeMingguan, periodeBulanan]);
 
+  // Isi field laporan sesuai field yang dikelola user. Field utama dapat
+  // ringkasan naratif; kendala & solusi cuma diisi kalau memang ada.
+  const isiFieldsLaporan = (isi) => {
+    const hasil = {};
+    fields.forEach((f) => { hasil[f.id] = ""; });
+    const kunciUtama = fields.some((f) => f.id === "ringkasan") ? "ringkasan" : fields[0]?.id;
+    if (kunciUtama) hasil[kunciUtama] = isi.ringkasan || "";
+    if (fields.some((f) => f.id === "kendala")) hasil.kendala = isi.kendala || "";
+    if (fields.some((f) => f.id === "solusi")) hasil.solusi = isi.solusi || "";
+    return hasil;
+  };
+
   const handleAutoGenerate = () => {
     const start = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalMulai : periodeBulanan.tanggalMulai;
     const end = activeTab === "harian" ? selectedDate : activeTab === "mingguan" ? periodeMingguan.tanggalSelesai : periodeBulanan.tanggalSelesai;
+    // Acuan "sudah lewat target / sisa hari" = akhir periode yang dilihat.
+    const acuan = activeTab === "harian" ? selectedDate : end;
 
-    let newReports = [];
-
-    // 1. Tarik dari Kegiatan
+    // 1. Kegiatan di periode
     let kegiatanDiPeriode = [];
     if (activeTab === "harian") kegiatanDiPeriode = generateLaporanHarian(kegiatanList, selectedDate);
     else if (activeTab === "mingguan") kegiatanDiPeriode = generateLaporanMingguan(kegiatanList, periodeMingguan.tanggalMulai, periodeMingguan.tanggalSelesai);
     else kegiatanDiPeriode = generateLaporanBulanan(kegiatanList, periodeBulanan.tanggalMulai, periodeBulanan.tanggalSelesai);
 
+    const newReports = [];
+
+    // 2. Ringkasan periode dulu buat mingguan/bulanan: konteks sebelum detail.
+    if (activeTab !== "harian") {
+      const narasi = narasiRingkasanPeriode(kegiatanDiPeriode, vendorList, {
+        label: activeTab === "mingguan" ? `Minggu ${periodeMingguan.mingguKe}` : periodeBulanan.label,
+        tanggalMulai: start,
+        tanggalSelesai: end,
+      });
+      if (narasi) {
+        newReports.push({
+          id: `rep_ringkasan_${start}`,
+          judul: `📊 Ringkasan ${activeTab === "mingguan" ? "Minggu" : "Bulan"} ini${brandNama ? ` — ${brandNama}` : ""}`,
+          fields: isiFieldsLaporan({ ringkasan: narasi }),
+          gdriveUrl: "",
+        });
+      }
+    }
+
+    // 3. Satu kotak per kegiatan, isinya kalimat yang bisa dibaca orang.
     kegiatanDiPeriode.forEach((k) => {
+      const narasi = narasiKegiatan(k, { acuan, ptNama, brandNama, prioritasList, sumberList, kategoriList });
       newReports.push({
         id: `rep_keg_${k.id}`,
-        judul: `📋 Kegiatan: ${k.judul}`,
-        fields: {
-          ringkasan: `Status: ${k.status === "selesai" ? "Selesai" : "Belum"}\nTanggal: ${k.tanggalMulai || k.tanggal} s/d ${k.tanggalSelesai || k.tanggal}`,
-          kendala: "",
-          solusi: ""
-        },
-        gdriveUrl: ""
+        judul: `📋 ${k.judul}${brandNama ? ` — ${brandNama}` : ""}`,
+        fields: isiFieldsLaporan(narasi),
+        gdriveUrl: "",
       });
     });
 
-    // 2. Tarik dari Vendor
+    // 4. Kunjungan vendor, dijelaskan: untuk apa, lewat apa, hasilnya apa.
     (vendorList || []).forEach((vendor) => {
-      const logs = (vendor.logKunjungan || []).filter((log) => log.tanggal >= start && log.tanggal <= end);
-      if (logs.length > 0) {
-        let logText = "";
-        logs.forEach((log) => {
-          logText += `[${log.tanggal}] Hasil: ${log.hasil} ${log.catatan ? `| Catatan: ${log.catatan}` : ""}\n`;
-        });
-        
-        newReports.push({
-          id: `rep_vend_${vendor.id}`,
-          judul: `🏭 Vendor: ${vendor.nama}`,
-          fields: {
-            ringkasan: logText,
-            kendala: "",
-            solusi: ""
-          },
-          gdriveUrl: ""
-        });
-      }
+      const logs = (vendor.logKunjungan || [])
+        .filter((log) => log.tanggal >= start && log.tanggal <= end)
+        .sort((a, b) => String(a.tanggal || "").localeCompare(String(b.tanggal || "")));
+      if (logs.length === 0) return;
+
+      const narasi = narasiKunjunganVendor(vendor, logs);
+      newReports.push({
+        id: `rep_vend_${vendor.id}`,
+        judul: `🏭 Vendor: ${vendor.nama} (${logs.length} kunjungan)`,
+        fields: isiFieldsLaporan(narasi),
+        gdriveUrl: "",
+      });
     });
 
     if (newReports.length === 0) {
