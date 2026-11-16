@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { DEFAULT_DOMPET, DEFAULT_KATEGORI, formatRupiah, formatTanggal, generateId, getTanggalHariIni } from "@/lib/keuanganData";
+import { DEFAULT_DOMPET, DEFAULT_KATEGORI, formatRupiah, formatTanggal, generateId, getTanggalHariIni, deriveWalletId } from "@/lib/keuanganData";
 import { HOLIDAYS } from "@/lib/holidays";
 import { Wallet, ArrowUpRight, Landmark, HeartHandshake, Calendar, Info, Pencil, Plus, Trash2, MessageSquare, Banknote, AlertTriangle, Save } from "lucide-react";
 
@@ -17,7 +17,7 @@ export default function KalenderTransaksi({
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const [formData, setFormData] = useState({ jenis: "keluar", kategori: "", subkategori: "", nominal: "", metode: "Cash", catatan: "" });
+  const [formData, setFormData] = useState({ jenis: "keluar", kategori: "", nominal: "", metode: "Cash", catatan: "" });
   const [errorMsg, setErrorMsg] = useState("");
 
   const generateCalendar = () => {
@@ -46,26 +46,11 @@ export default function KalenderTransaksi({
 
   const transaksiHariIni = keuanganTransaksi[selectedDate] || [];
 
-  const getWalletId = (jenis, kategoriId) => {
-    const kategoriObj = (kategoriList[jenis] || []).find((k) => k.id === kategoriId);
-    if (!kategoriObj) return null;
-    const namaKat = kategoriObj.nama.toLowerCase();
-    if (namaKat.includes("dana darurat")) return "dana_darurat";
-    if (namaKat.includes("tabungan") || namaKat.includes("laptop") || namaKat.includes("mobil") || namaKat.includes("rumah")) return "tabungan";
-    if (namaKat.includes("kurban")) return "kurban";
-    if (namaKat.includes("emas")) return "investasi_emas";
-    if (namaKat.includes("modal bisnis") || namaKat.includes("modal clothing")) return "modal_bisnis";
-    if (namaKat.includes("operasional") || namaKat.includes("bensin")) return "operasional";
-    if (namaKat.includes("lifestyle")) return "lifestyle";
-    if (namaKat.includes("keluarga")) return "keluarga";
-    if (namaKat.includes("survey")) return "survey";
-    if (namaKat.includes("dana main")) return "dana_main";
-    if (namaKat.includes("sedekah")) return "sedekah";
-    return null;
-  };
+  const getWalletId = (jenis, kategoriId) =>
+    deriveWalletId(kategoriList, jenis, kategoriId);
 
-  const handleBukaForm = () => { setFormData({ jenis: "keluar", kategori: "", subkategori: "", nominal: "", metode: "Cash", catatan: "" }); setEditingId(null); setErrorMsg(""); setShowForm(true); };
-  const handleBukaEdit = (trx) => { setFormData({ jenis: trx.jenis, kategori: trx.kategoriId || "", subkategori: trx.subkategori || "", nominal: trx.nominal || "", metode: trx.metode || "Cash", catatan: trx.catatan || "" }); setEditingId(trx.id); setErrorMsg(""); setShowForm(true); };
+  const handleBukaForm = () => { setFormData({ jenis: "keluar", kategori: "", nominal: "", metode: "Cash", catatan: "" }); setEditingId(null); setErrorMsg(""); setShowForm(true); };
+  const handleBukaEdit = (trx) => { setFormData({ jenis: trx.jenis, kategori: trx.kategoriId || "", nominal: trx.nominal || "", metode: trx.metode || "Cash", catatan: trx.catatan || "" }); setEditingId(trx.id); setErrorMsg(""); setShowForm(true); };
 
   const handleSimpan = () => {
     setErrorMsg("");
@@ -77,7 +62,7 @@ export default function KalenderTransaksi({
     const updated = JSON.parse(JSON.stringify(keuanganTransaksi || {}));
     if (!updated[selectedDate]) updated[selectedDate] = [];
 
-    const newTrx = { id: editingId || generateId("trx"), jenis: formData.jenis, kategoriId: formData.kategori, subkategori: formData.subkategori, nominal, metode: formData.metode, catatan: formData.catatan, walletId, updatedAt: new Date().toISOString() };
+    const newTrx = { id: editingId || generateId("trx"), jenis: formData.jenis, kategoriId: formData.kategori, nominal, metode: formData.metode, catatan: formData.catatan, walletId, updatedAt: new Date().toISOString() };
 
     if (editingId) updated[selectedDate] = updated[selectedDate].map((t) => t.id === editingId ? { ...t, ...newTrx } : t);
     else updated[selectedDate].push(newTrx);
@@ -231,10 +216,6 @@ export default function KalenderTransaksi({
                   {(kategoriList[formData.jenis] || []).map((k) => <option key={k.id} value={k.id}>{k.nama}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Subkategori (opsional)</label>
-                <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Misal: Rokok Magnum" value={formData.subkategori} onChange={(e) => setFormData({ ...formData, subkategori: e.target.value })} />
-              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">Nominal (Rp)</label>
@@ -275,7 +256,7 @@ export default function KalenderTransaksi({
                         <p className="text-sm font-semibold">{getJenisLabel(trx.jenis)}</p>
                         <p className="text-sm font-bold">{trx.jenis === "masuk" ? "+" : "-"}{formatRupiah(trx.nominal)}</p>
                       </div>
-                      <p className="text-xs mt-0.5">{kategori?.nama || trx.kategoriId}{trx.subkategori && ` • ${trx.subkategori}`}</p>
+                      <p className="text-xs mt-0.5">{kategori?.nama || trx.kategoriId}</p>
                       {trx.catatan && <p className="text-xs mt-1 italic opacity-80 flex items-center gap-1"><MessageSquare size={12}/> {trx.catatan}</p>}
                     </div>
                     <div className="flex gap-1" data-html2canvas-ignore="true">

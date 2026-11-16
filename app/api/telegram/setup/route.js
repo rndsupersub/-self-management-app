@@ -1,5 +1,7 @@
 // app/api/telegram/setup/route.js
 import { NextResponse } from "next/server";
+import { setBotCommands } from "@/lib/telegramData";
+import { BOT_COMMANDS } from "@/lib/telegramHelp";
 
 function getWebhookUrl(req) {
   // Ambil host dari request (buat auto-detect Vercel URL)
@@ -31,6 +33,8 @@ export async function POST(req) {
     `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(url)}`
   );
   const data = await res.json();
+  // Daftarin command ke menu "/" Telegram biar user nggak perlu hafal command.
+  await setBotCommands(BOT_COMMANDS);
   return NextResponse.json({
     ok: data.ok,
     url,

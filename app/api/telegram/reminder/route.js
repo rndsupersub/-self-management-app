@@ -74,32 +74,36 @@ export async function POST(req) {
       // ==========================================
       const remindersPribadi = tentukanReminderYangHarusDikirim(userData, sekarang);
       const sentPribadi = [];
+      // Kumpulin dulu, tulis sekali di akhir. Dulu tiap reminder nulis pakai snapshot lama
+      // → key sebelumnya ketimpa dan reminder terkirim ulang tiap menit.
+      const logPribadiHariIni = { ...((userData.reminderLog || {})[tanggal] || {}) };
 
       if (remindersPribadi.length > 0) {
         for (const rem of remindersPribadi) {
           try {
             // PERUBAHAN PENTING: Kirim rem.jamMulai dan rem.deadline ke fungsi
             await kirimReminder(chatId, rem.menuId, rem.lapis, rem.config, rem.jamMulai, rem.deadline);
-            
-            await firestore.collection("users").doc(userDoc.id).set(
-              {
-                reminderLog: {
-                  ...(userData.reminderLog || {}),
-                  [tanggal]: {
-                    ...((userData.reminderLog || {})[tanggal] || {}),
-                    [rem.menuId]: {
-                      ...(((userData.reminderLog || {})[tanggal] || {})[rem.menuId] || {}),
-                      [rem.lapis]: true,
-                    },
-                  },
-                },
-              },
-              { merge: true }
-            );
+
+            logPribadiHariIni[rem.menuId] = {
+              ...(logPribadiHariIni[rem.menuId] || {}),
+              [rem.lapis]: true,
+            };
             sentPribadi.push({ menuId: rem.menuId, lapis: rem.lapis });
           } catch (err) {
             console.error(`[reminder] Gagal kirim pribadi:`, err.message);
           }
+        }
+
+        if (sentPribadi.length > 0) {
+          await firestore.collection("users").doc(userDoc.id).set(
+            {
+              reminderLog: {
+                ...(userData.reminderLog || {}),
+                [tanggal]: logPribadiHariIni,
+              },
+            },
+            { merge: true }
+          );
         }
       }
 
@@ -108,33 +112,34 @@ export async function POST(req) {
       // ==========================================
       const remindersProyek = cariReminderProyek(userData);
       const sentProyek = [];
-      const todayLog = userData.reminderProyekLog?.[tanggal] || {};
+      const todayLog = { ...(userData.reminderProyekLog?.[tanggal] || {}) };
 
       for (const rem of remindersProyek) {
         // Cek apakah hari ini udah dikirim
-        if (todayLog[rem.id]) continue; 
+        if (todayLog[rem.id]) continue;
 
         try {
           const { text, buttons } = buildReminderProyekMessage(rem);
           await sendTelegramWithButtons(chatId, text, buttons);
-          
-          // Catat di log biar nggak dikirim 2x sehari
-          await firestore.collection("users").doc(userDoc.id).set(
-            {
-              reminderProyekLog: {
-                ...(userData.reminderProyekLog || {}),
-                [tanggal]: {
-                  ...todayLog,
-                  [rem.id]: true,
-                },
-              },
-            },
-            { merge: true }
-          );
+
+          todayLog[rem.id] = true;
           sentProyek.push({ id: rem.id, tipe: rem.tipe });
         } catch (err) {
           console.error(`[reminder proyek] Gagal kirim:`, err.message);
         }
+      }
+
+      // Tulis log sekali setelah semua reminder diproses.
+      if (sentProyek.length > 0) {
+        await firestore.collection("users").doc(userDoc.id).set(
+          {
+            reminderProyekLog: {
+              ...(userData.reminderProyekLog || {}),
+              [tanggal]: todayLog,
+            },
+          },
+          { merge: true }
+        );
       }
 
       results.push({ 

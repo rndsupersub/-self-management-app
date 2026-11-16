@@ -9,9 +9,9 @@ import {
   editTelegramMessage,
   parseCommand,
   findMenuByCommand,
-  buildHelpText,
-  buildMenuListText,
+  setBotCommands,
 } from "@/lib/telegramData";
+import { buildHelpView, buildMenuListView, BOT_COMMANDS } from "@/lib/telegramHelp";
 import {
   WIZARD_CONFIG,
   CUSTOM_MENU_WIZARD,
@@ -22,6 +22,8 @@ import {
   getVendorFieldsSteps,
   generateWizardId,
   today,
+  besok,
+  kemarin,
 } from "@/lib/telegramWizard";
 import {
   REMINDER_CONFIG,
@@ -32,9 +34,17 @@ import {
 } from "@/lib/telegramReminder";
 
 // === TAMBAHAN BARU: Import helper buat reminder proyek ===
-import { todayStr as todayStrProyek } from "@/lib/telegramReminderProyek";
+import { todayStr as todayStrProyek, REMINDER_PROYEK_CONFIG } from "@/lib/telegramReminderProyek";
+import { deriveWalletId } from "@/lib/keuanganData";
 
 // === TAMBAHAN BARU: Helper UI Reminder Proyek ===
+function settingsProyek(userData) {
+  return {
+    ...REMINDER_PROYEK_CONFIG,
+    ...(userData?.reminderProyekSettings || {}),
+  };
+}
+
 function buildStatusReminderProyekText(settings) {
   const isEnabled = settings?.enabled !== false;
   const isDeadlineOn = settings?.deadlineH7 !== false;
@@ -135,7 +145,10 @@ async function handleLink(firestore, chatId, code, fromData) {
     telegramLinkedAt: new Date().toISOString(),
   });
   await codeRef.delete();
-  await sendTelegramMessage(chatId, `<b>✅ Berhasil di-link!</b>\n\nUID: <code>${uid}</code>\n\nKirim /help buat panduan.`);
+  await setBotCommands(BOT_COMMANDS);
+  const { text, keyboard } = buildHelpView("root");
+  await sendTelegramMessage(chatId, `<b>✅ Berhasil di-link!</b>\n\nSekarang bot siap dipakai.`);
+  await sendTelegramWithButtons(chatId, text, keyboard);
 }
 
 // ========== WIZARD BIASA — MULAI ==========
@@ -376,15 +389,8 @@ async function handleWizardCallback(firestore, chatId, data, state, userData, me
     const step = config.steps[state.currentStep];
     if (!step) return;
     if (opt === "today") state.fields[step.key] = today();
-    else if (opt === "besok") {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      state.fields[step.key] = d.toISOString().split("T")[0];
-    } else if (opt === "kemarin") {
-      const d = new Date();
-      d.setDate(d.getDate() - 1);
-      state.fields[step.key] = d.toISOString().split("T")[0];
-    }
+    else if (opt === "besok") state.fields[step.key] = besok();
+    else if (opt === "kemarin") state.fields[step.key] = kemarin();
     state.currentStep++;
     state.awaiting = null;
     await setState(firestore, chatId, state);
@@ -407,8 +413,8 @@ async function handleWizardCallback(firestore, chatId, data, state, userData, me
       await editTelegramMessage(
         chatId,
         messageId,
-        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\n📊 Auto-sync ke Sheets.`,
-        [[{ text: "📊 Sync Now", callback_data: `syncnow|${userData._uid}` }]]
+        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\nData udah masuk ke website. Mau backup ke Google Sheets sekarang?`,
+        [[{ text: "📊 Sync ke Sheets", callback_data: `syncnow|${userData._uid}` }]]
       );
     } catch (err) {
       console.error("[wizard save] Error:", err);
@@ -438,7 +444,7 @@ async function saveWizard(firestore, userData, state) {
     pekerjaan[ptIdx].brands[brandIdx].kegiatan.push({
       id: `keg_${Date.now()}`,
       judul: f.judul || "Tanpa judul",
-      kategori: f.kategoriId || "analisis",
+      kategori: f.kategoriId || "",
       prioritas: f.prioritasId || "utama",
       sumber: f.sumberId || "bos",
       catatan: f.catatan || "",
@@ -447,7 +453,7 @@ async function saveWizard(firestore, userData, state) {
       tanggalSelesai: f.tanggalSelesai || f.tanggalMulai || todayStr,
       tanggal: f.tanggalMulai || todayStr,
       status: "belum",
-      sections: { analisis: [], desain: [], vendor: [], lainnya: [] },
+      sections: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -543,15 +549,16 @@ async function saveWizard(firestore, userData, state) {
     brands[bIdx].kegiatan.push({
       id: `keg_${Date.now()}`,
       judul: f.judul || "Tanpa judul",
-      kategori: f.kategoriId || "analisis",
+      kategori: f.kategoriId || "",
       prioritas: f.prioritasId || "utama",
       sumber: f.sumberId || "gua",
       catatan: f.catatan || "",
       gdriveUrl: f.gdriveUrl || "",
-      tanggal: f.tanggal || todayStr,
-      tanggalMulai: f.tanggal || todayStr,
-      tanggalSelesai: f.tanggal || todayStr,
+      tanggalMulai: f.tanggalMulai || todayStr,
+      tanggalSelesai: f.tanggalSelesai || f.tanggalMulai || todayStr,
+      tanggal: f.tanggalMulai || todayStr,
       status: "belum",
+      sections: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -660,7 +667,12 @@ async function saveWizard(firestore, userData, state) {
     const olahraga = userData.olahraga || { minggu: [], harian: {}, fieldEvaluasi: [] };
     if (!olahraga.harian) olahraga.harian = {};
     const current = olahraga.harian[todayStr] || {};
-    current[f.jenis] = f.jumlah || "";
+    const angka = parseInt(String(f.jumlah || "").replace(/[^\d]/g, "")) || 0;
+    // Samain bentuknya sama web: { jogging:{km}, pushUp:{reps}, legRaise:{reps}, plank:{detik} }.
+    if (f.jenis === "jogging") current.jogging = { ...(current.jogging || {}), km: angka };
+    else if (f.jenis === "push-up") current.pushUp = { ...(current.pushUp || {}), reps: angka };
+    else if (f.jenis === "leg-raise") current.legRaise = { ...(current.legRaise || {}), reps: angka };
+    else if (f.jenis === "plank") current.plank = { ...(current.plank || {}), detik: angka };
     if (f.catatan) current.catatan = f.catatan;
     current.updatedAt = new Date().toISOString();
     olahraga.harian[todayStr] = current;
@@ -670,14 +682,17 @@ async function saveWizard(firestore, userData, state) {
 
   // KEUANGAN
   if (menuId === "keuangan") {
+    const tanggalTrx = f.tanggal || todayStr;
     const transaksi = userData.keuanganTransaksi || {};
-    if (!transaksi[todayStr]) transaksi[todayStr] = [];
-    transaksi[todayStr].push({
+    if (!transaksi[tanggalTrx]) transaksi[tanggalTrx] = [];
+    transaksi[tanggalTrx].push({
       id: `trx_${Date.now()}`,
       jenis: f.jenis,
-      nominal: f.nominal,
+      nominal: parseInt(f.nominal) || 0,
       kategoriId: f.kategoriId || "",
-      walletId: f.walletId || "",
+      // Dompet diturunkan dari kategori (sama kayak web), bukan ditanya manual.
+      walletId: deriveWalletId(userData.keuanganKategori || {}, f.jenis, f.kategoriId),
+      metode: f.metode || "Cash",
       catatan: f.catatan || "",
       updatedAt: new Date().toISOString(),
     });
@@ -727,16 +742,20 @@ async function saveWizard(firestore, userData, state) {
     if (bukuIdx === -1) throw new Error("Buku nggak ketemu");
     const buku = bedahBuku.buku[bukuIdx];
     if (!buku.progressHarian) buku.progressHarian = {};
+    const mulai = parseInt(f.halamanMulai) || 0;
+    const akhir = parseInt(f.halamanSelesai) || mulai;
+    const halamanList = [];
+    for (let i = mulai; i <= akhir; i++) halamanList.push(i);
+    // Web baca halamanAkhir + halamanList (dulu bot nulis halamanSelesai → nggak kebaca).
     buku.progressHarian[todayStr] = {
-      halamanMulai: f.halamanMulai,
-      halamanSelesai: f.halamanSelesai,
+      halamanMulai: mulai,
+      halamanAkhir: akhir,
+      halamanList,
       catatan: f.catatan || "",
-      updatedAt: new Date().toISOString(),
+      gdriveUrl: "",
+      createdAt: new Date().toISOString(),
     };
-    if (!buku.halamanSelesai) buku.halamanSelesai = [];
-    for (let i = f.halamanMulai; i <= f.halamanSelesai; i++) {
-      if (!buku.halamanSelesai.includes(i)) buku.halamanSelesai.push(i);
-    }
+    buku.halamanSelesai = Array.from(new Set([...(buku.halamanSelesai || []), ...halamanList])).sort((a, b) => a - b);
     await userRef.update({ bedahBuku });
     return;
   }
@@ -744,12 +763,20 @@ async function saveWizard(firestore, userData, state) {
   // MENU CUSTOM
   if (userData.menusCustom && userData.menusCustom[menuId]) {
     const logs = userData.menusCustomLogHarian || {};
-    if (!logs[todayStr]) logs[todayStr] = {};
-    logs[todayStr][menuId] = {
+    // Web berharap array per tanggal (bukan object) — dulu bot nulis object → web crash.
+    if (!Array.isArray(logs[todayStr])) logs[todayStr] = [];
+    logs[todayStr].push({
+      id: `log_${Date.now()}`,
+      kategoriId: menuId,
+      subKategoriId: "",
+      toolId: "",
+      fiturId: "",
+      partId: "",
       catatan: f.catatan || "",
       gdriveUrl: f.gdriveUrl || "",
+      sumber: "telegram",
       updatedAt: new Date().toISOString(),
-    };
+    });
     await userRef.update({ menusCustomLogHarian: logs });
     return;
   }
@@ -1338,8 +1365,8 @@ async function handleVendorCallback(firestore, chatId, data, state, userData, me
       await editTelegramMessage(
         chatId,
         messageId,
-        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\n📊 Auto-sync ke Sheets.`,
-        [[{ text: "📊 Sync Now", callback_data: `syncnow|${userData._uid}` }]]
+        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\nData udah masuk ke website. Mau backup ke Google Sheets sekarang?`,
+        [[{ text: "📊 Sync ke Sheets", callback_data: `syncnow|${userData._uid}` }]]
       );
     } catch (err) {
       console.error("[vendor save] Error:", err);
@@ -1444,8 +1471,13 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
     return;
   }
 
-  const wizardKey = `${command}_${subMenuId}`;
-  const config  = WIZARD_CONFIG[wizardKey];
+  let wizardKey = `${command}_${subMenuId}`;
+  let config  = WIZARD_CONFIG[wizardKey];
+  // "Kalender" pakai wizard utama (dulu nyari "pekerjaan_kalender" yang nggak ada → dead-end).
+  if (!config && subMenuId === "kalender") {
+    wizardKey = command;
+    config = WIZARD_CONFIG[wizardKey];
+  }
   if (!config) {
     await editTelegramMessage(chatId, messageId, `⚠️ Sub-menu "${subMenuId}" belum punya wizard.`);
     return;
@@ -1507,11 +1539,13 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   if (state && !state.phase && state.awaiting && !text.startsWith("/")) {
     if (state.awaiting === "date_manual") {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(text.trim())) {
-        await sendTelegramMessage(chatId, `⚠️ Format salah. Ketik <code>YYYY-MM-DD</code> (contoh: 2026-10-05):`);
+      const tgl = text.trim();
+      const valid = dateRegex.test(tgl) && !Number.isNaN(new Date(tgl).getTime()) && new Date(tgl).toISOString().split("T")[0] === tgl;
+      if (!valid) {
+        await sendTelegramMessage(chatId, `⚠️ Tanggal nggak valid. Ketik <code>YYYY-MM-DD</code> (contoh: 2026-10-05):`);
         return;
       }
-      state.fields[state.awaitingKey] = text.trim();
+      state.fields[state.awaitingKey] = tgl;
       state.currentStep++;
       state.awaiting = null;
       state.awaitingKey = null;
@@ -1541,8 +1575,9 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
   const { command, payload, catatan } = parsed;
 
-  if (command === "start") {
-    await sendTelegramMessage(chatId, `👋 Halo <b>${fromData?.first_name || "Sobat"}</b>!\n\nKirim /help buat panduan.`);
+  if (command === "start" || command === "help") {
+    const { text, keyboard } = buildHelpView("root");
+    await sendTelegramWithButtons(chatId, text, keyboard);
     return;
   }
   if (command === "link") {
@@ -1550,16 +1585,13 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     await handleLink(firestore, chatId, payload, fromData);
     return;
   }
-  if (command === "help") {
-    await sendTelegramMessage(chatId, buildHelpText());
-    return;
-  }
   if (!userData) {
     await sendTelegramMessage(chatId, `⚠️ Belum di-link.\nBuka web → 🤖 Telegram → Generate Pairing Code → <code>/link KODE</code>.`);
     return;
   }
   if (command === "menu_list") {
-    await sendTelegramMessage(chatId, buildMenuListText(userData.menus || [], userData.menusCustom || {}));
+    const { text, keyboard } = buildMenuListView(userData);
+    await sendTelegramWithButtons(chatId, text, keyboard);
     return;
   }
 
@@ -1667,7 +1699,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   // ==== REMINDER PROYEK ====
   if (command === "reminder-proyek") {
-    const settings = userData.reminderProyekSettings || { enabled: true };
+    const settings = settingsProyek(userData);
     const textUI = buildStatusReminderProyekText(settings);
     const buttons = buildStatusReminderProyekButtons(settings);
     await sendTelegramWithButtons(chatId, textUI, buttons);
@@ -1676,7 +1708,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   if (command === "pause-proyek") {
     await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: false } },
+      { reminderProyekSettings: { ...settingsProyek(userData), enabled: false } },
       { merge: true }
     );
     await sendTelegramMessage(chatId, `⏸️ <b>Reminder Proyek dimatiin.</b>\n\nReminder pribadi <b>TETAP JALAN</b>.\n\nKetik /resume-proyek buat nyalain lagi.`);
@@ -1685,7 +1717,7 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   if (command === "resume-proyek") {
     await firestore.collection("users").doc(userData._uid).set(
-      { reminderProyekSettings: { enabled: true } },
+      { reminderProyekSettings: { ...settingsProyek(userData), enabled: true } },
       { merge: true }
     );
     await sendTelegramMessage(chatId, `▶️ <b>Reminder Proyek dinyalain.</b>\n\nKetik /reminder-proyek buat cek status.`);
@@ -1859,6 +1891,55 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
   const parts = data.split("|");
   const action = parts[0];
+
+  // ==== PANDUAN BERTINGKAT (NAV / OPEN / START) ====
+  if (action === "nav") {
+    const { text, keyboard } = buildHelpView(parts[1] || "root");
+    await editTelegramMessage(chatId, messageId, text, keyboard);
+    return;
+  }
+
+  if (action === "open") {
+    const target = parts[1];
+    if (target === "reminder") {
+      const settings = userData?.reminderSettings || {};
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        buildStatusReminderText(settings),
+        buildStatusReminderButtons(settings)
+      );
+    } else if (target === "reminder_proyek") {
+      const settings = settingsProyek(userData);
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        buildStatusReminderProyekText(settings),
+        buildStatusReminderProyekButtons(settings)
+      );
+    }
+    return;
+  }
+
+  if (action === "start") {
+    const command = parts[1];
+    if (!userData) {
+      await editTelegramMessage(chatId, messageId, `⚠️ Link akun dulu di web.`);
+      return;
+    }
+    const menu = findMenuByCommand(command, userData.menus, userData.menusCustom);
+    if (!menu) {
+      await editTelegramMessage(chatId, messageId, `⚠️ Menu "${command}" belum ada.`);
+      return;
+    }
+    await clearState(firestore, chatId);
+    if (SUB_MENU_CONFIG[command]) {
+      await startWizardWithSubMenu(firestore, chatId, command, userData);
+    } else {
+      await startWizard(firestore, chatId, command, userData);
+    }
+    return;
+  }
 
   // ==== SUB-MENU: PILIH PT ====
   if (action === "sub_pick_pt") {
@@ -2056,7 +2137,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
     const todayLocal = todayStrProyek();
 
     if (action === "proyek_toggle_deadline") {
-      const settings = userData.reminderProyekSettings || { enabled: true };
+      const settings = settingsProyek(userData);
       const newSettings = { ...settings, deadlineH7: settings.deadlineH7 === false, deadlineH3: settings.deadlineH7 === false, deadlineH1: settings.deadlineH7 === false, deadlineLewat: settings.deadlineH7 === false };
       await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
       await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
@@ -2064,7 +2145,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (action === "proyek_toggle_vendor") {
-      const settings = userData.reminderProyekSettings || { enabled: true };
+      const settings = settingsProyek(userData);
       const newSettings = { ...settings, vendorFollowUp: settings.vendorFollowUp === false };
       await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
       await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
@@ -2072,7 +2153,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (action === "proyek_pause_all") {
-      const settings = userData.reminderProyekSettings || { enabled: true };
+      const settings = settingsProyek(userData);
       const newSettings = { ...settings, enabled: false };
       await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
       await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
@@ -2080,7 +2161,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (action === "proyek_resume_all") {
-      const settings = userData.reminderProyekSettings || { enabled: true };
+      const settings = settingsProyek(userData);
       const newSettings = { ...settings, enabled: true };
       await firestore.collection("users").doc(userData._uid).set({ reminderProyekSettings: newSettings }, { merge: true });
       await editTelegramMessage(chatId, messageId, buildStatusReminderProyekText(newSettings), buildStatusReminderProyekButtons(newSettings));
