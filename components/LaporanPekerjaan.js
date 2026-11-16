@@ -352,7 +352,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
           {reports.length === 0 ? (
             <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-lg">
               <FileText size={40} className="mx-auto mb-2 text-gray-300"/>
-              <p className="text-sm text-gray-500">Belum ada data laporan. Klik "Auto-generate" atau "+ Tambah Kotak".</p>
+              <p className="text-sm text-gray-500">Belum ada data laporan. Klik “Auto-generate” atau “+ Tambah Kotak”.</p>
             </div>
           ) : (
             <div className="space-y-4">

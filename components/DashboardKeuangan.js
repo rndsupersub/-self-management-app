@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_KATEGORI, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungPengeluaranMingguIni, hitungHealthScore, hitungProgressWallet, getWalletStatus, hitungProgressGoal, generateSmartAlert, flattenTransaksi, getBulanRange, hitungTotalByJenis, getTanggalHariIni, namaKategoriTransaksi } from "@/lib/keuanganData";
+import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_KATEGORI, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungPengeluaranMingguIni, hitungHealthScore, hitungProgressWallet, getWalletStatus, hitungProgressGoal, generateSmartAlert, flattenTransaksi, getBulanRange, getTanggalHariIni, namaKategoriTransaksi } from "@/lib/keuanganData";
 import { Wallet, ArrowUpRight, Calendar, Activity, HeartPulse, Target, Landmark, MessageSquare, TrendingUp, BarChart3, Bell, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import GrafikBatang from "@/components/GrafikBatang";
 import { segmenPeriode } from "@/lib/riwayatKeuangan";

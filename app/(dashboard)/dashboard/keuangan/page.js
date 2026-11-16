@@ -19,7 +19,13 @@ import { Home, Wallet, BarChart3, Pencil, Target, Settings, History } from "luci
 export default function KeuanganPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
+  // Tanggal lokal (bukan toISOString) — di WIB malam, UTC sudah ganti hari.
+  const [today] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+      d.getDate()
+    ).padStart(2, "0")}`;
+  });
   const [activeTab, setActiveTab] = useState("dashboard");
 
   const [dompetList, setDompetList] = useState(DEFAULT_DOMPET);
@@ -32,7 +38,6 @@ export default function KeuanganPage() {
   const router = useRouter();
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
       setUser(user);

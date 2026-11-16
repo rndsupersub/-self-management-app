@@ -45,7 +45,10 @@ export default function KalenderTransaksi({
   const handleMonthChange = (e) => setCurrentMonth(new Date(currentMonth.getFullYear(), parseInt(e.target.value), 1));
   const handleYearChange = (e) => setCurrentMonth(new Date(parseInt(e.target.value), currentMonth.getMonth(), 1));
 
-  const transaksiHariIni = keuanganTransaksi[selectedDate] || [];
+  const transaksiHariIni = useMemo(
+    () => keuanganTransaksi[selectedDate] || [],
+    [keuanganTransaksi, selectedDate]
+  );
 
   const getWalletId = (jenis, kategoriId) =>
     deriveWalletId(kategoriList, jenis, kategoriId);
