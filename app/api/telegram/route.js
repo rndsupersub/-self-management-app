@@ -11,7 +11,7 @@ import {
   findMenuByCommand,
   setBotCommands,
 } from "@/lib/telegramData";
-import { buildHelpView, buildMenuListView, BOT_COMMANDS } from "@/lib/telegramHelp";
+import { buildHelpView, buildMenuListView, BOT_COMMANDS, COMMAND_ALIAS } from "@/lib/telegramHelp";
 import {
   WIZARD_CONFIG,
   CUSTOM_MENU_WIZARD,
@@ -1573,7 +1573,9 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     await sendTelegramMessage(chatId, `🤖 Halo! Kirim /help atau /menu_list.`);
     return;
   }
-  const { command, payload, catatan } = parsed;
+  const { command: rawCommand, payload, catatan } = parsed;
+  // Alias underscore (dari menu "/") → command asli yang pakai tanda hubung.
+  const command = COMMAND_ALIAS[rawCommand] || rawCommand;
 
   if (command === "start" || command === "help") {
     const { text, keyboard } = buildHelpView("root");
