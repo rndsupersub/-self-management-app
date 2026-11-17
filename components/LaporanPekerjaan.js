@@ -53,12 +53,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   // dibuka lagi satu-satu. Default: benar-benar nggak dirender = nggak ke PDF.
   const [tampilTersembunyi, setTampilTersembunyi] = useState(false);
   const toggleLaporan = (id) => setTertutup((prev) => ({ ...prev, [id]: !prev[id] }));
-  const semuaTertutup = reports.length > 0 && reports.every((r) => tertutup[r.id]);
-  const jumlahTersembunyi = reports.filter((r) => tertutup[r.id]).length;
-  const toggleSemua = () =>
-    setTertutup(
-      semuaTertutup ? {} : Object.fromEntries(reports.map((r) => [r.id, true]))
-    );
 
   // State Kelola Field
   const [showKelolaField, setShowKelolaField] = useState(false);
@@ -102,6 +96,13 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const reports = draftLaporan?.key === kunciPeriode ? draftLaporan.list : daftarTersimpan;
   const setReports = (next) =>
     setDraftLaporan({ key: kunciPeriode, list: typeof next === "function" ? next(reports) : next });
+
+  // Dihitung setelah `reports` ada (kalau ditaruh di atas, error "cannot access
+  // before initialization").
+  const semuaTertutup = reports.length > 0 && reports.every((r) => tertutup[r.id]);
+  const jumlahTersembunyi = reports.filter((r) => tertutup[r.id]).length;
+  const toggleSemua = () =>
+    setTertutup(semuaTertutup ? {} : Object.fromEntries(reports.map((r) => [r.id, true])));
 
   const handlePrev = () => {
     setEditingIndex(null);

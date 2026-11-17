@@ -70,16 +70,6 @@ export default function EvaluasiPekerjaan({
   const [tampilKotakTersembunyi, setTampilKotakTersembunyi] = useState(false);
   const toggleKotak = (index) =>
     setKotakTertutup((prev) => ({ ...prev, [index]: !prev[index] }));
-  const jumlahKotakTersembunyi = evaluationReports.filter((_, i) => kotakTertutup[i]).length;
-  const semuaKotakTertutup =
-    evaluationReports.length > 0 &&
-    evaluationReports.every((_, i) => kotakTertutup[i]);
-  const toggleSemuaKotak = () =>
-    setKotakTertutup(
-      semuaKotakTertutup
-        ? {}
-        : Object.fromEntries(evaluationReports.map((_, i) => [i, true]))
-    );
   const [showKelolaFrekuensi, setShowKelolaFrekuensi] = useState(false);
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
   const [frekuensiForm, setFrekuensiForm] = useState({ label: "", tipe: "bulanan", customStart: "", customEnd: "" });
@@ -120,6 +110,15 @@ export default function EvaluasiPekerjaan({
   const evaluationReports = draftEvaluasi?.key === kunciEvaluasi ? draftEvaluasi.list : daftarEvaluasiTersimpan;
   const setEvaluationReports = (next) =>
     setDraftEvaluasi({ key: kunciEvaluasi, list: typeof next === "function" ? next(evaluationReports) : next });
+
+  // Dihitung setelah `evaluationReports` ada (hindari akses sebelum inisialisasi).
+  const jumlahKotakTersembunyi = evaluationReports.filter((_, i) => kotakTertutup[i]).length;
+  const semuaKotakTertutup =
+    evaluationReports.length > 0 && evaluationReports.every((_, i) => kotakTertutup[i]);
+  const toggleSemuaKotak = () =>
+    setKotakTertutup(
+      semuaKotakTertutup ? {} : Object.fromEntries(evaluationReports.map((_, i) => [i, true]))
+    );
 
   const handlePrev = () => {
     setEditingIndex(null);
