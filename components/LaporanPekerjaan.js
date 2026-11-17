@@ -44,6 +44,16 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const [savedNotif, setSavedNotif] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Kotak laporan yang disembunyikan nggak dirender, jadi nggak ikut ke PDF.
+  // Ini yang bikin penjelasan nggak dobel di hasil export.
+  const [tertutup, setTertutup] = useState({});
+  const toggleLaporan = (id) => setTertutup((prev) => ({ ...prev, [id]: !prev[id] }));
+  const semuaTertutup = reports.length > 0 && reports.every((r) => tertutup[r.id]);
+  const toggleSemua = () =>
+    setTertutup(
+      semuaTertutup ? {} : Object.fromEntries(reports.map((r) => [r.id, true]))
+    );
+
   // State Kelola Field
   const [showKelolaField, setShowKelolaField] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState(null);
@@ -344,6 +354,11 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
           <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><ClipboardList size={16}/> Laporan {activeTab === "harian" ? "Harian" : activeTab === "mingguan" ? "Mingguan" : "Bulanan"} ({labelPeriode})</h3>
             <div className="flex gap-1" data-html2canvas-ignore="true">
+              {reports.length > 0 && (
+                <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={toggleSemua} title="Sembunyikan semua kotak biar nggak ikut ke PDF">
+                  {semuaTertutup ? <><Eye size={14}/> Tampilkan semua</> : <><EyeOff size={14}/> Sembunyikan semua</>}
+                </button>
+              )}
               <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleTambahKotakManual}><Plus size={14}/> Tambah Kotak</button>
               <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Isi otomatis dari kegiatan & vendor di periode ini"><RefreshCw size={14}/> Auto-generate</button>
             </div>
@@ -379,6 +394,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                           )}
                         </div>
                         <div className="flex gap-1 shrink-0">
+                          <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => toggleLaporan(report.id)} title={tertutup[report.id] ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"}>{tertutup[report.id] ? <Eye size={16}/> : <EyeOff size={16}/>}</button>
                           {!isEditing && (
                             <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
                           )}
@@ -386,7 +402,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                         </div>
                       </div>
 
-                      {isEditing ? (
+                      {tertutup[report.id] && !isEditing ? (
+                        <p className="text-xs text-gray-400 italic">Disembunyikan — nggak ikut ke PDF.</p>
+                      ) : isEditing ? (
                         <div className="animate-fade-in space-y-3">
                           {fields.map(f => (
                             <div key={f.id}>

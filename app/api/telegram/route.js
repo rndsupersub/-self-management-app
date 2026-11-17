@@ -38,6 +38,7 @@ import {
 // === TAMBAHAN BARU: Import helper buat reminder proyek ===
 import { REMINDER_PROYEK_CONFIG } from "@/lib/telegramReminderProyek";
 import { verifyTelegramWebhook } from "@/lib/telegramSecurity";
+import { syncUserToSheets } from "@/lib/sheetsSync";
 import { deriveWalletId, getKategoriList, terapkanAksiTransaksi } from "@/lib/keuanganData";
 import { getMingguRange, getBulanRange } from "@/lib/laporanData";
 import { getPeriodeRange } from "@/lib/evaluasiData";
@@ -2070,15 +2071,23 @@ async function handleCallback(callbackQuery, userData, firestore) {
 
   // ==== SYNC NOW ====
   if (action === "syncnow") {
-    await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan.");
+    await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan...");
     try {
-      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
-      await fetch(`${baseUrl}/api/sync-sheets`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uid: userData._uid }),
-      });
-    } catch (e) { console.error(e); }
+      // Panggil langsung logika yang sama dengan web (tanpa HTTP internal),
+      // jadi hasil Sheets dari bot & web selalu identik.
+      const { results } = await syncUserToSheets(userData);
+      const gagal = results.filter((r) => r.status === "error");
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        gagal.length === 0
+          ? "✅ Sync selesai. Buka spreadsheet untuk lihat hasilnya."
+          : `⚠️ Sync selesai, ${gagal.length} bagian gagal: ${gagal.map((g) => g.sheet).join(", ")}`
+      );
+    } catch (e) {
+      console.error(e);
+      await editTelegramMessage(chatId, messageId, `❌ Sync gagal: ${e.message}`);
+    }
     return;
   }
 

@@ -13,7 +13,9 @@ export default function SyncSheetsButton({ user }) {
     setIsSyncing(true); setToast(null);
 
     try {
-      const res = await fetch("/api/sync-sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uid: user.uid }) });
+      // Endpoint sekarang wajib ID token: cuma pemilik data yang bisa sync.
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/sync-sheets", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` }, body: JSON.stringify({ uid: user.uid }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Sync gagal");
       const totalRows = data.results.reduce((acc, r) => acc + (r.rows || 0), 0);
