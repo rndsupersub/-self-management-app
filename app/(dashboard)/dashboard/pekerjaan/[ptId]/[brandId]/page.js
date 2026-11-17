@@ -11,16 +11,16 @@ import VendorManager from "@/components/VendorManager";
 import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
+import DumpIdeas from "@/components/DumpIdeas";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus, Lightbulb } from "lucide-react";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
   const [pekerjaan, setPekerjaan] = useState([]);
   
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
@@ -35,7 +35,9 @@ export default function BrandPage() {
   const [periodeEvaluasiPekerjaanList, setPeriodeEvaluasiPekerjaanList] = useState(DEFAULT_PERIODE_EVALUASI);
 
   const [editMode, setEditMode] = useState(false);
-  const [editNama, setEditNama] = useState("");
+  // Draft nama brand: kalau belum disentuh, yang tampil nama asli (nggak perlu
+  // effect yang setState tiap brand berubah).
+  const [editNamaDraft, setEditNamaDraft] = useState(null);
   const [confirmHapusBrand, setConfirmHapusBrand] = useState(false);
   const [activeTab, setActiveTab] = useState("kalender");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
@@ -46,7 +48,6 @@ export default function BrandPage() {
   const brandId = params.brandId;
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
       setUser(user);
@@ -75,7 +76,8 @@ export default function BrandPage() {
   const pt = pekerjaan.find((p) => p.id === ptId);
   const brand = pt?.brands?.find((b) => b.id === brandId);
 
-  useEffect(() => { if (brand) setEditNama(brand.nama); }, [brand]);
+  const editNama = editNamaDraft ?? brand?.nama ?? "";
+  const setEditNama = setEditNamaDraft;
 
   const simpanKeFirestore = async (updatedPekerjaan) => {
     setPekerjaan(updatedPekerjaan);
@@ -156,6 +158,11 @@ export default function BrandPage() {
     await simpanKeFirestore(updated);
   };
 
+  const handleUpdateDumpIdeas = async (newIdeas) => {
+    const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, dumpIdeas: newIdeas } : b) } : p);
+    await simpanKeFirestore(updated);
+  };
+
   if (loading) return <div className="p-6">Loading...</div>;
 
   if (!pt || !brand) {
@@ -196,7 +203,7 @@ export default function BrandPage() {
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Tag className="text-primary" size={24} /> {brand.nama}
             </h1>
-            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditMode(true)} title="Edit Nama"><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditNamaDraft(null); setEditMode(true); }} title="Edit Nama"><Pencil size={16} /></button>
             <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusBrand(true)} title="Hapus Brand"><Trash2 size={16} /></button>
           </div>
         )}
@@ -224,6 +231,9 @@ export default function BrandPage() {
         </button>
         <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}>
           <BarChart3 size={16} className="mr-2" /> Evaluasi
+        </button>
+        <button className={`tab ${activeTab === "ide" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("ide"); setSelectedVendorId(null); }}>
+          <Lightbulb size={16} className="mr-2" /> Dump Ideas ({(brand.dumpIdeas || []).length})
         </button>
       </div>
 
@@ -273,6 +283,10 @@ export default function BrandPage() {
 
         {activeTab === "evaluasi" && (
           <EvaluasiPekerjaan kegiatanList={brand.kegiatan || []} laporanData={brand.laporanData || {}} evaluasiData={brand.evaluasiData || {}} vendorList={vendorList} fieldEvaluasiList={fieldEvaluasiPekerjaanList} periodeEvaluasiList={periodeEvaluasiPekerjaanList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} onUpdateEvaluasi={handleUpdateEvaluasi} onUpdateFieldEvaluasi={(u) => { setFieldEvaluasiPekerjaanList(u); simpanSettings({ fieldEvaluasiPekerjaanList: u }); }} onUpdatePeriodeEvaluasi={(u) => { setPeriodeEvaluasiPekerjaanList(u); simpanSettings({ periodeEvaluasiPekerjaanList: u }); }} onUpdateFieldEvaluasiVendor={(u) => { setFieldEvaluasiVendorList(u); simpanSettings({ fieldEvaluasiVendorList: u }); }} />
+        )}
+
+        {activeTab === "ide" && (
+          <DumpIdeas ideList={brand.dumpIdeas || []} onUpdate={handleUpdateDumpIdeas} brandNama={brand.nama} />
         )}
       </div>
     </div>

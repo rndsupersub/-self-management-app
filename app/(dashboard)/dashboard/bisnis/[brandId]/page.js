@@ -11,14 +11,14 @@ import VendorManager from "@/components/VendorManager";
 import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
+import DumpIdeas from "@/components/DumpIdeas";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_BISNIS_BRANDS, DEFAULT_BISNIS_PRIORITAS, DEFAULT_BISNIS_SUMBER, DEFAULT_BISNIS_SECTIONS, DEFAULT_BISNIS_KATEGORI, DEFAULT_BISNIS_VENDOR_KATEGORI, DEFAULT_BISNIS_VENDOR_PERTANYAAN, DEFAULT_BISNIS_VENDOR_TUJUAN, DEFAULT_BISNIS_VENDOR_SATUAN_MOQ, DEFAULT_BISNIS_FIELD_EVALUASI, DEFAULT_BISNIS_FIELD_EVALUASI_VENDOR, DEFAULT_BISNIS_PERIODE_EVALUASI } from "@/lib/bisnisData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3 } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Lightbulb } from "lucide-react";
 
 export default function BisnisBrandPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
   const [brands, setBrands] = useState(DEFAULT_BISNIS_BRANDS);
   
   const [prioritasList, setPrioritasList] = useState(DEFAULT_BISNIS_PRIORITAS);
@@ -33,7 +33,8 @@ export default function BisnisBrandPage() {
   const [periodeEvaluasiList, setPeriodeEvaluasiList] = useState(DEFAULT_BISNIS_PERIODE_EVALUASI);
 
   const [editMode, setEditMode] = useState(false);
-  const [editNama, setEditNama] = useState("");
+  // Draft nama brand: kalau belum disentuh, yang tampil nama asli.
+  const [editNamaDraft, setEditNamaDraft] = useState(null);
   const [confirmHapusBrand, setConfirmHapusBrand] = useState(false);
   const [activeTab, setActiveTab] = useState("kalender");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
@@ -43,7 +44,6 @@ export default function BisnisBrandPage() {
   const brandId = params.brandId;
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
       setUser(user);
@@ -73,7 +73,8 @@ export default function BisnisBrandPage() {
 
   const brand = brands.find((b) => b.id === brandId);
 
-  useEffect(() => { if (brand) setEditNama(brand.nama); }, [brand]);
+  const editNama = editNamaDraft ?? brand?.nama ?? "";
+  const setEditNama = setEditNamaDraft;
 
   const simpanBrands = async (updatedBrands) => {
     setBrands(updatedBrands);
@@ -162,7 +163,7 @@ export default function BisnisBrandPage() {
         ) : (
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Tag className="text-primary" size={24} /> {brand.nama}</h1>
-            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditMode(true)}><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditNamaDraft(null); setEditMode(true); }}><Pencil size={16} /></button>
             <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusBrand(true)}><Trash2 size={16} /></button>
           </div>
         )}
@@ -183,6 +184,7 @@ export default function BisnisBrandPage() {
         <button className={`tab ${activeTab === "vendor" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("vendor")}><Factory size={16} className="mr-2" /> Vendor ({vendorList.length})</button>
         <button className={`tab ${activeTab === "laporan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("laporan")}><FileText size={16} className="mr-2" /> Laporan</button>
         <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}><BarChart3 size={16} className="mr-2" /> Evaluasi</button>
+        <button className={`tab ${activeTab === "ide" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("ide"); setSelectedVendorId(null); }}><Lightbulb size={16} className="mr-2" /> Dump Ideas ({(brand.dumpIdeas || []).length})</button>
       </div>
 
       <div id="export-area">
@@ -232,6 +234,10 @@ export default function BisnisBrandPage() {
 
         {activeTab === "evaluasi" && (
           <EvaluasiPekerjaan kegiatanList={brand.kegiatan || []} laporanData={brand.laporanData || {}} evaluasiData={brand.evaluasiData || {}} vendorList={vendorList} fieldEvaluasiList={fieldEvaluasiList} periodeEvaluasiList={periodeEvaluasiList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} onUpdateEvaluasi={(data) => updateBrandData({ evaluasiData: data })} onUpdateFieldEvaluasi={(u) => { setFieldEvaluasiList(u); simpanSettings({ bisnisFieldEvaluasiList: u }); }} onUpdatePeriodeEvaluasi={(u) => { setPeriodeEvaluasiList(u); simpanSettings({ bisnisPeriodeEvaluasiList: u }); }} onUpdateFieldEvaluasiVendor={(u) => { setFieldEvaluasiVendorList(u); simpanSettings({ bisnisFieldEvaluasiVendorList: u }); }} />
+        )}
+
+        {activeTab === "ide" && (
+          <DumpIdeas ideList={brand.dumpIdeas || []} onUpdate={(list) => updateBrandData({ dumpIdeas: list })} brandNama={brand.nama} />
         )}
       </div>
     </div>

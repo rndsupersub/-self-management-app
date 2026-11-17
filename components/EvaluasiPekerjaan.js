@@ -61,6 +61,21 @@ export default function EvaluasiPekerjaan({
   const [showVendorSection, setShowVendorSection] = useState(true);
 
   const [showPekerjaanSection, setShowPekerjaanSection] = useState(true);
+
+  // Samakan dengan Laporan: tiap kotak evaluasi bisa disembunyikan biar
+  // export PDF nggak dobel.
+  const [kotakTertutup, setKotakTertutup] = useState({});
+  const toggleKotak = (index) =>
+    setKotakTertutup((prev) => ({ ...prev, [index]: !prev[index] }));
+  const semuaKotakTertutup =
+    evaluationReports.length > 0 &&
+    evaluationReports.every((_, i) => kotakTertutup[i]);
+  const toggleSemuaKotak = () =>
+    setKotakTertutup(
+      semuaKotakTertutup
+        ? {}
+        : Object.fromEntries(evaluationReports.map((_, i) => [i, true]))
+    );
   const [showKelolaFrekuensi, setShowKelolaFrekuensi] = useState(false);
   const [editingFrekuensiId, setEditingFrekuensiId] = useState(null);
   const [frekuensiForm, setFrekuensiForm] = useState({ label: "", tipe: "bulanan", customStart: "", customEnd: "" });
@@ -337,6 +352,11 @@ export default function EvaluasiPekerjaan({
             <div className="flex flex-wrap justify-between items-center mb-4 gap-2">
               <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><FileText size={16}/> Evaluasi Kinerja Pekerjaan ({periodeAktif.label})</h3>
               <div className="flex gap-1" data-html2canvas-ignore="true">
+                {evaluationReports.length > 0 && (
+                  <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={toggleSemuaKotak} title="Sembunyikan semua kotak biar nggak ikut ke PDF">
+                    {semuaKotakTertutup ? <><Eye size={14}/> Tampilkan semua</> : <><EyeOff size={14}/> Sembunyikan semua</>}
+                  </button>
+                )}
                 <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleTambahKotakManual}><Plus size={14}/> Tambah Kotak</button>
                 <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Tarik data dari laporan"><RefreshCw size={14}/> Auto-generate</button>
               </div>
@@ -345,7 +365,7 @@ export default function EvaluasiPekerjaan({
             {evaluationReports.length === 0 ? (
               <div className="text-center py-10 border-2 border-dashed border-gray-200 rounded-lg">
                 <FileText size={40} className="mx-auto mb-2 text-gray-300"/>
-                <p className="text-sm text-gray-500">Belum ada data evaluasi. Klik "Auto-generate" untuk narik dari laporan.</p>
+                <p className="text-sm text-gray-500">Belum ada data evaluasi. Klik &ldquo;Auto-generate&rdquo; untuk narik dari laporan.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -372,6 +392,7 @@ export default function EvaluasiPekerjaan({
                             )}
                           </div>
                           <div className="flex gap-1">
+                            <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => toggleKotak(index)} title={kotakTertutup[index] ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"}>{kotakTertutup[index] ? <Eye size={16}/> : <EyeOff size={16}/>}</button>
                             {!isEditing && (
                               <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
                             )}
@@ -380,7 +401,9 @@ export default function EvaluasiPekerjaan({
                         </div>
 
                         {/* ISI KOTAK */}
-                        {isEditing ? (
+                        {kotakTertutup[index] && !isEditing ? (
+                          <p className="text-xs text-gray-400 italic">Disembunyikan — nggak ikut ke PDF.</p>
+                        ) : isEditing ? (
                           <div className="animate-fade-in space-y-3">
                             <div>
                               <label className="text-xs font-semibold text-gray-600 mb-1 block">Ringkasan Pekerjaan</label>

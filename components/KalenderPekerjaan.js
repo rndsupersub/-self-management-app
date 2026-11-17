@@ -4,7 +4,7 @@
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { generateId, DEFAULT_KATEGORI_KEGIATAN, WARNA_OPTIONS, getKategoriStyle, formatRentang } from "@/lib/pekerjaanData";
-import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, Folder, FileText, Save, AlertTriangle, List, Circle } from "lucide-react";
+import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, Folder, FileText, Save, AlertTriangle, List, Circle, Eye, EyeOff } from "lucide-react";
 import KelolaLabelKegiatan from "@/components/KelolaLabelKegiatan";
 
 export default function KalenderPekerjaan({
@@ -24,6 +24,12 @@ export default function KalenderPekerjaan({
   // STATE TAMPILAN (KALENDER vs TIME SCHEDULE)
   const [viewMode, setViewMode] = useState("kalender");
   const [timeRange, setTimeRange] = useState("1-tahun");
+
+  // Ringkasan teks di bawah time schedule bisa disembunyikan, supaya waktu
+  // di-export ke PDF nggak dobel (grafik + daftar yang isinya sama).
+  const [ringkasTertutup, setRingkasTertutup] = useState({});
+  const toggleRingkas = (id) =>
+    setRingkasTertutup((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectStart, setSelectStart] = useState(null);
@@ -245,6 +251,16 @@ export default function KalenderPekerjaan({
     return { bars, columns, totalDays };
   }, [currentMonth, timeRange, filteredKegiatan, viewMode]);
 
+
+  const semuaRingkasTertutup =
+    timeScheduleData.bars.length > 0 &&
+    timeScheduleData.bars.every((k) => ringkasTertutup[k.id]);
+  const toggleSemuaRingkas = () =>
+    setRingkasTertutup(
+      semuaRingkasTertutup
+        ? {}
+        : Object.fromEntries(timeScheduleData.bars.map((k) => [k.id, true]))
+    );
 
   const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
   const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -481,19 +497,37 @@ export default function KalenderPekerjaan({
                   )}
                 </div>
 
-                <div className="mt-8 space-y-2">
-                  {timeScheduleData.bars.map((k) => {
-                    const mulai = k.tanggalMulai || k.tanggal;
-                    const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
-                    return (
-                      <div key={k.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200">
-                        <div className="flex-1">
-                          <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
-                          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
+                <div className="mt-8">
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-2" data-html2canvas-ignore="true">
+                    <h4 className="text-xs font-bold text-gray-700">Ringkasan di Bawah Jadwal</h4>
+                    <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={toggleSemuaRingkas} title="Sembunyikan semua ringkasan biar nggak dobel di PDF">
+                      {semuaRingkasTertutup ? <><Eye size={12}/> Tampilkan semua</> : <><EyeOff size={12}/> Sembunyikan semua</>}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {timeScheduleData.bars.map((k) => {
+                      const mulai = k.tanggalMulai || k.tanggal;
+                      const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
+                      const tertutup = ringkasTertutup[k.id];
+                      return (
+                        <div key={k.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200">
+                          <div className="flex-1">
+                            {tertutup ? (
+                              <p className="text-xs text-gray-400 italic">Disembunyikan — nggak ikut ke PDF.</p>
+                            ) : (
+                              <>
+                                <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
+                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
+                              </>
+                            )}
+                          </div>
+                          <button className="btn btn-ghost btn-xs text-gray-500 shrink-0" onClick={() => toggleRingkas(k.id)} title={tertutup ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"} data-html2canvas-ignore="true">
+                            {tertutup ? <Eye size={14}/> : <EyeOff size={14}/>}
+                          </button>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
 
               </div>
