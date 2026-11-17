@@ -1,7 +1,7 @@
 // components/MainContent.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import Schedule from "./Schedule";
 import Finance from "./Finance";
 
@@ -12,16 +12,10 @@ export default function MainContent({
   today,
   updateProgress
 }) {
-  const [selectedActivity, setSelectedActivity] = useState(null);
-  const [viewMode, setViewMode] = useState("welcome");
-
-  useEffect(() => {
-    if (!selectedId || !activities) {
-      setSelectedActivity(null);
-      setViewMode("welcome");
-      return;
-    }
-
+  // Aktivitas terpilih & mode tampilan dihitung langsung dari props, jadi
+  // nggak perlu effect yang setState (dan nggak ada render dobel).
+  const selectedActivity = useMemo(() => {
+    if (!selectedId || !activities) return null;
     const findItem = (items, targetId) => {
       for (const item of items) {
         if (item.id === targetId) return item;
@@ -32,18 +26,14 @@ export default function MainContent({
       }
       return null;
     };
-
-    const found = findItem(activities, selectedId);
-    setSelectedActivity(found);
-
-    if (found) {
-      if (found.type === "leaf") {
-        setViewMode("detail");
-      } else if (found.children && found.children.length > 0) {
-        setViewMode("list");
-      }
-    }
+    return findItem(activities, selectedId);
   }, [selectedId, activities]);
+
+  const viewMode = useMemo(() => {
+    if (!selectedActivity) return "welcome";
+    if (selectedActivity.type === "leaf") return "detail";
+    return selectedActivity.children && selectedActivity.children.length > 0 ? "list" : "welcome";
+  }, [selectedActivity]);
 
   // ========== WELCOME STATE ==========
   if (viewMode === "welcome") {

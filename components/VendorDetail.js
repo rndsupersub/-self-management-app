@@ -1,10 +1,10 @@
 // components/VendorDetail.js
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { METODE_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getLabelHasil, getWarnaHasil } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
-import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, Check, FolderOpen, Plus, Link as LinkIcon } from "lucide-react";
+import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, FolderOpen, Plus } from "lucide-react";
 
 export default function VendorDetail({
   vendor, kategoriVendorList = [], tujuanKunjunganList = [], fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
@@ -15,16 +15,18 @@ export default function VendorDetail({
   const [confirmHapusVendor, setConfirmHapusVendor] = useState(false);
 
   const [showEditProfil, setShowEditProfil] = useState(false);
-  const [formProfil, setFormProfil] = useState({ nama: "", kategoriId: "", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", catatan: "" });
+  // Draft profil: selama belum diubah, tampilkan data vendor terbaru.
+  const [draftProfil, setFormProfil] = useState(null);
   const [formKunjungan, setFormKunjungan] = useState({ tanggal: new Date().toISOString().split("T")[0], tujuanId: tujuanKunjunganList[0]?.id || "scanning", metode: "offline", hasil: "on_track", catatan: "", gdriveUrl: "" });
 
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
-  const [evalValues, setEvalValues] = useState({});
+  // Draft evaluasi per periode (dulu disalin lewat effect).
+  const [draftEval, setDraftEval] = useState(null);
   const [showHistoryEval, setShowHistoryEval] = useState(true);
   const [savedEvalNotif, setSavedEvalNotif] = useState(false);
   const [showEvalSection, setShowEvalSection] = useState(true);
-  const [isEditingEval, setIsEditingEval] = useState(false);
+  const [editEvalDraft, setEditEvalDraft] = useState(null);
 
   // Fungsi Filter Emoji dari Database
   const cleanText = (text) => {
@@ -32,11 +34,18 @@ export default function VendorDetail({
     return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
   };
 
-  useEffect(() => {
-    if (vendor) {
-      setFormProfil({ nama: vendor.nama || "", kategoriId: vendor.kategoriId || "", kontakNama: vendor.kontak?.nama || "", kontakTelp: vendor.kontak?.telp || "", kontakEmail: vendor.kontak?.email || "", alamat: vendor.alamat || "", moqNilai: vendor.moq?.nilai || "", moqSatuan: vendor.moq?.satuan || "pcs", hpp: vendor.hpp || "", catatan: vendor.catatan || "" });
-    }
-  }, [vendor]);
+  const formProfil = draftProfil ?? {
+    nama: vendor?.nama || "",
+    kategoriId: vendor?.kategoriId || "",
+    kontakNama: vendor?.kontak?.nama || "",
+    kontakTelp: vendor?.kontak?.telp || "",
+    kontakEmail: vendor?.kontak?.email || "",
+    alamat: vendor?.alamat || "",
+    moqNilai: vendor?.moq?.nilai || "",
+    moqSatuan: vendor?.moq?.satuan || "pcs",
+    hpp: vendor?.hpp || "",
+    catatan: vendor?.catatan || "",
+  };
 
   const periodeAktif = useMemo(() => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
@@ -51,14 +60,21 @@ export default function VendorDetail({
     return vendor?.evaluasi?.[activePeriode]?.[evalKey] || null;
   }, [vendor, activePeriode, evalKey]);
 
-  useEffect(() => {
-    if (evalTersimpan?.fields) {
-      setEvalValues(evalTersimpan.fields); setIsEditingEval(false);
-    } else {
-      const empty = {}; fieldEvaluasiVendorList.forEach((f) => { empty[f.id] = f.tipe === "score" ? 5 : ""; });
-      setEvalValues(empty); setIsEditingEval(true);
-    }
+  const kunciEval = `${activePeriode}|${evalKey || ""}`;
+
+  const evalDefault = useMemo(() => {
+    if (evalTersimpan?.fields) return evalTersimpan.fields;
+    const kosong = {};
+    fieldEvaluasiVendorList.forEach((f) => { kosong[f.id] = f.tipe === "score" ? 5 : ""; });
+    return kosong;
   }, [evalTersimpan, fieldEvaluasiVendorList]);
+
+  const evalValues = draftEval?.kunci === kunciEval ? draftEval.values : evalDefault;
+  const setEvalValues = (next) =>
+    setDraftEval({ kunci: kunciEval, values: typeof next === "function" ? next(evalValues) : next });
+
+  const isEditingEval = editEvalDraft?.kunci === kunciEval ? editEvalDraft.nilai : !evalTersimpan?.fields;
+  const setIsEditingEval = (nilai) => setEditEvalDraft({ kunci: kunciEval, nilai });
 
   const filteredLog = (vendor?.logKunjungan || []).filter((log) => {
     if (filterTujuan !== "all" && log.tujuanId !== filterTujuan) return false;
@@ -467,7 +483,7 @@ export default function VendorDetail({
           {filteredLog.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <Inbox size={40} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Belum ada kunjungan. Klik "+ Tambah" untuk mulai.</p>
+              <p className="text-sm">Belum ada kunjungan. Klik &quot;+ Tambah&quot; untuk mulai.</p>
             </div>
           ) : (
             <div className="space-y-2">

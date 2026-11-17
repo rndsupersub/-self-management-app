@@ -14,7 +14,6 @@ import { Video, Home, Calendar, List, Smartphone, Monitor } from "lucide-react";
 export default function YouTubeDetailPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
   const [channels, setChannels] = useState([]);
   const [logs, setLogs] = useState([]);
   const [activeTab, setActiveTab] = useState("kalender");
@@ -24,7 +23,6 @@ export default function YouTubeDetailPage() {
   const channelId = params.id;
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
       setUser(user);

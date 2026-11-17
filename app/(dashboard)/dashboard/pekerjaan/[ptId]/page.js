@@ -16,7 +16,8 @@ export default function PTDetailPage() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ nama: "" });
   const [editMode, setEditMode] = useState(false);
-  const [editNama, setEditNama] = useState("");
+  // Draft nama PT: selama belum diedit, pakai nama asli (tanpa effect + setState).
+  const [editNamaDraft, setEditNamaDraft] = useState(null);
   const [confirmHapusPT, setConfirmHapusPT] = useState(false);
 
   const router = useRouter();
@@ -43,7 +44,8 @@ export default function PTDetailPage() {
 
   const pt = pekerjaan.find((p) => p.id === ptId);
 
-  useEffect(() => { if (pt) setEditNama(pt.nama); }, [pt]);
+  const editNama = editNamaDraft ?? pt?.nama ?? "";
+  const setEditNama = setEditNamaDraft;
 
   const simpanKeFirestore = async (updatedPekerjaan) => {
     setPekerjaan(updatedPekerjaan);
@@ -116,7 +118,7 @@ export default function PTDetailPage() {
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Building2 className="text-primary" size={24} /> {pt.nama}
             </h1>
-            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditMode(true)} title="Edit Nama"><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditNamaDraft(null); setEditMode(true); }} title="Edit Nama"><Pencil size={16} /></button>
             <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusPT(true)} title="Hapus PT"><Trash2 size={16} /></button>
           </div>
         )}
@@ -150,7 +152,7 @@ export default function PTDetailPage() {
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
             <Tag size={40} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada brand di PT ini. Klik "+ Tambah Brand" untuk mulai.</p>
+            <p className="text-sm">Belum ada brand di PT ini. Klik &quot;+ Tambah Brand&quot; untuk mulai.</p>
           </div>
         </div>
       ) : (

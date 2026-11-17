@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useTanggalHariIni from "@/lib/useTanggalHariIni";
 import { useRouter, usePathname } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -18,7 +19,7 @@ export default function DashboardLayout({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isViewer, setIsViewer] = useState(false);
-  const [today, setToday] = useState("");
+  const today = useTanggalHariIni();
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
   const [menusCustom, setMenusCustom] = useState({});
@@ -56,8 +57,6 @@ export default function DashboardLayout({ children }) {
     });
     return () => unsubscribe();
   }, [router]);
-
-  useEffect(() => { setToday(new Date().toISOString().split("T")[0]); }, []);
 
   const handleUpdateMenus = async (newMenus, newArsip) => {
     setMenus(newMenus);

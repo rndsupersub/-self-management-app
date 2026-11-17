@@ -108,7 +108,7 @@ export default function BelajarPage() {
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
             <BookOpen size={40} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada kategori. Klik "+ Tambah Kategori" untuk mulai.</p>
+            <p className="text-sm">Belum ada kategori. Klik &quot;+ Tambah Kategori&quot; untuk mulai.</p>
           </div>
         </div>
       ) : (

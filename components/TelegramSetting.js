@@ -85,12 +85,11 @@ export default function TelegramSetting({ user }) {
     } catch (e) { setToast({ type: "error", msg: `❌ ${e.message}` }); }
   };
 
-  useEffect(() => { if (isOpen) { cekStatus(); cekWebhook(); setCode(""); setWebhookMsg(null); } }, [isOpen]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 8000); return () => clearTimeout(t); }, [toast]);
 
   return (
     <>
-      <button className="btn btn-ghost btn-sm gap-1" onClick={() => setIsOpen(true)} title="Telegram Setting">
+      <button className="btn btn-ghost btn-sm gap-1" onClick={() => { setIsOpen(true); cekStatus(); cekWebhook(); setCode(""); setWebhookMsg(null); }} title="Telegram Setting">
         <Bot size={16} /> <span className="hidden md:inline">Telegram</span>
       </button>
 

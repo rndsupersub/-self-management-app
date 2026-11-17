@@ -1,9 +1,9 @@
 // components/EvaluasiPekerjaan.js
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { getPeriodeRange, formatTanggalPendek, normalizeEvaluasiData } from "@/lib/evaluasiData";
-import { Pin, Calendar, AlertTriangle, CalendarDays, Target, Pencil, Plus, Save, Trash2, BarChart3, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckSquare, ChevronRight, CheckCircle2, X, MessageSquare, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Smartphone, Monitor, FolderOpen } from "lucide-react";
+import { Calendar, AlertTriangle, CalendarDays, Pencil, Plus, Save, Trash2, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckCircle2, X, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Monitor, FolderOpen } from "lucide-react";
 import { getLabelHasil, getBadgeClass, getWarnaHasil, formatTanggal } from "@/lib/vendorData"; 
 
 const getTodayLocalDate = () => {
@@ -36,7 +36,6 @@ const formatTanggalPanjangLokal = (dateStr) => {
 };
 
 export default function EvaluasiPekerjaan({
-  kegiatanList = [],
   laporanData = {},
   evaluasiData = {},
   vendorList = [],
@@ -60,9 +59,6 @@ export default function EvaluasiPekerjaan({
   const [showAllVendorDetails, setShowAllVendorDetails] = useState(true);
   const [expandedVendors, setExpandedVendors] = useState({});
   const [hideEmptyVendors, setHideEmptyVendors] = useState(true);
-  const [showVendorSection, setShowVendorSection] = useState(true);
-
-  const [showPekerjaanSection, setShowPekerjaanSection] = useState(true);
 
   // Samakan dengan Laporan: tiap kotak evaluasi bisa disembunyikan biar
   // export PDF nggak dobel.

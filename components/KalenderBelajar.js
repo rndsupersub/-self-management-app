@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { getLabelKategoriById, getDefaultTargetByKategori, formatTanggal, getWarnaStyle, getWarnaToolByPath } from "@/lib/belajarData";
 import { Target, CheckCircle2, Pencil, Save, X, Link as LinkIcon, Calendar, FileText, ArrowRight, Info, MessageSquare, FolderOpen, AlertTriangle, Plus, Trash2 } from "lucide-react";
+import { generateId } from "@/lib/pekerjaanData";
 
 export default function KalenderBelajar({
   kategoriId = "design",
@@ -125,7 +126,7 @@ export default function KalenderBelajar({
     const updated = JSON.parse(JSON.stringify(logHarian || {}));
     if (!updated[selectedDate]) updated[selectedDate] = [];
 
-    const newLog = { id: editingLogId || `log_${Date.now()}`, kategoriId, subKategoriId: formData.subKategoriId, toolId: formData.toolId, fiturId: formData.fiturId || "", partId: formData.partId || "", catatan: formData.catatan, gdriveUrl: formData.gdriveUrl, telegramMessageId: "", sumber: "kalender", updatedAt: new Date().toISOString() };
+    const newLog = { id: editingLogId || generateId("log"), kategoriId, subKategoriId: formData.subKategoriId, toolId: formData.toolId, fiturId: formData.fiturId || "", partId: formData.partId || "", catatan: formData.catatan, gdriveUrl: formData.gdriveUrl, telegramMessageId: "", sumber: "kalender", updatedAt: new Date().toISOString() };
 
     if (editingLogId) updated[selectedDate] = updated[selectedDate].map((l) => (l && l.id === editingLogId) ? newLog : l);
     else updated[selectedDate].push(newLog);

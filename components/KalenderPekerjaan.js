@@ -4,7 +4,7 @@
 import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { generateId, DEFAULT_KATEGORI_KEGIATAN, WARNA_OPTIONS, getKategoriStyle, formatRentang } from "@/lib/pekerjaanData";
-import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, Folder, FileText, Save, AlertTriangle, List, Circle, Eye, EyeOff } from "lucide-react";
+import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, FileText, Save, List, Circle, Eye, EyeOff } from "lucide-react";
 import KelolaLabelKegiatan from "@/components/KelolaLabelKegiatan";
 
 export default function KalenderPekerjaan({

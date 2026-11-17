@@ -3,23 +3,31 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { formatTanggal } from "@/lib/belajarData";
-import { BookOpen, Pencil, Plus, Save, Inbox, MessageSquare, FolderOpen, Link as LinkIcon, AlertTriangle, CheckCircle2, Eye, EyeOff, X, List, Calendar, Trash2 } from "lucide-react";
+import { BookOpen, Pencil, Plus, Save, Inbox, MessageSquare, FolderOpen, Link as LinkIcon, AlertTriangle, CheckCircle2, List, Calendar, Trash2 } from "lucide-react";
 
 export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, kategoriData = [], logHarian = {}, onUpdateLog, today, mode = "hasil-belajar" }) {
   const isMateriMode = mode === "materi";
   const safePath = Array.isArray(path) ? path : [];
+  // Kunci path dipakai sebagai dependency (join di dalam array deps bikin
+  // ESLint menganggapnya nilai baru tiap render).
+  const kunciPath = safePath.join("/");
   const safeKategoriData = Array.isArray(kategoriData) ? kategoriData : [];
   const safeLogHarian = (logHarian && typeof logHarian === "object") ? logHarian : {};
 
-  const [materi, setMateri] = useState(item?.materi || "");
-  const [isEditingMateri, setIsEditingMateri] = useState(false);
+  // Draft materi & status edit dikunci per item, jadi pindah item otomatis
+  // balik ke data asli tanpa effect + setState.
+  const [draftMateri, setDraftMateri] = useState({ id: null, teks: null });
+  const materi = draftMateri.id === item?.id && draftMateri.teks !== null ? draftMateri.teks : item?.materi || "";
+  const setMateri = (teks) => setDraftMateri({ id: item?.id, teks });
+
+  const [statusEditMateri, setStatusEditMateri] = useState({ id: null, nilai: false });
+  const isEditingMateri = statusEditMateri.id === item?.id ? statusEditMateri.nilai : false;
+  const setIsEditingMateri = (nilai) => setStatusEditMateri({ id: item?.id, nilai });
   const [formData, setFormData] = useState({ subKategoriId: "", toolId: "", fiturId: "", partId: "", catatan: "", gdriveUrl: "" });
   const [showForm, setShowForm] = useState(false);
   const [editingLogId, setEditingLogId] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => { setMateri(item?.materi || ""); setIsEditingMateri(false); }, [item?.id]);
 
   const kategoriObj = useMemo(() => safeKategoriData.find((k) => k && k.id === kategoriId), [safeKategoriData, kategoriId]);
   const subKategoriList = Array.isArray(kategoriObj?.subKategori) ? kategoriObj.subKategori : [];
@@ -35,6 +43,10 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
     });
   };
 
+  // Dua effect di bawah ini mengisi/mereset form saat pindah halaman atau saat
+  // log hari ini berubah. Ini sinkronisasi dengan navigasi & data tersimpan,
+  // bukan nilai turunan yang bisa dihitung saat render, jadi memang butuh effect.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (isMateriMode) return;
     if (!today) return;
@@ -51,14 +63,15 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
     if (matched && matched.catatan && !formData.catatan) {
       setFormData((prev) => ({ ...prev, catatan: matched.catatan, gdriveUrl: matched.gdriveUrl || "" }));
     }
-  }, [safeLogHarian, today, safePath.join("/"), isMateriMode]);
+  }, [safeLogHarian, today, kunciPath, isMateriMode]);
 
   useEffect(() => {
     prefillFromPath();
     setShowForm(false);
     setEditingLogId(null);
     setErrorMsg("");
-  }, [safePath.join("/")]);
+  }, [kunciPath]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const riwayat = useMemo(() => {
     const result = [];
@@ -76,7 +89,7 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
       });
     });
     return result.sort((a, b) => (b.tanggal || "").localeCompare(a.tanggal || ""));
-  }, [safeLogHarian, kategoriId, safePath.join("/")]);
+  }, [safeLogHarian, kategoriId, kunciPath]);
 
   const subKategoriTerpilih = subKategoriList.find((s) => s && s.id === formData.subKategoriId);
   const toolList = Array.isArray(subKategoriTerpilih?.tools) ? subKategoriTerpilih.tools : [];
@@ -280,7 +293,7 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
           )}
 
           {!showForm && riwayat.length === 0 && (
-            <div className="text-center py-6 text-gray-400"><Inbox size={32} className="mx-auto mb-2 opacity-50"/><p className="text-sm">Belum ada catatan. Kirim via Telegram atau klik "+ Tambah Catatan".</p></div>
+            <div className="text-center py-6 text-gray-400"><Inbox size={32} className="mx-auto mb-2 opacity-50"/><p className="text-sm">Belum ada catatan. Kirim via Telegram atau klik &quot;+ Tambah Catatan&quot;.</p></div>
           )}
 
           {saved && !showForm && <div className="alert alert-success mt-3 py-2 text-xs flex items-center gap-1"><CheckCircle2 size={14}/> Berhasil disimpan!</div>}

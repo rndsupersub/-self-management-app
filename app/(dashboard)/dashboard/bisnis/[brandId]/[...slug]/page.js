@@ -20,7 +20,6 @@ import { Home, Briefcase, Tag } from "lucide-react";
 export default function BisnisDetailKegiatanPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [brands, setBrands] = useState(DEFAULT_BISNIS_BRANDS);
 
@@ -106,10 +105,6 @@ export default function BisnisDetailKegiatanPage() {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
   }, []);
 
   // Cari brand & kegiatan dari URL

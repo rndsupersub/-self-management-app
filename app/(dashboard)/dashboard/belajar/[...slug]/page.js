@@ -52,6 +52,9 @@ export default function BelajarDetailPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // Reset tab saat pindah halaman disengaja (sinkronisasi dengan URL), jadi
+  // memang butuh effect, bukan nilai turunan.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const currentPath = path.join("/");
     // Cuma reset tab kalau URL berubah (pindah halaman), bukan pas data kategori berubah
@@ -73,6 +76,7 @@ export default function BelajarDetailPage() {
       prevPathRef.current = currentPath;
     }
   }, [path.join("/"), kategori]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const simpanKategori = async (newKategori) => {
     setKategori(newKategori);
@@ -182,7 +186,7 @@ export default function BelajarDetailPage() {
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
             <Folder size={40} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada item di sini. Klik "+ Tambah" untuk mulai.</p>
+            <p className="text-sm">Belum ada item di sini. Klik &quot;+ Tambah&quot; untuk mulai.</p>
           </div>
         </div>
       );
@@ -287,7 +291,7 @@ export default function BelajarDetailPage() {
               {showColorPicker && (
                 <div className="card bg-white shadow border border-blue-300 mb-4">
                   <div className="card-body p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool "{(item.nama || "").replace(/^[^\w\s]+\s/, '')}"</p>
+                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool &quot;{(item.nama || "").replace(/^[^\w\s]+\s/, '')}&quot;</p>
                     <div className="flex flex-wrap gap-2">
                       {WARNA_OPTIONS.map((w) => (
                         <button key={w.id} className={`w-8 h-8 rounded ${w.bg} border-2 ${warnaTool === w.id ? "border-gray-800 ring-2 ring-gray-400" : "border-white"}`} onClick={() => handleUpdateWarnaTool(w.id)} title={w.label} />

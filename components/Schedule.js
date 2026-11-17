@@ -1,7 +1,7 @@
 // components/Schedule.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2, Clock, Pencil, ArrowUp, ArrowDown } from "lucide-react";
 
 // FUNGSI SAKTI UNTUK DAPET TANGGAL LOKAL (BUKAN UTC)
@@ -29,14 +29,6 @@ export default function Schedule({
 
   const [formBaru, setFormBaru] = useState({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
   const [editingItem, setEditingItem] = useState(null);
-
-  useEffect(() => {
-    if (showKelolaJadwal) {
-      setEditKerja(JSON.parse(JSON.stringify(jadwalUser?.kerja || [])));
-      setEditMinggu(JSON.parse(JSON.stringify(jadwalUser?.minggu || [])));
-      setEditingItem(null);
-    }
-  }, [showKelolaJadwal, jadwalUser]);
 
   const getHariIni = (dateStr) => {
     const d = new Date(dateStr);
@@ -187,7 +179,13 @@ export default function Schedule({
           </span>
           <button
             className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1"
-            onClick={() => setShowKelolaJadwal(true)}
+            onClick={() => {
+              // Salin jadwal terbaru ke editor pas modalnya dibuka (dulu lewat effect).
+              setEditKerja(JSON.parse(JSON.stringify(jadwalUser?.kerja || [])));
+              setEditMinggu(JSON.parse(JSON.stringify(jadwalUser?.minggu || [])));
+              setEditingItem(null);
+              setShowKelolaJadwal(true);
+            }}
             data-html2canvas-ignore="true"
           >
             <Settings size={14} /> Kelola Jadwal

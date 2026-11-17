@@ -1,24 +1,14 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 
 export default function History({ progress }) {
-  const [selectedDate, setSelectedDate] = useState("");
-  const [availableDates, setAvailableDates] = useState([]);
-  const [historyData, setHistoryData] = useState(null);
+  // Default tanggal terbaru; kalau user pilih tanggal lain, itu yang dipakai.
+  const [tanggalDipilih, setSelectedDate] = useState("");
 
-  useEffect(() => {
-    if (!progress) return;
-    const dates = Object.keys(progress).sort().reverse();
-    setAvailableDates(dates);
-    if (dates.length > 0 && !selectedDate) {
-      setSelectedDate(dates[0]);
-    }
-  }, [progress]);
-
-  useEffect(() => {
-    if (!selectedDate || !progress) return;
-    setHistoryData(progress[selectedDate] || null);
-  }, [selectedDate, progress]);
+  // Semua nilai turunan langsung dari props (dulu disalin lewat effect).
+  const availableDates = useMemo(() => Object.keys(progress || {}).sort().reverse(), [progress]);
+  const selectedDate = tanggalDipilih || availableDates[0] || "";
+  const historyData = selectedDate ? progress?.[selectedDate] || null : null;
 
   if (!availableDates.length) {
     return (

@@ -73,12 +73,12 @@ export default function HafalanPage() {
       <div className="text-sm breadcrumbs mb-4 text-gray-500" data-html2canvas-ignore="true">
         <ul>
           <li><a onClick={() => router.push("/dashboard")} className="cursor-pointer flex items-center gap-1 hover:text-primary"><Home size={14} /> Dashboard</a></li>
-          <li className="flex items-center gap-1"><BookOpen size={14} /> Hafalan Qur'an</li>
+          <li className="flex items-center gap-1"><BookOpen size={14} /> Hafalan Qur&apos;an</li>
         </ul>
       </div>
 
       <div className="flex flex-wrap justify-between items-center mb-6 gap-2" data-html2canvas-ignore="true">
-        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-primary" size={24} /> Hafalan Qur'an</h1>
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><BookOpen className="text-primary" size={24} /> Hafalan Qur&apos;an</h1>
         <div className="flex items-center gap-2 bg-white rounded px-3 py-2 shadow border border-gray-200">
           <span className="text-xs font-semibold text-gray-600 flex items-center gap-1"><Target size={14} /> Target Harian:</span>
           {!editTarget ? (

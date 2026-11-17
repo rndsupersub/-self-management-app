@@ -35,7 +35,9 @@ export default function MenuCustomDetail({
   const kategoriArr = allCustomMenus || [];
   const fullPath = path; // path di dalam array allCustomMenus
 
-  // Reset state saat pindah halaman
+  // Reset state saat pindah halaman: sinkronisasi dengan URL, jadi memang
+  // butuh effect (bukan nilai turunan dari data).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const result = findItem(kategoriArr, fullPath);
     const itm = result?.item || null;
@@ -49,6 +51,7 @@ export default function MenuCustomDetail({
     setShowColorPicker(false);
     setShowForm(false);
   }, [path.join("/"), customMenu]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Ambil current item
   const result = findItem(kategoriArr, fullPath);
@@ -172,7 +175,7 @@ export default function MenuCustomDetail({
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
             <p className="text-3xl mb-2">📭</p>
-            <p className="text-sm">Belum ada item di sini. Klik "+ Tambah" untuk mulai.</p>
+            <p className="text-sm">Belum ada item di sini. Klik &quot;+ Tambah&quot; untuk mulai.</p>
           </div>
         </div>
       );
@@ -340,7 +343,7 @@ export default function MenuCustomDetail({
                 <div className="card bg-white shadow border border-blue-300 mb-4">
                   <div className="card-body p-4">
                     <p className="text-xs font-semibold text-blue-700 mb-2">
-                      🎨 Pilih Warna untuk Tool "{item.nama}"
+                      🎨 Pilih Warna untuk Tool &quot;{item.nama}&quot;
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {WARNA_OPTIONS.map((w) => (

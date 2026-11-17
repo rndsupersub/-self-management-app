@@ -182,7 +182,7 @@ export default function WalletManager({ dompetList = DEFAULT_DOMPET, onUpdateDom
         <div className="card bg-white shadow border border-dashed border-gray-300">
           <div className="card-body p-8 text-center text-gray-400">
             <Wallet size={40} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada dompet. Klik "+ Tambah Dompet" untuk mulai.</p>
+            <p className="text-sm">Belum ada dompet. Klik &quot;+ Tambah Dompet&quot; untuk mulai.</p>
           </div>
         </div>
       )}

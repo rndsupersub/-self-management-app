@@ -127,7 +127,7 @@ export default function GoalsManager({ goalsList = DEFAULT_GOALS, dompetList = D
         <div className="card bg-white shadow border border-dashed border-gray-300">
           <div className="card-body p-8 text-center text-gray-400">
             <Target size={40} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada goals. Klik "+ Tambah Goal" untuk mulai.</p>
+            <p className="text-sm">Belum ada goals. Klik &quot;+ Tambah Goal&quot; untuk mulai.</p>
           </div>
         </div>
       ) : (

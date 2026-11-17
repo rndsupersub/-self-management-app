@@ -1,9 +1,9 @@
 // components/LaporanPekerjaan.js
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { formatTanggalPanjang, formatTanggalPendek, getMingguRange, getBulanRange, generateLaporanHarian, generateLaporanMingguan, generateLaporanBulanan, normalizeLaporanData, narasiKegiatan, narasiKunjunganVendor, narasiRingkasanPeriode } from "@/lib/laporanData";
-import { Info, Calendar, Eye, EyeOff, CheckCircle2, Clock, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus, AlertTriangle } from "lucide-react";
+import { Info, Calendar, Eye, EyeOff, CheckCircle2, RefreshCw, X, Save, List, FileText, ClipboardList, FolderOpen, Loader2, Link as LinkIcon, Settings, Pencil, Trash2, Plus } from "lucide-react";
 
 const DEFAULT_FIELDS = [
   { id: "ringkasan", label: "Ringkasan Pekerjaan", tipe: "long" },
@@ -63,7 +63,6 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const laporanDataNormalized = useMemo(() => normalizeLaporanData(laporanData), [laporanData]);
   const fields = useMemo(() => laporanDataNormalized?.fields || DEFAULT_FIELDS, [laporanDataNormalized]);
 
-  const periodeHarian = useMemo(() => ({ tanggal: selectedDate }), [selectedDate]);
   const periodeMingguan = useMemo(() => getMingguRange(selectedDate), [selectedDate]);
   const periodeBulanan = useMemo(() => getBulanRange(selectedDate), [selectedDate]);
 

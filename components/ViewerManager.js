@@ -25,7 +25,6 @@ export default function ViewerManager({ user }) {
     setLoading(false);
   };
 
-  useEffect(() => { if (isOpen) fetchViewers(); }, [isOpen]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 5000); return () => clearTimeout(t); }, [toast]);
 
   const handleRevoke = async (viewerUid) => {
@@ -44,7 +43,7 @@ export default function ViewerManager({ user }) {
 
   return (
     <>
-      <button className="btn btn-ghost btn-sm gap-1" onClick={() => setIsOpen(true)} title="Viewer Access">
+      <button className="btn btn-ghost btn-sm gap-1" onClick={() => { setIsOpen(true); fetchViewers(); }} title="Viewer Access">
         <Eye size={16} /> <span className="hidden md:inline">Viewer</span>
       </button>
 

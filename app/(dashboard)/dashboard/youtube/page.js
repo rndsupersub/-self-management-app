@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useTanggalHariIni from "@/lib/useTanggalHariIni";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -15,14 +16,13 @@ const generateId = (prefix = "ch") => `${prefix}_${Date.now()}_${Math.random().t
 export default function YouTubePage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
+  const today = useTanggalHariIni();
   const [channels, setChannels] = useState(YOUTUBE_CHANNELS);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ nama: "" });
   const router = useRouter();
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
       setUser(user);
@@ -112,7 +112,7 @@ export default function YouTubePage() {
           <div className="card bg-white shadow border border-gray-200">
             <div className="card-body p-8 text-center text-gray-400">
               <Video size={40} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Belum ada channel. Klik "+ Tambah Channel" untuk mulai.</p>
+              <p className="text-sm">Belum ada channel. Klik &quot;+ Tambah Channel&quot; untuk mulai.</p>
             </div>
           </div>
         ) : (

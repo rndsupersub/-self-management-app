@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/pekerjaan/[ptId]/[brandId]/[...slug]/page.js
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -14,13 +14,12 @@ import { Home, Briefcase, Building2, Tag, ClipboardList, Loader2 } from "lucide-
 export default function DetailKegiatanPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
   const [pekerjaan, setPekerjaan] = useState([]);
   const [prioritasList, setPrioritasList] = useState(DEFAULT_PRIORITAS);
   const [sumberList, setSumberList] = useState(DEFAULT_SUMBER);
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [kategoriList, setKategoriList] = useState(DEFAULT_KATEGORI_KEGIATAN);
-  const [kegiatan, setKegiatan] = useState(null);
+
 
   const router = useRouter();
   const params = useParams();
@@ -92,21 +91,14 @@ export default function DetailKegiatanPage() {
     return () => unsubscribe();
   }, [router]);
 
-  useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
-  }, []);
-
-  // ========== CARI KEGIATAN DARI URL ==========
-  useEffect(() => {
-    if (!pekerjaan.length || !ptId || !brandId || !kegId) return;
-
+  // ========== KEGIATAN DIAMBIL LANGSUNG DARI DATA (bukan disalin ke state) ==========
+  // Dulu pakai effect + setKegiatan; sekarang cukup diturunkan dari `pekerjaan`,
+  // jadi setelah simpan/hapus otomatis ikut terbarui.
+  const kegiatan = useMemo(() => {
+    if (!pekerjaan.length || !ptId || !brandId || !kegId) return null;
     const pt = pekerjaan.find((p) => p.id === ptId);
     const brand = pt?.brands?.find((b) => b.id === brandId);
-    const keg = brand?.kegiatan?.find((k) => k.id === kegId);
-
-    if (keg) {
-      setKegiatan(keg);
-    }
+    return brand?.kegiatan?.find((k) => k.id === kegId) || null;
   }, [pekerjaan, ptId, brandId, kegId]);
 
   // ========== SIMPAN KE FIRESTORE ==========
@@ -139,12 +131,6 @@ export default function DetailKegiatanPage() {
     );
 
     await simpanKeFirestore(updated);
-
-    // Update state lokal
-    const pt = updated.find((p) => p.id === ptId);
-    const brand = pt?.brands?.find((b) => b.id === brandId);
-    const keg = brand?.kegiatan?.find((k) => k.id === kegId);
-    setKegiatan(keg);
   };
 
   // ========== HAPUS KEGIATAN ==========
@@ -211,11 +197,6 @@ export default function DetailKegiatanPage() {
     );
 
     await simpanKeFirestore(updated);
-
-    const pt = updated.find((p) => p.id === ptId);
-    const brand = pt?.brands?.find((b) => b.id === brandId);
-    const keg = brand?.kegiatan?.find((k) => k.id === kegId);
-    setKegiatan(keg);
   };
 
   // ========== KELOLA SECTION (level user, bukan per kegiatan) ==========

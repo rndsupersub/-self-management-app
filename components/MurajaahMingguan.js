@@ -569,7 +569,7 @@ export default function MurajaahMingguan({
           </h3>
           {entriesMingguIni.length === 0 ? (
             <p className="text-sm text-gray-400 italic text-center py-6">
-              Belum ada murajaah minggu ini. Klik "+ Tambah Murajaah".
+              Belum ada murajaah minggu ini. Klik &quot;+ Tambah Murajaah&quot;.
             </p>
           ) : (
             <div className="space-y-2">

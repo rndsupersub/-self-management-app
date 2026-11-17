@@ -25,7 +25,7 @@ const getLocalDateStr = (date = new Date()) => {
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState(getLocalDateStr());
+  const [today] = useState(getLocalDateStr());
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
@@ -183,17 +183,15 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, []);
 
-  // PERBAIKAN: Cukup panggil sekali saat mount, dan pastikan pakai local date
-  useEffect(() => { 
-    setToday(getLocalDateStr()); 
-  }, []);
-
   const updateProgress = async (date, field, value) => {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
+    // Tanpa mutasi objek dari state (dulu `dayData[field] = ...`).
     const dayData = progress[date] || {};
-    dayData[field] = { ...dayData[field], ...value };
-    const newProgress = { ...progress, [date]: dayData };
+    const newProgress = {
+      ...progress,
+      [date]: { ...dayData, [field]: { ...dayData[field], ...value } },
+    };
     await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
     setProgress(newProgress); setUserData((prev) => ({ ...prev, dailyProgress: newProgress }));
   };

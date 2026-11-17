@@ -57,7 +57,7 @@ export default function KaryaMingguan({ karyaMingguan = [], onUpdate }) {
         {karyaMingguan.length === 0 ? (
           <div className="text-center py-6 text-gray-400">
             <Video size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada karya mingguan. Klik "+ Tambah Karya" untuk mulai.</p>
+            <p className="text-sm">Belum ada karya mingguan. Klik &quot;+ Tambah Karya&quot; untuk mulai.</p>
           </div>
         ) : (
           <div className="space-y-2">

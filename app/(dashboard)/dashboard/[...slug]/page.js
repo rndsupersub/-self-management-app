@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useTanggalHariIni from "@/lib/useTanggalHariIni";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -18,7 +19,7 @@ import MenuCustomDetail from "@/components/MenuCustomDetail";
 export default function ActivityPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
+  const today = useTanggalHariIni();
   const [progress, setProgress] = useState({});
   const [activities, setActivities] = useState(DEFAULT_ACTIVITIES);
   const [menus, setMenus] = useState(DEFAULT_MENUS);
@@ -86,10 +87,6 @@ export default function ActivityPage() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
-  }, []);
-
   const findItem = (items, path) => {
     if (!path || path.length === 0) return null;
     const [head, ...rest] = path;
@@ -131,9 +128,12 @@ export default function ActivityPage() {
   const updateProgress = async (field, value) => {
     if (!user) return;
     const docRef = doc(db, "users", user.uid);
+    // Tanpa mutasi objek dari state (dulu `todayData[field] = ...`).
     const todayData = progress[today] || {};
-    todayData[field] = { ...todayData[field], ...value };
-    const newProgress = { ...progress, [today]: todayData };
+    const newProgress = {
+      ...progress,
+      [today]: { ...todayData, [field]: { ...todayData[field], ...value } },
+    };
     await setDoc(docRef, { dailyProgress: newProgress }, { merge: true });
     setProgress(newProgress);
   };
@@ -301,7 +301,7 @@ export default function ActivityPage() {
 
               {isHafalanMain && (
                 <div className="space-y-4">
-                  <h1 className="text-xl md:text-2xl font-bold mb-4">📖 Hafalan Qur'an</h1>
+                  <h1 className="text-xl md:text-2xl font-bold mb-4">📖 Hafalan Qur&apos;an</h1>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <MurajaahTracker progressData={progressData} onUpdate={updateProgress} />
                     <WeeklyTest progressData={progressData} onUpdate={updateProgress} />

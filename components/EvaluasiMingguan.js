@@ -1,9 +1,9 @@
 // components/EvaluasiMingguan.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { generateId, getMingguIni, hitungTanggalSelesai, formatMinggu, getSaranKeputusan, hitungTargetNaik, DEFAULT_TARGET_MINGGU_1, DEFAULT_FIELD_EVALUASI } from "@/lib/olahragaData";
-import { BarChart3, Settings, Plus, X, Pencil, Trash2, Footprints, Timer, Dumbbell, Activity, MessageSquare, Target, ArrowUp, ArrowDown, Pause, Save, List, Calendar } from "lucide-react";
+import { BarChart3, Settings, Plus, X, Pencil, Trash2, Footprints, Timer, Dumbbell, Activity, MessageSquare, Target, ArrowUp, ArrowDown, Pause, Save, Calendar } from "lucide-react";
 
 export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_FIELD_EVALUASI, onUpdateMinggu, onUpdateFieldEvaluasi }) {
   const [showForm, setShowForm] = useState(false);
@@ -11,24 +11,27 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
   const [showFieldForm, setShowFieldForm] = useState(false);
   const [newFieldLabel, setNewFieldLabel] = useState("");
 
-  const [formData, setFormData] = useState({ mingguKe: 1, tanggalMulai: "", tanggalSelesai: "", target: { ...DEFAULT_TARGET_MINGGU_1 }, evaluasi: {}, keputusan: "stay", catatanMingguan: "" });
-
-  useEffect(() => {
+  // Nilai default form dihitung dari minggu terakhir (dulu disalin lewat effect).
+  const formDefault = useMemo(() => {
+    const dasar = { mingguKe: 1, tanggalMulai: "", tanggalSelesai: "", target: { ...DEFAULT_TARGET_MINGGU_1 }, evaluasi: {}, keputusan: "stay", catatanMingguan: "" };
     if (minggu.length === 0) {
-      setFormData((prev) => ({ ...prev, mingguKe: 1, tanggalMulai: getMingguIni(), tanggalSelesai: hitungTanggalSelesai(getMingguIni()), target: { ...DEFAULT_TARGET_MINGGU_1 } }));
-    } else {
-      const maxMinggu = Math.max(...minggu.map((m) => m.mingguKe || 0));
-      const lastMinggu = minggu.find((m) => m.mingguKe === maxMinggu);
-      let nextTanggalMulai = getMingguIni();
-      if (lastMinggu?.tanggalSelesai) {
-        const d = new Date(lastMinggu.tanggalSelesai); d.setDate(d.getDate() + 1); nextTanggalMulai = d.toISOString().split("T")[0];
-      }
-      let nextTarget = { ...DEFAULT_TARGET_MINGGU_1 };
-      if (lastMinggu?.keputusan === "naik") nextTarget = hitungTargetNaik(lastMinggu.target);
-      else if (lastMinggu?.target) nextTarget = { ...lastMinggu.target };
-      setFormData((prev) => ({ ...prev, mingguKe: maxMinggu + 1, tanggalMulai: nextTanggalMulai, tanggalSelesai: hitungTanggalSelesai(nextTanggalMulai), target: nextTarget }));
+      const mulai = getMingguIni();
+      return { ...dasar, mingguKe: 1, tanggalMulai: mulai, tanggalSelesai: hitungTanggalSelesai(mulai) };
     }
-  }, [minggu.length]);
+    const maxMinggu = Math.max(...minggu.map((m) => m.mingguKe || 0));
+    const lastMinggu = minggu.find((m) => m.mingguKe === maxMinggu);
+    let nextTanggalMulai = getMingguIni();
+    if (lastMinggu?.tanggalSelesai) {
+      const d = new Date(lastMinggu.tanggalSelesai); d.setDate(d.getDate() + 1); nextTanggalMulai = d.toISOString().split("T")[0];
+    }
+    let nextTarget = { ...DEFAULT_TARGET_MINGGU_1 };
+    if (lastMinggu?.keputusan === "naik") nextTarget = hitungTargetNaik(lastMinggu.target);
+    else if (lastMinggu?.target) nextTarget = { ...lastMinggu.target };
+    return { ...dasar, mingguKe: maxMinggu + 1, tanggalMulai: nextTanggalMulai, tanggalSelesai: hitungTanggalSelesai(nextTanggalMulai), target: nextTarget };
+  }, [minggu]);
+
+  const [draftForm, setFormData] = useState(null);
+  const formData = draftForm ?? formDefault;
 
   const handleSimpan = () => {
     if (!formData.tanggalMulai) return;
@@ -148,7 +151,7 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-8 text-center text-gray-400">
             <BarChart3 size={40} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Belum ada minggu. Klik "+ Tambah Minggu" untuk mulai.</p>
+            <p className="text-sm">Belum ada minggu. Klik &quot;+ Tambah Minggu&quot; untuk mulai.</p>
           </div>
         </div>
       ) : (

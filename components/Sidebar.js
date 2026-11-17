@@ -121,7 +121,7 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
           </p>
         ) : visibleMenus.length === 0 ? (
           <p className="text-xs text-base-content/50 italic text-center py-4">
-            Belum ada menu. Klik "Kelola Menu" di navbar.
+            Belum ada menu. Klik &quot;Kelola Menu&quot; di navbar.
           </p>
         ) : (
           visibleMenus.map((menu) => {

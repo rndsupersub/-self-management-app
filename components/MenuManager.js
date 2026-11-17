@@ -31,15 +31,15 @@ function SortableRow({ menu, onRename, onHide, onDelete }) {
 export default function MenuManager({ menus = [], activities = [], menusCustom = {}, user, onUpdate, onUpdateCustom }) {
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState("aktif");
-  const [localMenus, setLocalMenus] = useState(menus);
+  // Salinan menu untuk diedit; selama belum diubah, pakai data props.
+  const [draftMenus, setLocalMenus] = useState(null);
+  const localMenus = draftMenus ?? menus;
   const [arsip, setArsip] = useState([]);
   const [toast, setToast] = useState(null);
   const [customName, setCustomName] = useState("");
   const [customIcon, setCustomIcon] = useState("📌");
   const [customWarna, setCustomWarna] = useState("gray");
   const [customKaryaMingguan, setCustomKaryaMingguan] = useState(false);
-
-  useEffect(() => { setLocalMenus(menus); }, [menus]);
 
   useEffect(() => {
     if (!user?.uid) return;

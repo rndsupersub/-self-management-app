@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import useTanggalHariIni from "@/lib/useTanggalHariIni";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -13,7 +14,7 @@ import { Briefcase, Tag, Pencil, Trash2, ArrowRight, Home } from "lucide-react";
 export default function BisnisPage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [today, setToday] = useState("");
+  const today = useTanggalHariIni();
   const [brands, setBrands] = useState(DEFAULT_BISNIS_BRANDS);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ nama: "" });
@@ -23,7 +24,6 @@ export default function BisnisPage() {
   const router = useRouter();
 
   useEffect(() => {
-    setToday(new Date().toISOString().split("T")[0]);
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) { router.push("/login"); return; }
       setUser(user);
@@ -92,7 +92,7 @@ export default function BisnisPage() {
 
       {migrasiNotif && (
         <div className="alert alert-success mb-4 text-sm" data-html2canvas-ignore="true">
-          <span>✅ Migrasi berhasil! Data bisnis lama lo udah dipindah ke brand "Level Up".</span>
+          <span>✅ Migrasi berhasil! Data bisnis lama lo udah dipindah ke brand &quot;Level Up&quot;.</span>
         </div>
       )}
 
@@ -125,7 +125,7 @@ export default function BisnisPage() {
           <div className="card bg-white shadow border border-gray-200">
             <div className="card-body p-8 text-center text-gray-400">
               <Tag size={40} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Belum ada brand. Klik "+ Tambah Brand" untuk mulai.</p>
+              <p className="text-sm">Belum ada brand. Klik &quot;+ Tambah Brand&quot; untuk mulai.</p>
             </div>
           </div>
         ) : (
