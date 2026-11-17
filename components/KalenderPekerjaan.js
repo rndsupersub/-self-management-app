@@ -28,6 +28,7 @@ export default function KalenderPekerjaan({
   // Ringkasan teks di bawah time schedule bisa disembunyikan, supaya waktu
   // di-export ke PDF nggak dobel (grafik + daftar yang isinya sama).
   const [ringkasTertutup, setRingkasTertutup] = useState({});
+  const [tampilRingkasTersembunyi, setTampilRingkasTersembunyi] = useState(false);
   const toggleRingkas = (id) =>
     setRingkasTertutup((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -500,26 +501,31 @@ export default function KalenderPekerjaan({
                 <div className="mt-8">
                   <div className="flex flex-wrap justify-between items-center gap-2 mb-2" data-html2canvas-ignore="true">
                     <h4 className="text-xs font-bold text-gray-700">Ringkasan di Bawah Jadwal</h4>
-                    <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={toggleSemuaRingkas} title="Sembunyikan semua ringkasan biar nggak dobel di PDF">
-                      {semuaRingkasTertutup ? <><Eye size={12}/> Tampilkan semua</> : <><EyeOff size={12}/> Sembunyikan semua</>}
-                    </button>
+                    <div className="flex gap-1">
+                      {timeScheduleData.bars.some((k) => ringkasTertutup[k.id]) && (
+                        <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setTampilRingkasTersembunyi(!tampilRingkasTersembunyi)}>
+                          {tampilRingkasTersembunyi
+                            ? <><EyeOff size={12}/> Sembunyikan lagi</>
+                            : <><Eye size={12}/> Tampilkan yang disembunyikan ({timeScheduleData.bars.filter((k) => ringkasTertutup[k.id]).length})</>}
+                        </button>
+                      )}
+                      <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={toggleSemuaRingkas} title="Sembunyikan semua ringkasan biar nggak dobel di PDF">
+                        {semuaRingkasTertutup ? <><Eye size={12}/> Tampilkan semua</> : <><EyeOff size={12}/> Sembunyikan semua</>}
+                      </button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {timeScheduleData.bars.map((k) => {
                       const mulai = k.tanggalMulai || k.tanggal;
                       const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
-                      const tertutup = ringkasTertutup[k.id];
+                      const tertutup = !!ringkasTertutup[k.id];
+                      // Tersembunyi = tidak dirender, jadi tidak ikut ke PDF.
+                      if (tertutup && !tampilRingkasTersembunyi) return null;
                       return (
-                        <div key={k.id} className="flex items-start gap-3 p-3 rounded border bg-gray-50 border-gray-200">
+                        <div key={k.id} className={`flex items-start gap-3 p-3 rounded border ${tertutup ? "bg-gray-50 border-dashed border-gray-300 opacity-60" : "bg-gray-50 border-gray-200"}`}>
                           <div className="flex-1">
-                            {tertutup ? (
-                              <p className="text-xs text-gray-400 italic">Disembunyikan — nggak ikut ke PDF.</p>
-                            ) : (
-                              <>
-                                <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
-                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
-                              </>
-                            )}
+                            <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
                           </div>
                           <button className="btn btn-ghost btn-xs text-gray-500 shrink-0" onClick={() => toggleRingkas(k.id)} title={tertutup ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"} data-html2canvas-ignore="true">
                             {tertutup ? <Eye size={14}/> : <EyeOff size={14}/>}

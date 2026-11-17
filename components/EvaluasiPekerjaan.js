@@ -49,7 +49,9 @@ export default function EvaluasiPekerjaan({
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   
-  const [evaluationReports, setEvaluationReports] = useState([]); 
+  // Sama seperti laporan: data diturunkan dari evaluasi tersimpan, edit masuk
+  // ke draft periode ini.
+  const [draftEvaluasi, setDraftEvaluasi] = useState(null); 
   const [editingIndex, setEditingIndex] = useState(null); 
   
   const [showHistory, setShowHistory] = useState(false);
@@ -65,8 +67,10 @@ export default function EvaluasiPekerjaan({
   // Samakan dengan Laporan: tiap kotak evaluasi bisa disembunyikan biar
   // export PDF nggak dobel.
   const [kotakTertutup, setKotakTertutup] = useState({});
+  const [tampilKotakTersembunyi, setTampilKotakTersembunyi] = useState(false);
   const toggleKotak = (index) =>
     setKotakTertutup((prev) => ({ ...prev, [index]: !prev[index] }));
+  const jumlahKotakTersembunyi = evaluationReports.filter((_, i) => kotakTertutup[i]).length;
   const semuaKotakTertutup =
     evaluationReports.length > 0 &&
     evaluationReports.every((_, i) => kotakTertutup[i]);
@@ -97,25 +101,28 @@ export default function EvaluasiPekerjaan({
     return evaluasiDataNormalized?.[activePeriode]?.[key] || null;
   }, [evaluasiDataNormalized, activePeriode, key]);
 
-  // Load data & Migrasi data lama
-  useEffect(() => {
-    if (evaluasiTersimpan?.reports) {
-      setEvaluationReports(evaluasiTersimpan.reports);
-    } else if (evaluasiTersimpan?.fields) {
-      setEvaluationReports([{
+  // Migrasi data lama (single `fields`) tetap kebaca.
+  const daftarEvaluasiTersimpan = useMemo(() => {
+    if (evaluasiTersimpan?.reports) return evaluasiTersimpan.reports;
+    if (evaluasiTersimpan?.fields) {
+      return [{
         tanggal: "Data Lama",
         ringkasan: evaluasiTersimpan.fields.ringkasan || "",
         kendala: evaluasiTersimpan.fields.kendala || "",
         solusi: evaluasiTersimpan.fields.solusi || "",
-        gdriveUrl: ""
-      }]);
-    } else {
-      setEvaluationReports([]);
+        gdriveUrl: "",
+      }];
     }
-    setEditingIndex(null); 
+    return [];
   }, [evaluasiTersimpan]);
 
+  const kunciEvaluasi = `${activePeriode}|${key || ""}`;
+  const evaluationReports = draftEvaluasi?.key === kunciEvaluasi ? draftEvaluasi.list : daftarEvaluasiTersimpan;
+  const setEvaluationReports = (next) =>
+    setDraftEvaluasi({ key: kunciEvaluasi, list: typeof next === "function" ? next(evaluationReports) : next });
+
   const handlePrev = () => {
+    setEditingIndex(null);
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
     if (!def) return;
     if (def.tipe === "bulanan") setSelectedDate(adjustDate(selectedDate, "months", -1));
@@ -125,6 +132,7 @@ export default function EvaluasiPekerjaan({
   };
 
   const handleNext = () => {
+    setEditingIndex(null);
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
     if (!def) return;
     if (def.tipe === "bulanan") setSelectedDate(adjustDate(selectedDate, "months", 1));
@@ -133,8 +141,8 @@ export default function EvaluasiPekerjaan({
     else if (def.tipe === "tahunan") setSelectedDate(adjustDate(selectedDate, "years", 1));
   };
 
-  const handleToday = () => setSelectedDate(getTodayLocalDate());
-  const handleDateChange = (e) => setSelectedDate(e.target.value);
+  const handleToday = () => { setSelectedDate(getTodayLocalDate()); setEditingIndex(null); };
+  const handleDateChange = (e) => { setSelectedDate(e.target.value); setEditingIndex(null); };
 
   const handleAutoGenerate = () => {
     if (!periodeAktif) return;
@@ -312,7 +320,7 @@ export default function EvaluasiPekerjaan({
       {/* HEADER TAB FREKUENSI */}
       <div className="flex flex-wrap justify-between items-center gap-2" data-html2canvas-ignore="true">
         <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
-          {periodeEvaluasiList.map((freq) => (<button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActivePeriode(freq.id)}>{freq.label}</button>))}
+          {periodeEvaluasiList.map((freq) => (<button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActivePeriode(freq.id); setEditingIndex(null); }}>{freq.label}</button>))}
         </div>
         <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaFrekuensi(true)}><Settings size={14}/> Kelola Frekuensi</button>
       </div>
@@ -357,6 +365,11 @@ export default function EvaluasiPekerjaan({
                     {semuaKotakTertutup ? <><Eye size={14}/> Tampilkan semua</> : <><EyeOff size={14}/> Sembunyikan semua</>}
                   </button>
                 )}
+                {jumlahKotakTersembunyi > 0 && (
+                  <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setTampilKotakTersembunyi(!tampilKotakTersembunyi)}>
+                    {tampilKotakTersembunyi ? <><EyeOff size={14}/> Sembunyikan lagi ({jumlahKotakTersembunyi})</> : <><Eye size={14}/> Tampilkan yang disembunyikan ({jumlahKotakTersembunyi})</>}
+                  </button>
+                )}
                 <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleTambahKotakManual}><Plus size={14}/> Tambah Kotak</button>
                 <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleAutoGenerate} title="Tarik data dari laporan"><RefreshCw size={14}/> Auto-generate</button>
               </div>
@@ -371,9 +384,11 @@ export default function EvaluasiPekerjaan({
               <div className="space-y-4">
                 {evaluationReports.map((report, index) => {
                   const isEditing = editingIndex === index;
+                  // Kotak tersembunyi tidak dirender = tidak ikut ke PDF.
+                  if (kotakTertutup[index] && !tampilKotakTersembunyi && !isEditing) return null;
 
                   return (
-                    <div key={index} className="card bg-gray-50 border border-gray-200 shadow-sm">
+                    <div key={index} className={`card bg-gray-50 border shadow-sm ${kotakTertutup[index] ? "border-dashed border-gray-300 opacity-60" : "border-gray-200"}`}>
                       <div className="card-body p-4 space-y-3">
                         
                         {/* HEADER KOTAK */}
@@ -401,9 +416,7 @@ export default function EvaluasiPekerjaan({
                         </div>
 
                         {/* ISI KOTAK */}
-                        {kotakTertutup[index] && !isEditing ? (
-                          <p className="text-xs text-gray-400 italic">Disembunyikan — nggak ikut ke PDF.</p>
-                        ) : isEditing ? (
+                        {isEditing ? (
                           <div className="animate-fade-in space-y-3">
                             <div>
                               <label className="text-xs font-semibold text-gray-600 mb-1 block">Ringkasan Pekerjaan</label>

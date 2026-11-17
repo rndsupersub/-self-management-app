@@ -37,7 +37,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   const [activeTab, setActiveTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate());
   
-  const [reports, setReports] = useState([]); 
+  // Draft per periode: data laporan diturunkan dari laporan tersimpan, lalu
+  // hasil edit disimpan di draft ini (nggak perlu effect + setState).
+  const [draftLaporan, setDraftLaporan] = useState(null); 
   const [editingIndex, setEditingIndex] = useState(null); 
   
   const [showHistory, setShowHistory] = useState(false);
@@ -47,8 +49,12 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
   // Kotak laporan yang disembunyikan nggak dirender, jadi nggak ikut ke PDF.
   // Ini yang bikin penjelasan nggak dobel di hasil export.
   const [tertutup, setTertutup] = useState({});
+  // Kalau true, kotak yang disembunyikan tetap ditampilkan (redup) supaya bisa
+  // dibuka lagi satu-satu. Default: benar-benar nggak dirender = nggak ke PDF.
+  const [tampilTersembunyi, setTampilTersembunyi] = useState(false);
   const toggleLaporan = (id) => setTertutup((prev) => ({ ...prev, [id]: !prev[id] }));
   const semuaTertutup = reports.length > 0 && reports.every((r) => tertutup[r.id]);
+  const jumlahTersembunyi = reports.filter((r) => tertutup[r.id]).length;
   const toggleSemua = () =>
     setTertutup(
       semuaTertutup ? {} : Object.fromEntries(reports.map((r) => [r.id, true]))
@@ -77,31 +83,35 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     return laporanDataNormalized?.bulanan?.[keyBulanan] || null;
   }, [activeTab, laporanDataNormalized, keyHarian, keyMingguan, keyBulanan]);
 
-  // Load data
-  useEffect(() => {
-    if (laporanTersimpan?.reports) {
-      setReports(laporanTersimpan.reports);
-    } else if (laporanTersimpan?.fields) {
-      // Migrasi data lama (kalau formatnya masih single object)
-      setReports([{
-        id: `rep_${Date.now()}`,
+  const kunciPeriode = `${activeTab}|${keyHarian}|${keyMingguan}|${keyBulanan}`;
+
+  // Data lama (single object `fields`) tetap kebaca sebagai satu kotak.
+  const daftarTersimpan = useMemo(() => {
+    if (laporanTersimpan?.reports) return laporanTersimpan.reports;
+    if (laporanTersimpan?.fields) {
+      return [{
+        id: `rep_${kunciPeriode}`,
         judul: "Laporan",
         fields: laporanTersimpan.fields,
-        gdriveUrl: laporanTersimpan.gdriveUrl || ""
-      }]);
-    } else {
-      setReports([]);
+        gdriveUrl: laporanTersimpan.gdriveUrl || "",
+      }];
     }
-    setEditingIndex(null);
-  }, [laporanTersimpan]);
+    return [];
+  }, [laporanTersimpan, kunciPeriode]);
+
+  const reports = draftLaporan?.key === kunciPeriode ? draftLaporan.list : daftarTersimpan;
+  const setReports = (next) =>
+    setDraftLaporan({ key: kunciPeriode, list: typeof next === "function" ? next(reports) : next });
 
   const handlePrev = () => {
+    setEditingIndex(null);
     if (activeTab === "harian") setSelectedDate(adjustDate(selectedDate, "days", -1));
     else if (activeTab === "mingguan") setSelectedDate(adjustDate(selectedDate, "days", -7));
     else setSelectedDate(adjustDate(selectedDate, "months", -1));
   };
 
   const handleNext = () => {
+    setEditingIndex(null);
     if (activeTab === "harian") setSelectedDate(adjustDate(selectedDate, "days", 1));
     else if (activeTab === "mingguan") setSelectedDate(adjustDate(selectedDate, "days", 7));
     else setSelectedDate(adjustDate(selectedDate, "months", 1));
@@ -262,7 +272,8 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
     if (lap.reports) {
       setReports(lap.reports);
     } else if (lap.fields) {
-      setReports([{ id: `rep_${Date.now()}`, judul: "Laporan", fields: lap.fields, gdriveUrl: lap.gdriveUrl || "" }]);
+      const kunciLama = lap.tanggal || lap.tanggalMulai || lap.key || "lama";
+      setReports([{ id: `rep_${kunciLama}`, judul: "Laporan", fields: lap.fields, gdriveUrl: lap.gdriveUrl || "" }]);
     }
     setEditingIndex(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -324,9 +335,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
 
       <div className="flex flex-wrap justify-between items-center gap-2" data-html2canvas-ignore="true">
         <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
-          <button className={`tab ${activeTab === "harian" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("harian")}><Calendar size={14} className="mr-1"/> Harian</button>
-          <button className={`tab ${activeTab === "mingguan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("mingguan")}><Calendar size={14} className="mr-1"/> Mingguan</button>
-          <button className={`tab ${activeTab === "bulanan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("bulanan")}><Calendar size={14} className="mr-1"/> Bulanan</button>
+          <button className={`tab ${activeTab === "harian" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("harian"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Harian</button>
+          <button className={`tab ${activeTab === "mingguan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("mingguan"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Mingguan</button>
+          <button className={`tab ${activeTab === "bulanan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("bulanan"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Bulanan</button>
         </div>
         <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaField(true)}>
           <Settings size={14}/> Kelola Field Laporan
@@ -342,8 +353,8 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
               <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleNext}>›</button>
             </div>
             <div className="flex items-center gap-2">
-              <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-              <button className="btn btn-outline btn-xs text-gray-700" onClick={() => setSelectedDate(getTodayLocalDate())}><Calendar size={14} className="mr-1"/> {activeTab === "harian" ? "Hari Ini" : activeTab === "mingguan" ? "Minggu Ini" : "Bulan Ini"}</button>
+              <input type="date" className="input input-bordered input-sm text-gray-800 bg-white" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setEditingIndex(null); }} />
+              <button className="btn btn-outline btn-xs text-gray-700" onClick={() => { setSelectedDate(getTodayLocalDate()); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> {activeTab === "harian" ? "Hari Ini" : activeTab === "mingguan" ? "Minggu Ini" : "Bulan Ini"}</button>
             </div>
           </div>
         </div>
@@ -357,6 +368,11 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
               {reports.length > 0 && (
                 <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={toggleSemua} title="Sembunyikan semua kotak biar nggak ikut ke PDF">
                   {semuaTertutup ? <><Eye size={14}/> Tampilkan semua</> : <><EyeOff size={14}/> Sembunyikan semua</>}
+                </button>
+              )}
+              {jumlahTersembunyi > 0 && (
+                <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setTampilTersembunyi(!tampilTersembunyi)}>
+                  {tampilTersembunyi ? <><EyeOff size={14}/> Sembunyikan lagi ({jumlahTersembunyi})</> : <><Eye size={14}/> Tampilkan yang disembunyikan ({jumlahTersembunyi})</>}
                 </button>
               )}
               <button className="btn btn-outline btn-xs text-gray-700 flex items-center gap-1" onClick={handleTambahKotakManual}><Plus size={14}/> Tambah Kotak</button>
@@ -373,9 +389,11 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
             <div className="space-y-4">
               {reports.map((report, index) => {
                 const isEditing = editingIndex === index;
+                // Kotak tersembunyi tidak dirender = tidak ikut ke PDF.
+                if (tertutup[report.id] && !tampilTersembunyi && !isEditing) return null;
 
                 return (
-                  <div key={report.id || index} className="card bg-gray-50 border border-gray-200 shadow-sm">
+                  <div key={report.id || index} className={`card bg-gray-50 border shadow-sm ${tertutup[report.id] ? "border-dashed border-gray-300 opacity-60" : "border-gray-200"}`}>
                     <div className="card-body p-4 space-y-3">
                       
                       <div className="flex justify-between items-center border-b border-gray-200 pb-2">
@@ -402,9 +420,7 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                         </div>
                       </div>
 
-                      {tertutup[report.id] && !isEditing ? (
-                        <p className="text-xs text-gray-400 italic">Disembunyikan — nggak ikut ke PDF.</p>
-                      ) : isEditing ? (
+                      {isEditing ? (
                         <div className="animate-fade-in space-y-3">
                           {fields.map(f => (
                             <div key={f.id}>
