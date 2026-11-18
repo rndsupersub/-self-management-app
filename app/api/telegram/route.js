@@ -1746,8 +1746,9 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   // ==== REMINDER PRIBADI ====
   if (command === "reminder") {
     const settings = userData.reminderSettings || {};
-    const text = buildStatusReminderText(settings);
-    const buttons = buildStatusReminderButtons(settings);
+    // Daftar reminder ngikutin jadwal web (sumber yang sama), bukan config statis.
+    const text = buildStatusReminderText(settings, userData);
+    const buttons = buildStatusReminderButtons(settings, userData);
     await sendTelegramWithButtons(chatId, text, buttons);
     return;
   }
@@ -2000,8 +2001,8 @@ async function handleCallback(callbackQuery, userData, firestore) {
       await editTelegramMessage(
         chatId,
         messageId,
-        buildStatusReminderText(settings),
-        buildStatusReminderButtons(settings)
+        buildStatusReminderText(settings, userData),
+        buildStatusReminderButtons(settings, userData)
       );
     } else if (target === "reminder_proyek") {
       const settings = settingsProyek(userData);
@@ -2107,8 +2108,8 @@ async function handleCallback(callbackQuery, userData, firestore) {
         { reminderSettings: newSettings },
         { merge: true }
       );
-      const text = buildStatusReminderText(newSettings);
-      const buttons = buildStatusReminderButtons(newSettings);
+      const text = buildStatusReminderText(newSettings, userData);
+      const buttons = buildStatusReminderButtons(newSettings, userData);
       await editTelegramMessage(chatId, messageId, text, buttons);
       return;
     }
@@ -2123,8 +2124,8 @@ async function handleCallback(callbackQuery, userData, firestore) {
         { reminderSettings: newSettings },
         { merge: true }
       );
-      const text = buildStatusReminderText(newSettings);
-      const buttons = buildStatusReminderButtons(newSettings);
+      const text = buildStatusReminderText(newSettings, userData);
+      const buttons = buildStatusReminderButtons(newSettings, userData);
       await editTelegramMessage(chatId, messageId, text, buttons);
       return;
     }
@@ -2139,8 +2140,8 @@ async function handleCallback(callbackQuery, userData, firestore) {
         { reminderSettings: newSettings },
         { merge: true }
       );
-      const text = buildStatusReminderText(newSettings);
-      const buttons = buildStatusReminderButtons(newSettings);
+      const text = buildStatusReminderText(newSettings, userData);
+      const buttons = buildStatusReminderButtons(newSettings, userData);
       await editTelegramMessage(chatId, messageId, text, buttons);
       return;
     }
