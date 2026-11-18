@@ -651,6 +651,11 @@ function EditorTeks({ html, onChange, onFokus }) {
 // Satu slide dirender sama persis di editor, pratinjau, dan hasil baca (PDF).
 const UKURAN_JUDUL = { kecil: "text-lg", sedang: "text-xl", besar: "text-2xl" };
 const UKURAN_TEKS = { kecil: "text-xs", sedang: "text-sm", besar: "text-base" };
+// Versi baca/print: lebih besar biar nggak kekecilan waktu dilihat hasilnya.
+const UKURAN_JUDUL_BACA = { kecil: "text-2xl md:text-3xl", sedang: "text-3xl md:text-4xl", besar: "text-4xl md:text-5xl" };
+const UKURAN_TEKS_BACA = { kecil: "text-sm md:text-base", sedang: "text-base md:text-lg", besar: "text-lg md:text-xl" };
+const KELAS_TEKS_BACA =
+  "text-gray-800 leading-relaxed [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-3";
 const PERATAAN = { kiri: "text-left", tengah: "text-center", kanan: "text-right" };
 const WARNA_JUDUL = [
   { id: "gelap", label: "Gelap", nilai: "#1f2937" },
@@ -659,13 +664,14 @@ const WARNA_JUDUL = [
   { id: "merah", label: "Merah", nilai: "#b91c1c" },
 ];
 
-function SlideBlok({ slide, label }) {
+function SlideBlok({ slide, label, tampilan = "normal" }) {
+  const baca = tampilan === "baca";
   const bentuk = slide.bentuk || "tidak";
   const warnaBentuk = slide.warnaBentuk || "#2563eb";
   const perataan = PERATAAN[slide.perataan] || PERATAAN.kiri;
   return (
     <div
-      className="relative overflow-hidden rounded border border-gray-200 p-5 break-inside-avoid"
+      className={`relative overflow-hidden rounded border border-gray-200 break-inside-avoid ${baca ? "p-8 md:p-10 min-h-[260px] md:min-h-[320px]" : "p-5 min-h-[180px]"}`}
       style={{ backgroundColor: slide.latar || "#ffffff" }}
     >
       {bentuk === "kotak" && <div className="absolute right-0 top-0 w-24 h-24 rounded-bl-3xl opacity-80" style={{ backgroundColor: warnaBentuk }} />}
@@ -676,17 +682,47 @@ function SlideBlok({ slide, label }) {
       <div className={`relative ${perataan}`}>
         {label && <p className="text-[10px] font-semibold text-gray-400 mb-1">{label}</p>}
         <h4
-          className={`font-bold mb-3 ${UKURAN_JUDUL[slide.ukuranJudul] || UKURAN_JUDUL.besar}`}
+          className={`font-bold mb-4 ${baca ? (UKURAN_JUDUL_BACA[slide.ukuranJudul] || UKURAN_JUDUL_BACA.besar) : (UKURAN_JUDUL[slide.ukuranJudul] || UKURAN_JUDUL.besar)}`}
           style={{ color: slide.warnaJudul || "#1f2937" }}
         >
           {slide.judul || "(tanpa judul)"}
         </h4>
         <div
-          className={`${KELAS_TEKS} ${UKURAN_TEKS[slide.ukuranTeks] || UKURAN_TEKS.sedang}`}
+          className={baca ? `${KELAS_TEKS_BACA} ${UKURAN_TEKS_BACA[slide.ukuranTeks] || UKURAN_TEKS_BACA.sedang}` : `${KELAS_TEKS} ${UKURAN_TEKS[slide.ukuranTeks] || UKURAN_TEKS.sedang}`}
           dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }}
         />
       </div>
     </div>
+  );
+}
+
+// Thumbnail slide: bentuk visualnya (latar, hiasan, posisi judul) ikut kelihatan,
+// jadi semua slide bisa dipantau tanpa harus dibuka satu-satu.
+function SlideMini({ slide, nomor, aktif, onClick }) {
+  const bentuk = slide.bentuk || "tidak";
+  const warnaBentuk = slide.warnaBentuk || "#2563eb";
+  const perataan = PERATAAN[slide.perataan] || PERATAAN.kiri;
+  return (
+    <button
+      onClick={onClick}
+      title={slide.judul || "(tanpa judul)"}
+      className={`shrink-0 w-44 rounded-lg border overflow-hidden text-left transition ${aktif ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-blue-300"}`}
+    >
+      <div className="relative h-24 overflow-hidden p-2" style={{ backgroundColor: slide.latar || "#ffffff" }}>
+        {bentuk === "kotak" && <span className="absolute right-0 top-0 w-8 h-8 rounded-bl-lg opacity-80" style={{ backgroundColor: warnaBentuk }} />}
+        {bentuk === "bulat" && <span className="absolute -right-3 -bottom-4 w-12 h-12 rounded-full opacity-30" style={{ backgroundColor: warnaBentuk }} />}
+        {bentuk === "garis" && <span className="absolute left-0 right-0 bottom-0 h-1.5" style={{ backgroundColor: warnaBentuk }} />}
+        {bentuk === "miring" && <span className="absolute right-0 top-0 bottom-0 w-6 opacity-20" style={{ backgroundColor: warnaBentuk, transform: "skewX(-14deg)" }} />}
+        <div className={`relative ${perataan}`}>
+          <p className="text-[10px] font-bold leading-tight line-clamp-2" style={{ color: slide.warnaJudul || "#1f2937" }}>
+            {nomor}. {slide.judul || "(tanpa judul)"}
+          </p>
+          <p className="text-[8px] mt-1 line-clamp-3 opacity-70 text-gray-700">
+            {String(slide.isi || "").replace(/<[^>]*>/g, " ").trim().slice(0, 120)}
+          </p>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -722,11 +758,17 @@ function SlideEditor({ value, onChange }) {
         </div>
         <div className="flex gap-1">
           <button className="btn btn-outline btn-xs text-gray-700" onClick={() => setModePratinjau(!modePratinjau)}>
-            {modePratinjau ? <><Pencil size={12} /> Edit</> : <><Eye size={12} /> Tampilkan</>}
+            {modePratinjau ? <><Pencil size={12} /> Tampilkan Editor</> : <><EyeOff size={12} /> Sembunyikan Editor</>}
           </button>
           <button className="btn btn-outline btn-xs text-gray-700" onClick={tambahSlide}><Plus size={12} /> Slide</button>
           <button className="btn btn-ghost btn-xs text-red-500" onClick={hapusSlide}><Trash2 size={12} /></button>
         </div>
+      </div>
+
+      {/* Pratinjau langsung: bentuk slide kelihatan sambil diedit. */}
+      <div className="rounded-lg border border-gray-200 bg-gray-100 p-2">
+        <p className="text-[11px] font-semibold text-gray-500 mb-1 flex items-center gap-1"><Eye size={12} /> Pratinjau slide {index + 1} — tampil persis seperti hasilnya</p>
+        <SlideBlok slide={slide} />
       </div>
 
       <input
@@ -788,9 +830,7 @@ function SlideEditor({ value, onChange }) {
         </div>
       </div>
 
-      {modePratinjau ? (
-        <SlideBlok slide={slide} />
-      ) : (
+      {!modePratinjau && (
         <>
           <EditorTeks html={isiSlideKeHtml(slide.isi)} onChange={(html) => ubah({ isi: html })} />
           <p className="text-[11px] text-gray-500">
@@ -799,18 +839,13 @@ function SlideEditor({ value, onChange }) {
         </>
       )}
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {slides.map((s, i) => (
-          <button
-            key={s.id}
-            onClick={() => setAktif(i)}
-            className={`shrink-0 w-32 h-20 rounded border text-left p-2 text-[10px] overflow-hidden ${i === index ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"}`}
-            title={s.judul}
-          >
-            <span className="font-semibold text-gray-800 block truncate">{i + 1}. {s.judul || "(tanpa judul)"}</span>
-            <span className="text-gray-500 line-clamp-2">{String(s.isi || "").replace(/<[^>]*>/g, " ").slice(0, 90)}</span>
-          </button>
-        ))}
+      <div className="pt-1">
+        <p className="text-[11px] font-semibold text-gray-500 mb-1">Semua slide ({slides.length}) — klik untuk pindah</p>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {slides.map((s, i) => (
+            <SlideMini key={s.id} slide={s} nomor={i + 1} aktif={i === index} onClick={() => setAktif(i)} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -819,9 +854,9 @@ function SlideEditor({ value, onChange }) {
 // ======================= TAMPILAN BACA (BUKAN EDIT) =======================
 function SlideBaca({ isi }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {(isi.slides || []).map((slide, i) => (
-        <SlideBlok key={slide.id || i} slide={slide} label={`SLIDE ${i + 1}`} />
+        <SlideBlok key={slide.id || i} slide={slide} label={`SLIDE ${i + 1}`} tampilan="baca" />
       ))}
     </div>
   );

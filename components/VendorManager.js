@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, WARNA_HASIL, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
-import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, CheckSquare, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3 } from "lucide-react";
+import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
+import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3 } from "lucide-react";
 
 // Mode tampilan ala Windows: Besar / Sedang / Kecil / Daftar.
 // "Daftar" sengaja berbentuk tabel supaya hasil Export PDF tampil sebagai data.
@@ -19,7 +19,6 @@ export default function VendorManager({
   kategoriVendorList = DEFAULT_KATEGORI_VENDOR,
   pertanyaanVendorList = DEFAULT_PERTANYAAN_VENDOR,
   tujuanKunjunganList = DEFAULT_TUJUAN_KUNJUNGAN,
-  hasilKunjunganList = HASIL_KUNJUNGAN,
   satuanMoqList = SATUAN_MOQ,
   onAddVendor,
   onDeleteVendor,
@@ -27,14 +26,12 @@ export default function VendorManager({
   onUpdateKategoriVendor,
   onUpdatePertanyaanVendor,
   onUpdateTujuanKunjungan,
-  onUpdateHasilKunjungan,
   onUpdateSatuanMoq,
 }) {
   const [showForm, setShowForm] = useState(false);
   const [showKelolaKategori, setShowKelolaKategori] = useState(false);
   const [showKelolaPertanyaan, setShowKelolaPertanyaan] = useState(false);
   const [showKelolaTujuan, setShowKelolaTujuan] = useState(false);
-  const [showKelolaHasil, setShowKelolaHasil] = useState(false);
 
   const [filterKategori, setFilterKategori] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -50,11 +47,9 @@ export default function VendorManager({
   const [newPertanyaan, setNewPertanyaan] = useState({ pertanyaan: "", tipe: "checkbox" });
   const [editingPertanyaanId, setEditingPertanyaanId] = useState(null); // State Edit Pertanyaan
 
-  // Kelola tujuan & hasil kunjungan
+  // Kelola tujuan kunjungan
   const [newTujuan, setNewTujuan] = useState("");
   const [editingTujuanId, setEditingTujuanId] = useState(null);
-  const [newHasil, setNewHasil] = useState({ label: "", warna: "blue" });
-  const [editingHasilId, setEditingHasilId] = useState(null);
 
   const [showKategoriBaru, setShowKategoriBaru] = useState(false);
   const [newKategoriInline, setNewKategoriInline] = useState("");
@@ -198,29 +193,6 @@ export default function VendorManager({
     onUpdateTujuanKunjungan((tujuanKunjunganList || []).filter((t) => t.id !== id));
   };
 
-  // --- LOGIC KELOLA HASIL KUNJUNGAN ---
-  const jumlahLogDenganHasil = (id) => vendorList.reduce((n, v) => n + (v.logKunjungan || []).filter((l) => l.hasil === id).length, 0);
-  const handleBukaEditHasil = (h) => { setNewHasil({ label: h.label, warna: h.warna || "gray" }); setEditingHasilId(h.id); };
-  const handleBatalEditHasil = () => { setNewHasil({ label: "", warna: "blue" }); setEditingHasilId(null); };
-  const handleSimpanHasil = () => {
-    if (!newHasil.label.trim()) return;
-    const list = Array.isArray(hasilKunjunganList) ? hasilKunjunganList : [];
-    if (editingHasilId) {
-      onUpdateHasilKunjungan(list.map((h) => (h.id === editingHasilId ? { ...h, label: newHasil.label, warna: newHasil.warna } : h)));
-    } else {
-      onUpdateHasilKunjungan([...list, { id: generateId("hasil"), label: newHasil.label, warna: newHasil.warna }]);
-    }
-    setNewHasil({ label: "", warna: "blue" }); setEditingHasilId(null);
-  };
-  const handleHapusHasil = (id) => {
-    const dipakai = jumlahLogDenganHasil(id);
-    const pesan = dipakai > 0
-      ? `Hasil ini dipakai di ${dipakai} log kunjungan. Log tetap aman (label hasil ikut tersimpan di log), tapi hasil ini hilang dari pilihan. Lanjut hapus?`
-      : "Hapus hasil kunjungan ini?";
-    if (!confirm(pesan)) return;
-    onUpdateHasilKunjungan((hasilKunjunganList || []).filter((h) => h.id !== id));
-  };
-
   // ========== RENDER KARTU / BARIS ==========
   const badgeStatus = (vendor) => (
     <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getWarnaStatus(vendor.status))}`}>{getLabelStatus(vendor.status)}</span>
@@ -360,7 +332,6 @@ export default function VendorManager({
           <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaKategori(true)} title="Kelola Kategori Vendor"><Settings size={14} className="mr-1"/> Kategori</button>
           <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaPertanyaan(true)} title="Kelola Pertanyaan Awal Vendor"><Settings size={14} className="mr-1"/> Pertanyaan</button>
           <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaTujuan(true)} title="Kelola Tujuan Kunjungan"><Target size={14} className="mr-1"/> Tujuan</button>
-          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaHasil(true)} title="Kelola Hasil Kunjungan"><CheckSquare size={14} className="mr-1"/> Hasil</button>
           <button className="btn btn-primary btn-xs" onClick={handleBukaForm}><Plus size={14} className="mr-1"/> Tambah Vendor</button>
         </div>
       </div>
@@ -665,54 +636,6 @@ export default function VendorManager({
         </div>
       )}
 
-      {/* MODAL KELOLA HASIL KUNJUNGAN */}
-      {showKelolaHasil && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="card bg-white shadow-xl w-full max-w-md">
-            <div className="card-body p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><CheckSquare size={16}/> Kelola Hasil Kunjungan</h3>
-                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaHasil(false)}><X size={18} /></button>
-              </div>
-              <div className="space-y-1 max-h-60 overflow-y-auto">
-                {(hasilKunjunganList || []).length === 0 && <p className="text-xs text-gray-400 italic text-center py-2">Belum ada hasil.</p>}
-                {(hasilKunjunganList || []).map((h) => (
-                  <div key={h.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
-                    <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(h.warna)}`}>{h.label}</span>
-                    <div className="flex gap-1">
-                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditHasil(h)} title="Edit Hasil"><Pencil size={14}/></button>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusHasil(h.id)} title="Hapus Hasil"><Trash2 size={14}/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 space-y-2">
-                <input
-                  type="text"
-                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
-                  placeholder={editingHasilId ? "Edit hasil..." : "Hasil baru (misal: Perlu revisi)"}
-                  value={newHasil.label}
-                  onChange={(e) => setNewHasil({ ...newHasil, label: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && handleSimpanHasil()}
-                />
-                <div className="flex gap-2">
-                  <select className="select select-bordered select-sm flex-1 text-gray-800 bg-white" value={newHasil.warna} onChange={(e) => setNewHasil({ ...newHasil, warna: e.target.value })}>
-                    {WARNA_HASIL.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-                  </select>
-                  {editingHasilId ? (
-                    <>
-                      <button className="btn btn-success btn-sm text-white" onClick={handleSimpanHasil}><Save size={16}/></button>
-                      <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEditHasil}><X size={16}/></button>
-                    </>
-                  ) : (
-                    <button className="btn btn-primary btn-sm" onClick={handleSimpanHasil}><Plus size={16} className="mr-1"/> Tambah</button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

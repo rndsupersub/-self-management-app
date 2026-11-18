@@ -3,8 +3,8 @@
 
 import { useState, useMemo } from "react";
 import { getPeriodeRange, formatTanggalPendek, normalizeEvaluasiData } from "@/lib/evaluasiData";
-import { Calendar, AlertTriangle, CalendarDays, Pencil, Plus, Save, Trash2, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckCircle2, X, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Monitor, FolderOpen } from "lucide-react";
-import { getLabelHasil, getBadgeClass, getWarnaHasil, formatTanggal } from "@/lib/vendorData"; 
+import { Calendar, AlertTriangle, CalendarDays, Pencil, Plus, Save, Trash2, Settings, RefreshCw, List, FileText, Factory, Eye, EyeOff, CheckCircle2, X, Inbox, Link as LinkIcon, Building, ThumbsUp, ThumbsDown, Clock, Monitor, FolderOpen, HelpCircle } from "lucide-react";
+import { PROGRESS_KUNJUNGAN, getStatusKunjungan, getProgressKunjungan, getLabelStatusKunjungan, getWarnaStatusKunjungan, getLabelProgressKunjungan, getWarnaProgressKunjungan, getBadgeClass, formatTanggal } from "@/lib/vendorData"; 
 
 const getTodayLocalDate = () => {
   const d = new Date();
@@ -290,12 +290,15 @@ export default function EvaluasiPekerjaan({
         .sort((a, b) => b.tanggal.localeCompare(a.tanggal));
 
       const total = logs.length;
-      const layak = logs.filter(l => l.hasil === "layak").length;
-      const tidakLayak = logs.filter(l => l.hasil === "tidak_layak").length;
-      const onTrack = logs.filter(l => l.hasil === "on_track").length;
-      const delay = logs.filter(l => l.hasil === "delay").length;
+      // Insight pakai progress kunjungan (on track / delay / selesai), bukan
+      // status layak-tidak layak.
+      const progressKunjungan = PROGRESS_KUNJUNGAN.map((p) => ({
+        ...p,
+        jumlah: logs.filter((l) => getProgressKunjungan(l) === p.id).length,
+      }));
+      const tanpaProgress = logs.filter((l) => !getProgressKunjungan(l)).length;
 
-      return { vendor, logs, total, layak, tidakLayak, onTrack, delay };
+      return { vendor, logs, total, progressKunjungan, tanpaProgress };
     }).filter(v => {
       if (hideEmptyVendors) return v.total > 0;
       return true;
@@ -545,7 +548,7 @@ export default function EvaluasiPekerjaan({
 
             {vendorInsights.length === 0 ? (<p className="text-sm text-gray-400 italic text-center py-4 flex flex-col items-center gap-2"><Inbox size={32} className="opacity-50"/> Belum ada kunjungan vendor di periode ini.</p>) : (
               <div className="space-y-4">
-                {vendorInsights.map(({ vendor, logs, total, layak, tidakLayak, onTrack, delay }) => {
+                {vendorInsights.map(({ vendor, logs, total, progressKunjungan, tanpaProgress }) => {
                   const isExpanded = showAllVendorDetails && (expandedVendors[vendor.id] !== false);
 
                   return (
@@ -567,20 +570,20 @@ export default function EvaluasiPekerjaan({
                           <p className="text-xs text-gray-500 mt-1">Total {total} Kunjungan di periode ini</p>
                         </div>
                         
-                        {/* BADGES STATISTIK */}
-                        <div className="flex flex-wrap gap-2">
-                          <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 flex items-center gap-1 font-semibold">
-                            <ThumbsUp size={12}/> Layak: {layak}
-                          </span>
-                          <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 flex items-center gap-1 font-semibold">
-                            <ThumbsDown size={12}/> Tidak Layak: {tidakLayak}
-                          </span>
-                          <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 border border-blue-300 flex items-center gap-1 font-semibold">
-                            <CheckCircle2 size={12}/> On Track: {onTrack}
-                          </span>
-                          <span className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 border border-orange-300 flex items-center gap-1 font-semibold">
-                            <Clock size={12}/> Delay: {delay}
-                          </span>
+                        {/* BADGES STATISTIK: PROGRESS KUNJUNGAN */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Progress</span>
+                          {progressKunjungan.map((p) => (
+                            <span key={p.id} className={`text-xs px-2 py-1 rounded border flex items-center gap-1 font-semibold ${getBadgeClass(p.warna)}`}>
+                              {p.id === "on_track" ? <CheckCircle2 size={12}/> : p.id === "delay" ? <Clock size={12}/> : <ThumbsUp size={12}/>}
+                              {getLabelProgressKunjungan(p.id)}: {p.jumlah}
+                            </span>
+                          ))}
+                          {tanpaProgress > 0 && (
+                            <span className="text-xs px-2 py-1 rounded border bg-gray-100 text-gray-600 border-gray-300 flex items-center gap-1 font-semibold">
+                              <Clock size={12}/> Belum diisi: {tanpaProgress}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -601,15 +604,20 @@ export default function EvaluasiPekerjaan({
                                   </span>
                                 </div>
                                 
-                                {/* Hasil */}
-                                <div className="md:w-1/4 shrink-0">
-                                   <span className={`text-[10px] px-2 py-0.5 rounded border inline-flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}>
-                                     {log.hasil === "layak" && <ThumbsUp size={10}/>}
-                                     {log.hasil === "tidak_layak" && <ThumbsDown size={10}/>}
-                                     {log.hasil === "on_track" && <CheckCircle2 size={10}/>}
-                                     {log.hasil === "delay" && <Clock size={10}/>}
-                                     {getLabelHasil(log.hasil)}
+                                {/* Status & Progress */}
+                                <div className="md:w-1/4 shrink-0 flex flex-wrap gap-1">
+                                   <span className={`text-[10px] px-2 py-0.5 rounded border inline-flex items-center gap-1 ${getBadgeClass(getWarnaStatusKunjungan(getStatusKunjungan(log)))}`}>
+                                     {getStatusKunjungan(log) === "layak" && <ThumbsUp size={10}/>}
+                                     {getStatusKunjungan(log) === "tidak_layak" && <ThumbsDown size={10}/>}
+                                     {getStatusKunjungan(log) === "belum_diketahui" && <HelpCircle size={10}/>}
+                                     {getLabelStatusKunjungan(getStatusKunjungan(log))}
                                    </span>
+                                   {getProgressKunjungan(log) && (
+                                     <span className={`text-[10px] px-2 py-0.5 rounded border inline-flex items-center gap-1 ${getBadgeClass(getWarnaProgressKunjungan(getProgressKunjungan(log)))}`}>
+                                       <Clock size={10}/>
+                                       {getLabelProgressKunjungan(getProgressKunjungan(log))}
+                                     </span>
+                                   )}
                                 </div>
 
                                 {/* Catatan */}

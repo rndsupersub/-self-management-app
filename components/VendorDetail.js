@@ -2,15 +2,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { METODE_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, DEFAULT_TUJUAN_KUNJUNGAN, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getLabelHasil, getWarnaHasil } from "@/lib/vendorData";
+import { METODE_KUNJUNGAN, STATUS_VENDOR, STATUS_KUNJUNGAN, PROGRESS_KUNJUNGAN, SATUAN_MOQ, DEFAULT_TUJUAN_KUNJUNGAN, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getStatusKunjungan, getProgressKunjungan, getLabelStatusKunjungan, getWarnaStatusKunjungan, getLabelProgressKunjungan, getWarnaProgressKunjungan } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
 import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, FolderOpen, Plus } from "lucide-react";
 
 export default function VendorDetail({
-  vendor, kategoriVendorList = [], tujuanKunjunganList = DEFAULT_TUJUAN_KUNJUNGAN, hasilKunjunganList = HASIL_KUNJUNGAN, fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
+  vendor, kategoriVendorList = [], tujuanKunjunganList = DEFAULT_TUJUAN_KUNJUNGAN, fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
 }) {
   const daftarTujuan = Array.isArray(tujuanKunjunganList) ? tujuanKunjunganList : [];
-  const daftarHasil = Array.isArray(hasilKunjunganList) ? hasilKunjunganList : HASIL_KUNJUNGAN;
   const [showFormKunjungan, setShowFormKunjungan] = useState(false);
   const [editingKunjunganId, setEditingKunjunganId] = useState(null);
   const [filterTujuan, setFilterTujuan] = useState("all");
@@ -21,7 +20,7 @@ export default function VendorDetail({
   const [draftPertanyaanAwal, setDraftPertanyaanAwal] = useState(null);
   // Draft profil: selama belum diubah, tampilkan data vendor terbaru.
   const [draftProfil, setFormProfil] = useState(null);
-  const [formKunjungan, setFormKunjungan] = useState({ tanggal: new Date().toISOString().split("T")[0], tujuanId: daftarTujuan[0]?.id || "scanning", metode: "offline", hasil: daftarHasil[0]?.id || "on_track", catatan: "", gdriveUrl: "" });
+  const [formKunjungan, setFormKunjungan] = useState({ tanggal: new Date().toISOString().split("T")[0], tujuanId: daftarTujuan[0]?.id || "scanning", metode: "offline", status: "belum_diketahui", progress: "", catatan: "", gdriveUrl: "" });
 
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
@@ -92,17 +91,18 @@ export default function VendorDetail({
   };
 
   const resetFormKunjungan = () => {
-    setFormKunjungan({ tanggal: new Date().toISOString().split("T")[0], tujuanId: daftarTujuan[0]?.id || "scanning", metode: "offline", hasil: daftarHasil[0]?.id || "on_track", catatan: "", gdriveUrl: "" });
+    setFormKunjungan({ tanggal: new Date().toISOString().split("T")[0], tujuanId: daftarTujuan[0]?.id || "scanning", metode: "offline", status: "belum_diketahui", progress: "", catatan: "", gdriveUrl: "" });
     setEditingKunjunganId(null); setShowFormKunjungan(false);
   };
 
   const handleSimpanKunjungan = () => {
     if (!formKunjungan.tanggal) return;
-    // Snapshot label tujuan & hasil: kalau nanti salah satunya dihapus dari
-    // daftar, log lama tetap punya keterangan yang kebaca (data nggak hilang).
+    // Snapshot label: kalau nanti tujuan dihapus dari daftar, log lama tetap
+    // punya keterangan yang kebaca (data nggak hilang).
     const tujuanLabel = daftarTujuan.find((t) => t.id === formKunjungan.tujuanId)?.label || "";
-    const hasilLabel = daftarHasil.find((h) => h.id === formKunjungan.hasil)?.label || "";
-    const isiLog = { ...formKunjungan, tujuanLabel, hasilLabel };
+    const statusLabel = getLabelStatusKunjungan(formKunjungan.status);
+    const progressLabel = getLabelProgressKunjungan(formKunjungan.progress);
+    const isiLog = { ...formKunjungan, tujuanLabel, statusLabel, progressLabel };
     let updatedLog;
     if (editingKunjunganId) {
       updatedLog = (vendor.logKunjungan || []).map((log) => log.id === editingKunjunganId ? { ...log, ...isiLog, updatedAt: new Date().toISOString() } : log);
@@ -119,7 +119,7 @@ export default function VendorDetail({
   };
 
   const handleEditKunjungan = (log) => {
-    setFormKunjungan({ tanggal: log.tanggal, tujuanId: log.tujuanId, metode: log.metode, hasil: log.hasil, catatan: log.catatan || "", gdriveUrl: log.gdriveUrl || "" });
+    setFormKunjungan({ tanggal: log.tanggal, tujuanId: log.tujuanId, metode: log.metode, status: getStatusKunjungan(log), progress: getProgressKunjungan(log), catatan: log.catatan || "", gdriveUrl: log.gdriveUrl || "" });
     setEditingKunjunganId(log.id); setShowFormKunjungan(true);
   };
 
@@ -543,7 +543,7 @@ export default function VendorDetail({
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><Monitor size={14}/> Metode</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.metode} onChange={(e) => setFormKunjungan({ ...formKunjungan, metode: e.target.value })}>
@@ -551,12 +551,16 @@ export default function VendorDetail({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><CheckCircle2 size={14}/> Hasil</label>
-                  <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.hasil} onChange={(e) => setFormKunjungan({ ...formKunjungan, hasil: e.target.value })}>
-                    {daftarHasil.map((h) => <option key={h.id} value={h.id}>{cleanText(h.label)}</option>)}
-                    {formKunjungan.hasil && !daftarHasil.some((h) => h.id === formKunjungan.hasil) && (
-                      <option value={formKunjungan.hasil}>{"Hasil lama (dihapus dari daftar)"}</option>
-                    )}
+                  <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><CheckCircle2 size={14}/> Status Kunjungan</label>
+                  <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.status} onChange={(e) => setFormKunjungan({ ...formKunjungan, status: e.target.value })}>
+                    {STATUS_KUNJUNGAN.map((s) => <option key={s.id} value={s.id}>{cleanText(s.label)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><BarChart3 size={14}/> Progress</label>
+                  <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.progress} onChange={(e) => setFormKunjungan({ ...formKunjungan, progress: e.target.value })}>
+                    <option value="">— Belum diisi</option>
+                    {PROGRESS_KUNJUNGAN.map((p) => <option key={p.id} value={p.id}>{cleanText(p.label)}</option>)}
                   </select>
                 </div>
               </div>
@@ -587,6 +591,13 @@ export default function VendorDetail({
             <div className="space-y-2">
               {filteredLog.slice().sort((a, b) => b.tanggal.localeCompare(a.tanggal)).map((log) => {
                 const tujuanData = tujuanKunjunganList.find((t) => t.id === log.tujuanId);
+                const statusLog = getStatusKunjungan(log);
+                const progressLog = getProgressKunjungan(log);
+                // Log lama bisa punya nilai hasil yang nggak masuk status/progress
+                // (misal hasil kustom). Tetap ditampilkan supaya info nggak hilang.
+                const hasilLama = log.hasil && !(log.hasil in { layak: 1, tidak_layak: 1, on_track: 1, delay: 1, selesai: 1 })
+                  ? (log.hasilLabel || log.hasil)
+                  : "";
                 return (
                   <div key={log.id} className="p-3 rounded border border-gray-200 bg-gray-50">
                     <div className="flex justify-between items-start mb-1">
@@ -595,7 +606,13 @@ export default function VendorDetail({
                         <div className="flex flex-wrap gap-1 mt-1">
                           <span className="text-xs px-2 py-0.5 rounded border bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1"><Target size={12}/> {cleanText(tujuanData?.label || log.tujuanLabel || log.tujuanId)}</span>
                           <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1"><Monitor size={12}/> {cleanText(getLabelMetode(log.metode))}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil, daftarHasil))}`}><CheckCircle2 size={12}/> {cleanText(log.hasilLabel || getLabelHasil(log.hasil, daftarHasil))}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaStatusKunjungan(statusLog))}`}><CheckCircle2 size={12}/> {cleanText(log.statusLabel || getLabelStatusKunjungan(statusLog))}</span>
+                          {progressLog && (
+                            <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaProgressKunjungan(progressLog))}`}><BarChart3 size={12}/> {cleanText(log.progressLabel || getLabelProgressKunjungan(progressLog))}</span>
+                          )}
+                          {hasilLama && (
+                            <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-600 border-gray-300 flex items-center gap-1" title="Hasil kunjungan versi lama">{cleanText(hasilLama)}</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-1" data-html2canvas-ignore="true">

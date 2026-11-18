@@ -14,7 +14,7 @@ import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
 import DumpIdeas from "@/components/DumpIdeas";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
-import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, HASIL_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
+import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
 import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus, Lightbulb } from "lucide-react";
 
@@ -29,7 +29,6 @@ export default function BrandPage() {
   const [vendorKategoriList, setVendorKategoriList] = useState(DEFAULT_KATEGORI_VENDOR);
   const [vendorPertanyaanList, setVendorPertanyaanList] = useState(DEFAULT_PERTANYAAN_VENDOR);
   const [vendorTujuanList, setVendorTujuanList] = useState(DEFAULT_TUJUAN_KUNJUNGAN);
-  const [vendorHasilList, setVendorHasilList] = useState(HASIL_KUNJUNGAN);
   const [vendorSatuanMoqList, setVendorSatuanMoqList] = useState(SATUAN_MOQ);
   const [fieldEvaluasiPekerjaanList, setFieldEvaluasiPekerjaanList] = useState(DEFAULT_FIELD_EVALUASI);
   const [fieldEvaluasiVendorList, setFieldEvaluasiVendorList] = useState(DEFAULT_FIELD_EVALUASI_VENDOR);
@@ -64,7 +63,6 @@ export default function BrandPage() {
         if (data.vendorKategoriList) setVendorKategoriList(data.vendorKategoriList);
         if (data.vendorPertanyaanList) setVendorPertanyaanList(data.vendorPertanyaanList);
         if (data.vendorTujuanList) setVendorTujuanList(data.vendorTujuanList);
-        if (Array.isArray(data.vendorHasilKunjunganList)) setVendorHasilList(data.vendorHasilKunjunganList);
         if (data.vendorSatuanMoqList) setVendorSatuanMoqList(data.vendorSatuanMoqList);
         if (data.fieldEvaluasiPekerjaanList) setFieldEvaluasiPekerjaanList(data.fieldEvaluasiPekerjaanList);
         if (data.fieldEvaluasiVendorList) setFieldEvaluasiVendorList(data.fieldEvaluasiVendorList);
@@ -263,9 +261,9 @@ export default function BrandPage() {
 
         {activeTab === "vendor" && (
           selectedVendor ? (
-            <VendorDetail vendor={selectedVendor} kategoriVendorList={vendorKategoriList} tujuanKunjunganList={vendorTujuanList} hasilKunjunganList={vendorHasilList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} periodeEvaluasiList={periodeEvaluasiPekerjaanList} onUpdateVendor={handleUpdateVendor} onDeleteVendor={handleDeleteVendor} onBack={() => setSelectedVendorId(null)} />
+            <VendorDetail vendor={selectedVendor} kategoriVendorList={vendorKategoriList} tujuanKunjunganList={vendorTujuanList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} periodeEvaluasiList={periodeEvaluasiPekerjaanList} onUpdateVendor={handleUpdateVendor} onDeleteVendor={handleDeleteVendor} onBack={() => setSelectedVendorId(null)} />
           ) : (
-            <VendorManager vendorList={vendorList} kategoriVendorList={vendorKategoriList} pertanyaanVendorList={vendorPertanyaanList} tujuanKunjunganList={vendorTujuanList} hasilKunjunganList={vendorHasilList} satuanMoqList={vendorSatuanMoqList} onAddVendor={handleAddVendor} onDeleteVendor={handleDeleteVendor} onClickVendor={setSelectedVendorId} onUpdateKategoriVendor={(u) => { setVendorKategoriList(u); simpanSettings({ vendorKategoriList: u }); }} onUpdatePertanyaanVendor={(u) => { setVendorPertanyaanList(u); simpanSettings({ vendorPertanyaanList: u }); }} onUpdateTujuanKunjungan={(u) => { setVendorTujuanList(u); simpanSettings({ vendorTujuanList: u }); }} onUpdateHasilKunjungan={(u) => { setVendorHasilList(u); simpanSettings({ vendorHasilKunjunganList: u }); }} onUpdateSatuanMoq={(u) => { setVendorSatuanMoqList(u); simpanSettings({ vendorSatuanMoqList: u }); }} />
+            <VendorManager vendorList={vendorList} kategoriVendorList={vendorKategoriList} pertanyaanVendorList={vendorPertanyaanList} tujuanKunjunganList={vendorTujuanList} satuanMoqList={vendorSatuanMoqList} onAddVendor={handleAddVendor} onDeleteVendor={handleDeleteVendor} onClickVendor={setSelectedVendorId} onUpdateKategoriVendor={(u) => { setVendorKategoriList(u); simpanSettings({ vendorKategoriList: u }); }} onUpdatePertanyaanVendor={(u) => { setVendorPertanyaanList(u); simpanSettings({ vendorPertanyaanList: u }); }} onUpdateTujuanKunjungan={(u) => { setVendorTujuanList(u); simpanSettings({ vendorTujuanList: u }); }} onUpdateSatuanMoq={(u) => { setVendorSatuanMoqList(u); simpanSettings({ vendorSatuanMoqList: u }); }} />
           )
         )}
 
