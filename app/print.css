@@ -34,6 +34,20 @@
     box-shadow: none !important;
   }
 
+  /* Tabel (mis. daftar vendor) harus utuh, tidak terpotong scroll horizontal */
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+  table.table {
+    width: 100% !important;
+    font-size: 9pt !important;
+  }
+  table.table th,
+  table.table td {
+    padding: 4px 6px !important;
+    white-space: normal !important;
+  }
+
   /* Pastikan warna tercetak jelas */
   * {
     color: black !important;

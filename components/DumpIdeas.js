@@ -6,15 +6,17 @@ import {
   Lightbulb, Plus, Pencil, Trash2, Eye, EyeOff, X, Save, Network,
   PenLine, Presentation, ChevronLeft, ChevronRight, Eraser, Undo2,
   Search, Calendar, ArrowLeft, Bold, Italic, Underline, List, ListOrdered,
-  AlignLeft, AlignCenter, AlignRight, RemoveFormatting,
+  AlignLeft, AlignCenter, AlignRight, RemoveFormatting, StickyNote, Type,
+  Square, Circle, Minus,
 } from "lucide-react";
 import {
   TIPE_IDE, normalisasiIde, mindmapKosong, slideKosong, susunMindmap,
   tambahAnak, ubahTeksNode, hapusNode, labelTipe, ringkasIde, idBaru,
-  bersihkanHtml, isiSlideKeHtml,
+  bersihkanHtml, isiSlideKeHtml, catatanBaru, WARNA_CATATAN,
+  LATAR_SLIDE, BENTUK_SLIDE, WARNA_BENTUK,
 } from "@/lib/dumpIdeas";
 
-const IKON_TIPE = { mindmap: Network, gambar: PenLine, slide: Presentation };
+const IKON_TIPE = { mindmap: Network, gambar: PenLine, catatan: StickyNote, slide: Presentation };
 
 // Biar teks hasil editor berformat (bold, judul, list) tampil rapi di layar
 // maupun waktu di-print.
@@ -148,13 +150,60 @@ function MindmapEditor({ value, onChange }) {
 const LEBAR_PAPAN = 900;
 const TINGGI_PAPAN = 520;
 
+// setPointerCapture bisa melempar kalau pointer sudah lepas (mis. event sintetis),
+// jadi dibungkus supaya interaksi tetap jalan.
+const tangkapPointer = (el, id) => {
+  try { el?.setPointerCapture?.(id); } catch { /* abaikan */ }
+};
+
+// Satu objek (teks / kotak / bulat / garis) digambar ke canvas. Dipakai waktu
+// menggambar ulang supaya teks & bentuk tetap ada setelah undo/redo.
+const gambarSatuObjek = (ctx, o) => {
+  if (!o) return;
+  ctx.save();
+  ctx.strokeStyle = o.warna || "#1f2937";
+  ctx.fillStyle = o.warna || "#1f2937";
+  ctx.lineWidth = o.tebal || 2;
+  if (o.tipe === "teks") {
+    const ukuran = o.ukuran || 24;
+    ctx.font = `600 ${ukuran}px system-ui, -apple-system, Segoe UI, sans-serif`;
+    String(o.teks || "").split("\n").forEach((baris, i) => {
+      ctx.fillText(baris, o.x, o.y + (i + 1) * ukuran * 1.15);
+    });
+  } else if (o.tipe === "kotak") {
+    ctx.strokeRect(o.x, o.y, o.x2 - o.x, o.y2 - o.y);
+  } else if (o.tipe === "bulat") {
+    const rx = Math.abs(o.x2 - o.x) / 2;
+    const ry = Math.abs(o.y2 - o.y) / 2;
+    ctx.beginPath();
+    ctx.ellipse(Math.min(o.x, o.x2) + rx, Math.min(o.y, o.y2) + ry, rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (o.tipe === "garis") {
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(o.x2, o.y2);
+    ctx.stroke();
+  }
+  ctx.restore();
+};
+
 function PapanGambar({ value, onChange }) {
   const canvasRef = useRef(null);
+  const [alat, setAlat] = useState("pena");
   const [warna, setWarna] = useState("#1f2937");
   const [tebal, setTebal] = useState(4);
-  const [hapus, setHapus] = useState(false);
+  const [ukuranTeks, setUkuranTeks] = useState(24);
+  const [inputTeks, setInputTeks] = useState(null);
   const coretanRef = useRef(Array.isArray(value.coretan) ? value.coretan : []);
+  const objekRef = useRef(Array.isArray(value.objek) ? value.objek : []);
   const sedangRef = useRef(null);
+  const bentukRef = useRef(null);
+
+  const simpan = () => onChange({
+    coretan: coretanRef.current,
+    objek: objekRef.current,
+    dataUrl: canvasRef.current?.toDataURL("image/jpeg", 0.6) || "",
+  });
 
   const gambarUlang = () => {
     const canvas = canvasRef.current;
@@ -174,6 +223,8 @@ function PapanGambar({ value, onChange }) {
       if (g.titik.length === 1) ctx.lineTo(g.titik[0][0] + 0.1, g.titik[0][1] + 0.1);
       ctx.stroke();
     });
+    objekRef.current.forEach((o) => gambarSatuObjek(ctx, o));
+    gambarSatuObjek(ctx, bentukRef.current);
   };
 
   useEffect(() => {
@@ -188,6 +239,7 @@ function PapanGambar({ value, onChange }) {
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, LEBAR_PAPAN, TINGGI_PAPAN);
       ctx.drawImage(img, 0, 0, LEBAR_PAPAN, TINGGI_PAPAN);
+      objekRef.current.forEach((o) => gambarSatuObjek(ctx, o));
     };
     img.src = value.dataUrl;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -200,77 +252,331 @@ function PapanGambar({ value, onChange }) {
   };
 
   const mulai = (e) => {
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    sedangRef.current = { warna, tebal, hapus, titik: [posisi(e)] };
-    gambarUlang();
+    if (alat === "teks") {
+      const [x, y] = posisi(e);
+      setInputTeks({ x, y, teks: "" });
+      return;
+    }
+    tangkapPointer(e.currentTarget, e.pointerId);
+    if (alat === "pena" || alat === "hapus") {
+      sedangRef.current = { warna, tebal, hapus: alat === "hapus", titik: [posisi(e)] };
+      gambarUlang();
+      return;
+    }
+    const [x, y] = posisi(e);
+    bentukRef.current = { tipe: alat, warna, tebal: Math.max(2, tebal), x, y, x2: x, y2: y };
   };
 
   const jalan = (e) => {
-    if (!sedangRef.current) return;
-    sedangRef.current.titik.push(posisi(e));
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.beginPath();
-    ctx.strokeStyle = hapus ? "#ffffff" : warna;
-    ctx.lineWidth = tebal;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    sedangRef.current.titik.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-    ctx.stroke();
+    if (sedangRef.current) {
+      sedangRef.current.titik.push(posisi(e));
+      const ctx = canvasRef.current?.getContext("2d");
+      if (!ctx) return;
+      ctx.beginPath();
+      ctx.strokeStyle = sedangRef.current.hapus ? "#ffffff" : sedangRef.current.warna;
+      ctx.lineWidth = sedangRef.current.tebal;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      sedangRef.current.titik.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+      ctx.stroke();
+      return;
+    }
+    if (bentukRef.current) {
+      const [x, y] = posisi(e);
+      bentukRef.current = { ...bentukRef.current, x2: x, y2: y };
+      gambarUlang();
+    }
   };
 
   const selesai = () => {
-    if (!sedangRef.current) return;
-    coretanRef.current = [...coretanRef.current, sedangRef.current];
-    sedangRef.current = null;
-    onChange({ coretan: coretanRef.current, dataUrl: canvasRef.current?.toDataURL("image/jpeg", 0.6) || "" });
+    if (sedangRef.current) {
+      coretanRef.current = [...coretanRef.current, sedangRef.current];
+      sedangRef.current = null;
+      simpan();
+      return;
+    }
+    if (bentukRef.current) {
+      objekRef.current = [...objekRef.current, bentukRef.current];
+      bentukRef.current = null;
+      gambarUlang();
+      simpan();
+    }
+  };
+
+  const tambahTeks = () => {
+    if (!inputTeks) return;
+    const teks = inputTeks.teks.trim();
+    if (teks) {
+      objekRef.current = [...objekRef.current, { id: idBaru("objek"), tipe: "teks", x: inputTeks.x, y: inputTeks.y, teks, ukuran: ukuranTeks, warna }];
+      gambarUlang();
+      simpan();
+    }
+    setInputTeks(null);
   };
 
   const undo = () => {
-    coretanRef.current = coretanRef.current.slice(0, -1);
+    if (objekRef.current.length > 0) objekRef.current = objekRef.current.slice(0, -1);
+    else coretanRef.current = coretanRef.current.slice(0, -1);
     gambarUlang();
-    onChange({ coretan: coretanRef.current, dataUrl: canvasRef.current?.toDataURL("image/jpeg", 0.6) || "" });
+    simpan();
   };
 
   const bersihkan = () => {
-    if (!confirm("Hapus semua gambar di papan ini?")) return;
+    if (!confirm("Hapus semua gambar & tulisan di papan ini?")) return;
     coretanRef.current = [];
+    objekRef.current = [];
     gambarUlang();
-    onChange({ coretan: [], dataUrl: "" });
+    onChange({ coretan: [], objek: [], dataUrl: "" });
   };
+
+  const alatDaftar = [
+    { id: "pena", label: "Pena", ikon: PenLine },
+    { id: "teks", label: "Teks", ikon: Type },
+    { id: "kotak", label: "Kotak", ikon: Square },
+    { id: "bulat", label: "Bulat", ikon: Circle },
+    { id: "garis", label: "Garis", ikon: Minus },
+    { id: "hapus", label: "Penghapus", ikon: Eraser },
+  ];
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded p-2">
-        {["#1f2937", "#2563eb", "#dc2626", "#16a34a", "#d97706"].map((w) => (
+        <div className="join" role="group" aria-label="Alat papan tulis">
+          {alatDaftar.map((a) => {
+            const Ikon = a.ikon;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                className={`btn btn-xs join-item ${alat === a.id ? "btn-primary" : "btn-ghost text-gray-700"}`}
+                onClick={() => { setAlat(a.id); setInputTeks(null); }}
+                title={a.label}
+              >
+                <Ikon size={12} className="md:mr-1" /> <span className="hidden md:inline">{a.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <span className="w-px h-5 bg-gray-300" />
+
+        {["#1f2937", "#2563eb", "#dc2626", "#16a34a", "#d97706", "#7c3aed"].map((w) => (
           <button
             key={w}
-            className={`w-6 h-6 rounded-full border-2 ${warna === w && !hapus ? "border-gray-800" : "border-white"}`}
+            type="button"
+            className={`w-6 h-6 rounded-full border-2 ${warna === w ? "border-gray-800" : "border-white"}`}
             style={{ backgroundColor: w }}
-            onClick={() => { setWarna(w); setHapus(false); }}
+            onClick={() => setWarna(w)}
             title={`Warna ${w}`}
           />
         ))}
-        <button className={`btn btn-xs ${hapus ? "btn-error" : "btn-ghost text-gray-700"}`} onClick={() => setHapus(!hapus)}>
-          <Eraser size={12} /> Penghapus
-        </button>
+
         <label className="text-xs text-gray-600 flex items-center gap-1">
-          Tebal
-          <input type="range" min="1" max="20" value={tebal} onChange={(e) => setTebal(Number(e.target.value))} className="w-24" />
+          {alat === "teks" ? "Ukuran" : "Tebal"}
+          {alat === "teks" ? (
+            <input type="range" min="12" max="72" step="2" value={ukuranTeks} onChange={(e) => setUkuranTeks(Number(e.target.value))} className="w-24" />
+          ) : (
+            <input type="range" min="1" max="20" value={tebal} onChange={(e) => setTebal(Number(e.target.value))} className="w-24" />
+          )}
         </label>
+
         <button className="btn btn-ghost btn-xs text-gray-700" onClick={undo}><Undo2 size={12} /> Undo</button>
         <button className="btn btn-ghost btn-xs text-red-500" onClick={bersihkan}><Trash2 size={12} /> Kosongkan</button>
       </div>
-      <canvas
-        ref={canvasRef}
-        width={LEBAR_PAPAN}
-        height={TINGGI_PAPAN}
-        onPointerDown={mulai}
-        onPointerMove={jalan}
-        onPointerUp={selesai}
-        onPointerLeave={selesai}
-        className="w-full border border-gray-200 rounded bg-white touch-none cursor-crosshair"
-      />
+
+      <div className="relative">
+        <canvas
+          ref={canvasRef}
+          width={LEBAR_PAPAN}
+          height={TINGGI_PAPAN}
+          onPointerDown={mulai}
+          onPointerMove={jalan}
+          onPointerUp={selesai}
+          onPointerLeave={selesai}
+          className={`w-full border border-gray-200 rounded bg-white touch-none ${alat === "teks" ? "cursor-text" : alat === "hapus" ? "cursor-cell" : "cursor-crosshair"}`}
+        />
+        {inputTeks && (
+          <div
+            className="absolute z-10 bg-white border border-blue-300 rounded shadow-lg p-2 w-52"
+            style={{
+              left: `min(${(inputTeks.x / LEBAR_PAPAN) * 100}%, calc(100% - 13rem))`,
+              top: `min(${(inputTeks.y / TINGGI_PAPAN) * 100}%, calc(100% - 7rem))`,
+            }}
+          >
+            <textarea
+              className="textarea textarea-bordered textarea-xs w-full text-gray-800 bg-white"
+              rows={2}
+              placeholder="Tulis teks..."
+              value={inputTeks.teks}
+              onChange={(e) => setInputTeks({ ...inputTeks, teks: e.target.value })}
+              autoFocus
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); tambahTeks(); } }}
+            />
+            <div className="flex gap-1 mt-1">
+              <button className="btn btn-primary btn-xs flex-1" onClick={tambahTeks}>Tambah</button>
+              <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setInputTeks(null)}>Batal</button>
+            </div>
+          </div>
+        )}
+      </div>
+      <p className="text-[11px] text-gray-500">
+        Pilih alat lalu klik/geser di papan. Mode Teks: klik satu titik, tulis, lalu Tambah (Shift+Enter untuk baris baru).
+      </p>
+    </div>
+  );
+}
+
+// ======================= STICKY NOTES =======================
+const warnaCatatanDari = (id) => WARNA_CATATAN.find((w) => w.id === id) || WARNA_CATATAN[0];
+
+function PapanCatatan({ value, onChange }) {
+  const papanRef = useRef(null);
+  const geserRef = useRef(null);
+  const [warnaBaru, setWarnaBaru] = useState("kuning");
+  const catatan = Array.isArray(value?.catatan) ? value.catatan : [];
+
+  const simpan = (list) => onChange({ catatan: list });
+  const ubah = (id, patch) => simpan(catatan.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const hapus = (id) => {
+    if (!confirm("Hapus catatan ini?")) return;
+    simpan(catatan.filter((c) => c.id !== id));
+  };
+  const tambah = () => simpan([...catatan, catatanBaru(warnaBaru)]);
+
+  const mulaiGeser = (e, c) => {
+    if (e.target.closest("textarea") || e.target.closest("button") || e.target.closest("select")) return;
+    const rect = papanRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    tangkapPointer(e.currentTarget, e.pointerId);
+    geserRef.current = {
+      id: c.id,
+      dx: e.clientX - rect.left - (c.x / 100) * rect.width,
+      dy: e.clientY - rect.top - (c.y / 100) * rect.height,
+    };
+  };
+
+  const geser = (e) => {
+    const g = geserRef.current;
+    if (!g) return;
+    const rect = papanRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = ((e.clientX - rect.left - g.dx) / rect.width) * 100;
+    const y = ((e.clientY - rect.top - g.dy) / rect.height) * 100;
+    ubah(g.id, { x: Math.max(0, Math.min(84, x)), y: Math.max(0, Math.min(82, y)) });
+  };
+
+  const lepas = () => { geserRef.current = null; };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded p-2">
+        <button className="btn btn-primary btn-xs" onClick={tambah}><Plus size={12} /> Tambah Catatan</button>
+        <span className="text-xs text-gray-600">Warna catatan baru:</span>
+        <div className="flex gap-1">
+          {WARNA_CATATAN.map((w) => (
+            <button
+              key={w.id}
+              type="button"
+              className={`w-5 h-5 rounded border-2 ${warnaBaru === w.id ? "border-gray-800" : "border-white"}`}
+              style={{ backgroundColor: w.bg, borderColor: warnaBaru === w.id ? "#1f2937" : w.border }}
+              onClick={() => setWarnaBaru(w.id)}
+              title={w.label}
+            />
+          ))}
+        </div>
+        <span className="text-[11px] text-gray-500 ml-auto">{catatan.length} catatan · geser kartu untuk memindahkan</span>
+      </div>
+
+      <div
+        ref={papanRef}
+        className="relative w-full rounded-lg border-2 border-dashed border-gray-300 bg-[#f8fafc] overflow-hidden"
+        style={{ paddingBottom: "56%" }}
+        onPointerMove={geser}
+        onPointerUp={lepas}
+        onPointerLeave={lepas}
+      >
+        {catatan.length === 0 && (
+          <p className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 italic">
+            Papan masih kosong. Klik &quot;Tambah Catatan&quot;.
+          </p>
+        )}
+        {catatan.map((c) => {
+          const w = warnaCatatanDari(c.warna);
+          return (
+            <div
+              key={c.id}
+              className="absolute rounded shadow-md p-2 flex flex-col"
+              style={{
+                left: `${c.x}%`,
+                top: `${c.y}%`,
+                width: 168,
+                height: 150,
+                backgroundColor: w.bg,
+                border: `1px solid ${w.border}`,
+                transform: `rotate(${c.rotasi || 0}deg)`,
+                touchAction: "none",
+              }}
+              onPointerDown={(e) => mulaiGeser(e, c)}
+            >
+              <div className="flex items-center justify-between mb-1 cursor-move">
+                <select
+                  className="select select-xs bg-transparent border-0 text-[10px] text-gray-600 p-0 h-5"
+                  value={c.warna}
+                  onChange={(e) => ubah(c.id, { warna: e.target.value })}
+                  title="Warna catatan"
+                >
+                  {WARNA_CATATAN.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+                <div className="flex items-center gap-0.5">
+                  <button className="btn btn-ghost btn-xs px-1" onClick={() => ubah(c.id, { ukuran: Math.max(10, (c.ukuran || 14) - 2) })} title="Perkecil huruf"><Minus size={10} /></button>
+                  <button className="btn btn-ghost btn-xs px-1" onClick={() => ubah(c.id, { ukuran: Math.min(28, (c.ukuran || 14) + 2) })} title="Perbesar huruf"><Plus size={10} /></button>
+                  <button className="btn btn-ghost btn-xs px-1 text-red-500" onClick={() => hapus(c.id)} title="Hapus catatan"><Trash2 size={11} /></button>
+                </div>
+              </div>
+              <textarea
+                className="flex-1 w-full bg-transparent resize-none focus:outline-none text-gray-800"
+                style={{ fontSize: c.ukuran || 14 }}
+                placeholder="Tulis catatan..."
+                value={c.teks}
+                onChange={(e) => ubah(c.id, { teks: e.target.value })}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PapanCatatanBaca({ isi }) {
+  const catatan = Array.isArray(isi?.catatan) ? isi.catatan : [];
+  return (
+    <div className="border border-gray-200 rounded-lg bg-[#f8fafc] p-3">
+      <div className="relative w-full" style={{ paddingBottom: "56%" }}>
+        {catatan.length === 0 && <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-400 italic">Papan catatan masih kosong.</p>}
+        {catatan.map((c) => {
+          const w = warnaCatatanDari(c.warna);
+          return (
+            <div
+              key={c.id}
+              className="absolute rounded shadow-sm p-2 overflow-hidden"
+              style={{
+                left: `${c.x}%`,
+                top: `${c.y}%`,
+                width: 168,
+                height: 150,
+                backgroundColor: w.bg,
+                border: `1px solid ${w.border}`,
+                transform: `rotate(${c.rotasi || 0}deg)`,
+              }}
+            >
+              <p className="whitespace-pre-wrap break-words text-gray-800" style={{ fontSize: c.ukuran || 14 }}>
+                {c.teks || <span className="text-gray-400 italic">(kosong)</span>}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -342,6 +648,48 @@ function EditorTeks({ html, onChange, onFokus }) {
   );
 }
 
+// Satu slide dirender sama persis di editor, pratinjau, dan hasil baca (PDF).
+const UKURAN_JUDUL = { kecil: "text-lg", sedang: "text-xl", besar: "text-2xl" };
+const UKURAN_TEKS = { kecil: "text-xs", sedang: "text-sm", besar: "text-base" };
+const PERATAAN = { kiri: "text-left", tengah: "text-center", kanan: "text-right" };
+const WARNA_JUDUL = [
+  { id: "gelap", label: "Gelap", nilai: "#1f2937" },
+  { id: "biru", label: "Biru", nilai: "#1d4ed8" },
+  { id: "putih", label: "Putih", nilai: "#ffffff" },
+  { id: "merah", label: "Merah", nilai: "#b91c1c" },
+];
+
+function SlideBlok({ slide, label }) {
+  const bentuk = slide.bentuk || "tidak";
+  const warnaBentuk = slide.warnaBentuk || "#2563eb";
+  const perataan = PERATAAN[slide.perataan] || PERATAAN.kiri;
+  return (
+    <div
+      className="relative overflow-hidden rounded border border-gray-200 p-5 break-inside-avoid"
+      style={{ backgroundColor: slide.latar || "#ffffff" }}
+    >
+      {bentuk === "kotak" && <div className="absolute right-0 top-0 w-24 h-24 rounded-bl-3xl opacity-80" style={{ backgroundColor: warnaBentuk }} />}
+      {bentuk === "bulat" && <div className="absolute -right-10 -bottom-12 w-40 h-40 rounded-full opacity-30" style={{ backgroundColor: warnaBentuk }} />}
+      {bentuk === "garis" && <div className="absolute left-0 right-0 bottom-0 h-2" style={{ backgroundColor: warnaBentuk }} />}
+      {bentuk === "miring" && <div className="absolute right-0 top-0 bottom-0 w-20 opacity-20" style={{ backgroundColor: warnaBentuk, transform: "skewX(-14deg)" }} />}
+
+      <div className={`relative ${perataan}`}>
+        {label && <p className="text-[10px] font-semibold text-gray-400 mb-1">{label}</p>}
+        <h4
+          className={`font-bold mb-3 ${UKURAN_JUDUL[slide.ukuranJudul] || UKURAN_JUDUL.besar}`}
+          style={{ color: slide.warnaJudul || "#1f2937" }}
+        >
+          {slide.judul || "(tanpa judul)"}
+        </h4>
+        <div
+          className={`${KELAS_TEKS} ${UKURAN_TEKS[slide.ukuranTeks] || UKURAN_TEKS.sedang}`}
+          dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function SlideEditor({ value, onChange }) {
   const [aktif, setAktif] = useState(0);
   const [modePratinjau, setModePratinjau] = useState(false);
@@ -388,11 +736,60 @@ function SlideEditor({ value, onChange }) {
         onChange={(e) => ubah({ judul: e.target.value })}
       />
 
-      {modePratinjau ? (
-        <div className="border border-gray-200 rounded bg-white p-6 min-h-[240px]">
-          <h4 className="text-lg font-bold text-gray-800 mb-3">{slide.judul || "(tanpa judul)"}</h4>
-          <div className={KELAS_TEKS} dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50 border border-gray-200 rounded p-2" data-html2canvas-ignore="true">
+        <label className="text-[11px] text-gray-600">
+          Latar slide
+          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.latar || "#ffffff"} onChange={(e) => ubah({ latar: e.target.value })}>
+            {LATAR_SLIDE.map((l) => <option key={l.id} value={l.nilai}>{l.label}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] text-gray-600">
+          Warna judul
+          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.warnaJudul || "#1f2937"} onChange={(e) => ubah({ warnaJudul: e.target.value })}>
+            {WARNA_JUDUL.map((w) => <option key={w.id} value={w.nilai}>{w.label}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] text-gray-600">
+          Bentuk hiasan
+          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.bentuk || "tidak"} onChange={(e) => ubah({ bentuk: e.target.value })}>
+            {BENTUK_SLIDE.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] text-gray-600">
+          Warna bentuk
+          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.warnaBentuk || "#2563eb"} onChange={(e) => ubah({ warnaBentuk: e.target.value })}>
+            {WARNA_BENTUK.map((w) => <option key={w.id} value={w.nilai}>{w.label}</option>)}
+          </select>
+        </label>
+        <label className="text-[11px] text-gray-600">
+          Ukuran judul
+          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.ukuranJudul || "besar"} onChange={(e) => ubah({ ukuranJudul: e.target.value })}>
+            <option value="kecil">Kecil</option><option value="sedang">Sedang</option><option value="besar">Besar</option>
+          </select>
+        </label>
+        <label className="text-[11px] text-gray-600">
+          Ukuran teks
+          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.ukuranTeks || "sedang"} onChange={(e) => ubah({ ukuranTeks: e.target.value })}>
+            <option value="kecil">Kecil</option><option value="sedang">Sedang</option><option value="besar">Besar</option>
+          </select>
+        </label>
+        <div className="text-[11px] text-gray-600 md:col-span-2">
+          Perataan
+          <div className="join mt-0.5">
+            {["kiri", "tengah", "kanan"].map((p) => {
+              const Ikon = p === "kiri" ? AlignLeft : p === "tengah" ? AlignCenter : AlignRight;
+              return (
+                <button key={p} type="button" className={`btn btn-xs join-item ${slide.perataan === p ? "btn-primary" : "btn-ghost text-gray-700"}`} onClick={() => ubah({ perataan: p })} title={`Rata ${p}`}>
+                  <Ikon size={12} /> <span className="hidden md:inline">{p}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+      </div>
+
+      {modePratinjau ? (
+        <SlideBlok slide={slide} />
       ) : (
         <>
           <EditorTeks html={isiSlideKeHtml(slide.isi)} onChange={(html) => ubah({ isi: html })} />
@@ -424,11 +821,7 @@ function SlideBaca({ isi }) {
   return (
     <div className="space-y-3">
       {(isi.slides || []).map((slide, i) => (
-        <div key={slide.id || i} className="border border-gray-200 rounded bg-white p-5 break-inside-avoid">
-          <p className="text-[10px] font-semibold text-gray-400 mb-1">SLIDE {i + 1}</p>
-          <h4 className="text-lg font-bold text-gray-800 mb-3">{slide.judul || "(tanpa judul)"}</h4>
-          <div className={KELAS_TEKS} dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }} />
-        </div>
+        <SlideBlok key={slide.id || i} slide={slide} label={`SLIDE ${i + 1}`} />
       ))}
     </div>
   );
@@ -470,11 +863,13 @@ function LihatIde({ ide, onKembali, onEdit, onSembunyikan, onHapus }) {
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={ide.isi.dataUrl} alt={ide.judul} className="w-full rounded border border-gray-200" />
             ) : (
-              <p className="text-sm text-gray-400 italic text-center py-10">Papan gambar masih kosong.</p>
+              <p className="text-sm text-gray-400 italic text-center py-10">Papan tulis masih kosong.</p>
             )}
           </div>
         </div>
       )}
+
+      {ide.tipe === "catatan" && <PapanCatatanBaca isi={ide.isi} />}
 
       {ide.tipe === "slide" && <SlideBaca isi={ide.isi} />}
     </div>
@@ -491,7 +886,9 @@ function EditorIde({ awal, onSimpan, onBatal }) {
     const isi = tipe === "mindmap"
       ? (ide.isi.root ? { root: ide.isi.root } : mindmapKosong(ide.judul))
       : tipe === "gambar"
-      ? { coretan: ide.isi.coretan || [], dataUrl: ide.isi.dataUrl || "" }
+      ? { coretan: ide.isi.coretan || [], objek: ide.isi.objek || [], dataUrl: ide.isi.dataUrl || "" }
+      : tipe === "catatan"
+      ? (Array.isArray(ide.isi.catatan) ? { catatan: ide.isi.catatan } : { catatan: [catatanBaru()] })
       : (ide.isi.slides ? { slides: ide.isi.slides } : slideKosong());
     setIde({ ...ide, tipe, isi });
   };
@@ -533,6 +930,7 @@ function EditorIde({ awal, onSimpan, onBatal }) {
 
           {ide.tipe === "mindmap" && <MindmapEditor value={ide.isi} onChange={(isi) => setIde({ ...ide, isi })} />}
           {ide.tipe === "gambar" && <PapanGambar value={ide.isi} onChange={(isi) => setIde({ ...ide, isi })} />}
+          {ide.tipe === "catatan" && <PapanCatatan value={ide.isi} onChange={(isi) => setIde({ ...ide, isi })} />}
           {ide.tipe === "slide" && <SlideEditor value={ide.isi} onChange={(isi) => setIde({ ...ide, isi })} />}
 
           <div className="flex gap-2 pt-2 border-t border-gray-200">
@@ -562,6 +960,7 @@ function KartuIde({ ide, onBuka, onEdit, onSembunyikan, onHapus }) {
           </div>
         </button>
         <div className="flex gap-0.5 shrink-0" data-html2canvas-ignore="true">
+          <button className="btn btn-outline btn-xs text-gray-700" onClick={onBuka} title="Lihat isi ide"><Eye size={12} /> Lihat</button>
           <button className="btn btn-ghost btn-xs text-gray-500" onClick={onSembunyikan} title={ide.disembunyikan ? "Tampilkan" : "Sembunyikan"}>
             {ide.disembunyikan ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
@@ -601,7 +1000,17 @@ export default function DumpIdeas({ ideList = [], onUpdate, brandNama = "" }) {
 
   const ideBaru = (tipe) => setEditor({
     mode: "baru",
-    ide: normalisasiIde({ judul: "", tipe, isi: tipe === "mindmap" ? mindmapKosong() : tipe === "gambar" ? {} : slideKosong() }),
+    ide: normalisasiIde({
+      judul: "",
+      tipe,
+      isi: tipe === "mindmap"
+        ? mindmapKosong()
+        : tipe === "gambar"
+        ? {}
+        : tipe === "catatan"
+        ? { catatan: [catatanBaru()] }
+        : slideKosong(),
+    }),
   });
 
   const hapus = (ide) => {
@@ -636,11 +1045,12 @@ export default function DumpIdeas({ ideList = [], onUpdate, brandNama = "" }) {
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
                 <Lightbulb size={18} className="text-amber-500" /> Dump Ideas {brandNama ? `— ${brandNama}` : ""}
               </h3>
-              <p className="text-xs text-gray-500 mt-0.5">Tempat nampung ide mentah: mindmap, gambar, atau slide. Simpan dulu, rapikan nanti.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Tempat nampung ide mentah: mindmap, papan tulis, sticky notes, atau slide. Simpan dulu, rapikan nanti.</p>
             </div>
             <div className="flex flex-wrap gap-1" data-html2canvas-ignore="true">
               <button className="btn btn-primary btn-sm" onClick={() => ideBaru("mindmap")}><Plus size={14} /> Mindmap</button>
-              <button className="btn btn-outline btn-sm text-gray-700" onClick={() => ideBaru("gambar")}><PenLine size={14} /> Gambar</button>
+              <button className="btn btn-outline btn-sm text-gray-700" onClick={() => ideBaru("gambar")}><PenLine size={14} /> Papan Tulis</button>
+              <button className="btn btn-outline btn-sm text-gray-700" onClick={() => ideBaru("catatan")}><StickyNote size={14} /> Sticky Notes</button>
               <button className="btn btn-outline btn-sm text-gray-700" onClick={() => ideBaru("slide")}><Presentation size={14} /> Slide</button>
             </div>
           </div>

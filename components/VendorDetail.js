@@ -2,22 +2,26 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { METODE_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getLabelHasil, getWarnaHasil } from "@/lib/vendorData";
+import { METODE_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, DEFAULT_TUJUAN_KUNJUNGAN, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getLabelHasil, getWarnaHasil } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
 import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, FolderOpen, Plus } from "lucide-react";
 
 export default function VendorDetail({
-  vendor, kategoriVendorList = [], tujuanKunjunganList = [], fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
+  vendor, kategoriVendorList = [], tujuanKunjunganList = DEFAULT_TUJUAN_KUNJUNGAN, hasilKunjunganList = HASIL_KUNJUNGAN, fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
 }) {
+  const daftarTujuan = Array.isArray(tujuanKunjunganList) ? tujuanKunjunganList : [];
+  const daftarHasil = Array.isArray(hasilKunjunganList) ? hasilKunjunganList : HASIL_KUNJUNGAN;
   const [showFormKunjungan, setShowFormKunjungan] = useState(false);
   const [editingKunjunganId, setEditingKunjunganId] = useState(null);
   const [filterTujuan, setFilterTujuan] = useState("all");
   const [confirmHapusVendor, setConfirmHapusVendor] = useState(false);
 
   const [showEditProfil, setShowEditProfil] = useState(false);
+  const [showEditPertanyaanAwal, setShowEditPertanyaanAwal] = useState(false);
+  const [draftPertanyaanAwal, setDraftPertanyaanAwal] = useState(null);
   // Draft profil: selama belum diubah, tampilkan data vendor terbaru.
   const [draftProfil, setFormProfil] = useState(null);
-  const [formKunjungan, setFormKunjungan] = useState({ tanggal: new Date().toISOString().split("T")[0], tujuanId: tujuanKunjunganList[0]?.id || "scanning", metode: "offline", hasil: "on_track", catatan: "", gdriveUrl: "" });
+  const [formKunjungan, setFormKunjungan] = useState({ tanggal: new Date().toISOString().split("T")[0], tujuanId: daftarTujuan[0]?.id || "scanning", metode: "offline", hasil: daftarHasil[0]?.id || "on_track", catatan: "", gdriveUrl: "" });
 
   const [activePeriode, setActivePeriode] = useState(periodeEvaluasiList[0]?.id || "bulanan");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
@@ -88,17 +92,22 @@ export default function VendorDetail({
   };
 
   const resetFormKunjungan = () => {
-    setFormKunjungan({ tanggal: new Date().toISOString().split("T")[0], tujuanId: tujuanKunjunganList[0]?.id || "scanning", metode: "offline", hasil: "on_track", catatan: "", gdriveUrl: "" });
+    setFormKunjungan({ tanggal: new Date().toISOString().split("T")[0], tujuanId: daftarTujuan[0]?.id || "scanning", metode: "offline", hasil: daftarHasil[0]?.id || "on_track", catatan: "", gdriveUrl: "" });
     setEditingKunjunganId(null); setShowFormKunjungan(false);
   };
 
   const handleSimpanKunjungan = () => {
     if (!formKunjungan.tanggal) return;
+    // Snapshot label tujuan & hasil: kalau nanti salah satunya dihapus dari
+    // daftar, log lama tetap punya keterangan yang kebaca (data nggak hilang).
+    const tujuanLabel = daftarTujuan.find((t) => t.id === formKunjungan.tujuanId)?.label || "";
+    const hasilLabel = daftarHasil.find((h) => h.id === formKunjungan.hasil)?.label || "";
+    const isiLog = { ...formKunjungan, tujuanLabel, hasilLabel };
     let updatedLog;
     if (editingKunjunganId) {
-      updatedLog = (vendor.logKunjungan || []).map((log) => log.id === editingKunjunganId ? { ...log, ...formKunjungan, updatedAt: new Date().toISOString() } : log);
+      updatedLog = (vendor.logKunjungan || []).map((log) => log.id === editingKunjunganId ? { ...log, ...isiLog, updatedAt: new Date().toISOString() } : log);
     } else {
-      updatedLog = [...(vendor.logKunjungan || []), { id: generateId("kunjungan"), ...formKunjungan, createdAt: new Date().toISOString() }];
+      updatedLog = [...(vendor.logKunjungan || []), { id: generateId("kunjungan"), ...isiLog, createdAt: new Date().toISOString() }];
     }
     onUpdateVendor({ ...vendor, logKunjungan: updatedLog, updatedAt: new Date().toISOString() });
     resetFormKunjungan();
@@ -115,6 +124,19 @@ export default function VendorDetail({
   };
 
   const handleUbahStatus = (newStatus) => { onUpdateVendor({ ...vendor, status: newStatus, updatedAt: new Date().toISOString() }); };
+
+  // Pertanyaan awal disimpan per vendor (bukan template global), jadi edit di
+  // sini tidak mengubah pertanyaan default untuk vendor berikutnya.
+  const pertanyaanAwal = Array.isArray(vendor?.pertanyaanAwal) ? vendor.pertanyaanAwal : [];
+  const handleUbahPertanyaanDraft = (idx, patch) => {
+    setDraftPertanyaanAwal((draft) => (draft || []).map((q, i) => (i === idx ? { ...q, ...patch } : q)));
+  };
+  const handleSimpanPertanyaanAwal = () => {
+    const bersih = (draftPertanyaanAwal || []).filter((q) => String(q.pertanyaan || "").trim() !== "");
+    onUpdateVendor({ ...vendor, pertanyaanAwal: bersih, updatedAt: new Date().toISOString() });
+    setDraftPertanyaanAwal(null);
+    setShowEditPertanyaanAwal(false);
+  };
 
   const handlePrevEval = () => {
     const def = periodeEvaluasiList.find((p) => p.id === activePeriode);
@@ -305,6 +327,76 @@ export default function VendorDetail({
         </div>
       </div>
 
+      <div className="card bg-white shadow border border-gray-200">
+        <div className="card-body p-4">
+          <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><List size={16}/> Pertanyaan Awal Vendor ({pertanyaanAwal.length})</h3>
+            <div className="flex gap-1" data-html2canvas-ignore="true">
+              {!showEditPertanyaanAwal ? (
+                <button className="btn btn-ghost btn-xs text-blue-600" onClick={() => { setDraftPertanyaanAwal(pertanyaanAwal.map((q) => ({ ...q }))); setShowEditPertanyaanAwal(true); }}>
+                  <Pencil size={14} className="mr-1"/> Edit Jawaban
+                </button>
+              ) : (
+                <>
+                  <button className="btn btn-primary btn-xs" onClick={handleSimpanPertanyaanAwal}><Save size={14} className="mr-1"/> Simpan</button>
+                  <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => { setDraftPertanyaanAwal(null); setShowEditPertanyaanAwal(false); }}>Batal</button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {pertanyaanAwal.length === 0 && !showEditPertanyaanAwal && (
+            <p className="text-xs text-gray-400 italic text-center py-2">Belum ada pertanyaan awal untuk vendor ini.</p>
+          )}
+
+          {!showEditPertanyaanAwal ? (
+            <div className="space-y-2">
+              {pertanyaanAwal.map((q) => (
+                <div key={q.id} className="bg-gray-50 rounded p-2 border border-gray-200">
+                  <p className="text-xs font-semibold text-gray-700">{q.pertanyaan}</p>
+                  <p className="text-xs mt-1">
+                    {q.tipe === "checkbox" ? (
+                      <span className={`px-2 py-0.5 rounded border ${q.jawaban === true ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
+                        {q.jawaban === true ? "Ya" : "Tidak"}
+                      </span>
+                    ) : (
+                      <span className="text-gray-800 whitespace-pre-wrap">{q.jawaban || <span className="text-gray-400 italic">Belum dijawab</span>}</span>
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2" data-html2canvas-ignore="true">
+              {(draftPertanyaanAwal || []).map((q, idx) => (
+                <div key={q.id} className="bg-gray-50 rounded p-2 border border-gray-200 space-y-2">
+                  <div className="flex gap-1 items-center">
+                    <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.tipe} onChange={(e) => handleUbahPertanyaanDraft(idx, { tipe: e.target.value, jawaban: e.target.value === "checkbox" ? q.jawaban === true : "" })}>
+                      <option value="checkbox">Checkbox</option><option value="short">Pendek</option><option value="long">Panjang</option>
+                    </select>
+                    <input type="text" className="input input-bordered input-xs flex-1 text-gray-800 bg-white" value={q.pertanyaan} onChange={(e) => handleUbahPertanyaanDraft(idx, { pertanyaan: e.target.value })} />
+                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setDraftPertanyaanAwal((draftPertanyaanAwal || []).filter((_, i) => i !== idx))} title="Hapus pertanyaan dari vendor ini"><Trash2 size={14}/></button>
+                  </div>
+                  {q.tipe === "checkbox" ? (
+                    <div className="flex gap-1">
+                      <button className={`btn btn-xs flex-1 ${q.jawaban === true ? "btn-success" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: true })}>Ya</button>
+                      <button className={`btn btn-xs flex-1 ${q.jawaban === false ? "btn-error" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: false })}>Tidak</button>
+                    </div>
+                  ) : q.tipe === "short" ? (
+                    <input type="text" className="input input-bordered input-xs w-full text-gray-800 bg-white" value={q.jawaban || ""} onChange={(e) => handleUbahPertanyaanDraft(idx, { jawaban: e.target.value })} />
+                  ) : (
+                    <textarea className="textarea textarea-bordered w-full text-xs text-gray-800 bg-white" rows="2" value={q.jawaban || ""} onChange={(e) => handleUbahPertanyaanDraft(idx, { jawaban: e.target.value })} />
+                  )}
+                </div>
+              ))}
+              <button className="btn btn-ghost btn-xs text-blue-600" onClick={() => setDraftPertanyaanAwal([...(draftPertanyaanAwal || []), { id: generateId("q"), pertanyaan: "", tipe: "checkbox", jawaban: false }])}>
+                <Plus size={14} className="mr-1"/> Tambah Pertanyaan (khusus vendor ini)
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="card bg-white shadow border border-purple-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
@@ -425,7 +517,7 @@ export default function VendorDetail({
             <div className="flex gap-1" data-html2canvas-ignore="true">
               <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterTujuan} onChange={(e) => setFilterTujuan(e.target.value)}>
                 <option value="all">Semua Tujuan</option>
-                {tujuanKunjunganList.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
+                {daftarTujuan.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
               </select>
               <button className="btn btn-primary btn-xs" onClick={() => { resetFormKunjungan(); setShowFormKunjungan(true); }}><Plus size={14} className="mr-1"/> Tambah</button>
             </div>
@@ -443,7 +535,10 @@ export default function VendorDetail({
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><Target size={14}/> Tujuan</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.tujuanId} onChange={(e) => setFormKunjungan({ ...formKunjungan, tujuanId: e.target.value })}>
-                    {tujuanKunjunganList.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
+                    {daftarTujuan.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
+                    {formKunjungan.tujuanId && !daftarTujuan.some((t) => t.id === formKunjungan.tujuanId) && (
+                      <option value={formKunjungan.tujuanId}>{"Tujuan lama (dihapus dari daftar)"}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -458,7 +553,10 @@ export default function VendorDetail({
                 <div>
                   <label className="text-xs text-gray-600 mb-1 block flex items-center gap-1"><CheckCircle2 size={14}/> Hasil</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formKunjungan.hasil} onChange={(e) => setFormKunjungan({ ...formKunjungan, hasil: e.target.value })}>
-                    {HASIL_KUNJUNGAN.map((h) => <option key={h.id} value={h.id}>{cleanText(h.label)}</option>)}
+                    {daftarHasil.map((h) => <option key={h.id} value={h.id}>{cleanText(h.label)}</option>)}
+                    {formKunjungan.hasil && !daftarHasil.some((h) => h.id === formKunjungan.hasil) && (
+                      <option value={formKunjungan.hasil}>{"Hasil lama (dihapus dari daftar)"}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -495,9 +593,9 @@ export default function VendorDetail({
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800 flex items-center gap-1"><Calendar size={14}/> {formatTanggal(log.tanggal, "pendek")}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-xs px-2 py-0.5 rounded border bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1"><Target size={12}/> {cleanText(tujuanData?.label || log.tujuanId)}</span>
+                          <span className="text-xs px-2 py-0.5 rounded border bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1"><Target size={12}/> {cleanText(tujuanData?.label || log.tujuanLabel || log.tujuanId)}</span>
                           <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1"><Monitor size={12}/> {cleanText(getLabelMetode(log.metode))}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil))}`}><CheckCircle2 size={12}/> {cleanText(getLabelHasil(log.hasil))}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaHasil(log.hasil, daftarHasil))}`}><CheckCircle2 size={12}/> {cleanText(log.hasilLabel || getLabelHasil(log.hasil, daftarHasil))}</span>
                         </div>
                       </div>
                       <div className="flex gap-1" data-html2canvas-ignore="true">

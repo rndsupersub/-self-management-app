@@ -13,7 +13,7 @@ import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
 import DumpIdeas from "@/components/DumpIdeas";
 import ExportPDFButton from "@/components/ExportPDFButton";
-import { DEFAULT_BISNIS_BRANDS, DEFAULT_BISNIS_PRIORITAS, DEFAULT_BISNIS_SUMBER, DEFAULT_BISNIS_SECTIONS, DEFAULT_BISNIS_KATEGORI, DEFAULT_BISNIS_VENDOR_KATEGORI, DEFAULT_BISNIS_VENDOR_PERTANYAAN, DEFAULT_BISNIS_VENDOR_TUJUAN, DEFAULT_BISNIS_VENDOR_SATUAN_MOQ, DEFAULT_BISNIS_FIELD_EVALUASI, DEFAULT_BISNIS_FIELD_EVALUASI_VENDOR, DEFAULT_BISNIS_PERIODE_EVALUASI } from "@/lib/bisnisData";
+import { DEFAULT_BISNIS_BRANDS, DEFAULT_BISNIS_PRIORITAS, DEFAULT_BISNIS_SUMBER, DEFAULT_BISNIS_SECTIONS, DEFAULT_BISNIS_KATEGORI, DEFAULT_BISNIS_VENDOR_KATEGORI, DEFAULT_BISNIS_VENDOR_PERTANYAAN, DEFAULT_BISNIS_VENDOR_TUJUAN, DEFAULT_BISNIS_VENDOR_HASIL, DEFAULT_BISNIS_VENDOR_SATUAN_MOQ, DEFAULT_BISNIS_FIELD_EVALUASI, DEFAULT_BISNIS_FIELD_EVALUASI_VENDOR, DEFAULT_BISNIS_PERIODE_EVALUASI } from "@/lib/bisnisData";
 import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Lightbulb } from "lucide-react";
 
 export default function BisnisBrandPage() {
@@ -27,6 +27,7 @@ export default function BisnisBrandPage() {
   const [vendorKategoriList, setVendorKategoriList] = useState(DEFAULT_BISNIS_VENDOR_KATEGORI);
   const [vendorPertanyaanList, setVendorPertanyaanList] = useState(DEFAULT_BISNIS_VENDOR_PERTANYAAN);
   const [vendorTujuanList, setVendorTujuanList] = useState(DEFAULT_BISNIS_VENDOR_TUJUAN);
+  const [vendorHasilList, setVendorHasilList] = useState(DEFAULT_BISNIS_VENDOR_HASIL);
   const [vendorSatuanMoqList, setVendorSatuanMoqList] = useState(DEFAULT_BISNIS_VENDOR_SATUAN_MOQ);
   const [fieldEvaluasiList, setFieldEvaluasiList] = useState(DEFAULT_BISNIS_FIELD_EVALUASI);
   const [fieldEvaluasiVendorList, setFieldEvaluasiVendorList] = useState(DEFAULT_BISNIS_FIELD_EVALUASI_VENDOR);
@@ -59,6 +60,7 @@ export default function BisnisBrandPage() {
         if (data.bisnisVendorKategoriList) setVendorKategoriList(data.bisnisVendorKategoriList);
         if (data.bisnisVendorPertanyaanList) setVendorPertanyaanList(data.bisnisVendorPertanyaanList);
         if (data.bisnisVendorTujuanList) setVendorTujuanList(data.bisnisVendorTujuanList);
+        if (Array.isArray(data.bisnisVendorHasilKunjunganList)) setVendorHasilList(data.bisnisVendorHasilKunjunganList);
         if (data.bisnisVendorSatuanMoqList) setVendorSatuanMoqList(data.bisnisVendorSatuanMoqList);
         if (data.bisnisFieldEvaluasiList) setFieldEvaluasiList(data.bisnisFieldEvaluasiList);
         if (data.bisnisFieldEvaluasiVendorList) setFieldEvaluasiVendorList(data.bisnisFieldEvaluasiVendorList);
@@ -213,9 +215,9 @@ export default function BisnisBrandPage() {
 
         {activeTab === "vendor" && (
           selectedVendor ? (
-            <VendorDetail vendor={selectedVendor} kategoriVendorList={vendorKategoriList} tujuanKunjunganList={vendorTujuanList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} periodeEvaluasiList={periodeEvaluasiList} onUpdateVendor={(v) => updateBrandData({ vendorList: (brand.vendorList || []).map((item) => item.id === v.id ? v : item) })} onDeleteVendor={(id) => { updateBrandData({ vendorList: (brand.vendorList || []).filter((v) => v.id !== id) }); setSelectedVendorId(null); }} onBack={() => setSelectedVendorId(null)} />
+            <VendorDetail vendor={selectedVendor} kategoriVendorList={vendorKategoriList} tujuanKunjunganList={vendorTujuanList} hasilKunjunganList={vendorHasilList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} periodeEvaluasiList={periodeEvaluasiList} onUpdateVendor={(v) => updateBrandData({ vendorList: (brand.vendorList || []).map((item) => item.id === v.id ? v : item) })} onDeleteVendor={(id) => { updateBrandData({ vendorList: (brand.vendorList || []).filter((v) => v.id !== id) }); setSelectedVendorId(null); }} onBack={() => setSelectedVendorId(null)} />
           ) : (
-            <VendorManager vendorList={vendorList} kategoriVendorList={vendorKategoriList} pertanyaanVendorList={vendorPertanyaanList} satuanMoqList={vendorSatuanMoqList} onAddVendor={(v) => updateBrandData({ vendorList: [...(brand.vendorList || []), v] })} onDeleteVendor={(id) => updateBrandData({ vendorList: (brand.vendorList || []).filter((v) => v.id !== id) })} onClickVendor={setSelectedVendorId} onUpdateKategoriVendor={(u) => { setVendorKategoriList(u); simpanSettings({ bisnisVendorKategoriList: u }); }} onUpdatePertanyaanVendor={(u) => { setVendorPertanyaanList(u); simpanSettings({ bisnisVendorPertanyaanList: u }); }} onUpdateSatuanMoq={(u) => { setVendorSatuanMoqList(u); simpanSettings({ bisnisVendorSatuanMoqList: u }); }} />
+            <VendorManager vendorList={vendorList} kategoriVendorList={vendorKategoriList} pertanyaanVendorList={vendorPertanyaanList} tujuanKunjunganList={vendorTujuanList} hasilKunjunganList={vendorHasilList} satuanMoqList={vendorSatuanMoqList} onAddVendor={(v) => updateBrandData({ vendorList: [...(brand.vendorList || []), v] })} onDeleteVendor={(id) => updateBrandData({ vendorList: (brand.vendorList || []).filter((v) => v.id !== id) })} onClickVendor={setSelectedVendorId} onUpdateKategoriVendor={(u) => { setVendorKategoriList(u); simpanSettings({ bisnisVendorKategoriList: u }); }} onUpdatePertanyaanVendor={(u) => { setVendorPertanyaanList(u); simpanSettings({ bisnisVendorPertanyaanList: u }); }} onUpdateTujuanKunjungan={(u) => { setVendorTujuanList(u); simpanSettings({ bisnisVendorTujuanList: u }); }} onUpdateHasilKunjungan={(u) => { setVendorHasilList(u); simpanSettings({ bisnisVendorHasilKunjunganList: u }); }} onUpdateSatuanMoq={(u) => { setVendorSatuanMoqList(u); simpanSettings({ bisnisVendorSatuanMoqList: u }); }} />
           )
         )}
 

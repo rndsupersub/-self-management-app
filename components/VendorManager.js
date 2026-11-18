@@ -2,27 +2,43 @@
 "use client";
 
 import { useState } from "react";
-import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
-import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, CheckSquare, FileText, List, Check, Save } from "lucide-react";
+import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, HASIL_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, WARNA_HASIL, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
+import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, CheckSquare, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3 } from "lucide-react";
+
+// Mode tampilan ala Windows: Besar / Sedang / Kecil / Daftar.
+// "Daftar" sengaja berbentuk tabel supaya hasil Export PDF tampil sebagai data.
+const MODE_TAMPILAN = [
+  { id: "besar", label: "Besar", ikon: LayoutGrid, judul: "Kartu besar (paling lengkap)" },
+  { id: "sedang", label: "Sedang", ikon: Grid2x2, judul: "Kartu sedang" },
+  { id: "kecil", label: "Kecil", ikon: Grid3x3, judul: "Kartu kecil (ringkas)" },
+  { id: "daftar", label: "Daftar", ikon: Rows3, judul: "Tabel — paling enak untuk Export PDF" },
+];
 
 export default function VendorManager({
   vendorList = [],
   kategoriVendorList = DEFAULT_KATEGORI_VENDOR,
   pertanyaanVendorList = DEFAULT_PERTANYAAN_VENDOR,
+  tujuanKunjunganList = DEFAULT_TUJUAN_KUNJUNGAN,
+  hasilKunjunganList = HASIL_KUNJUNGAN,
   satuanMoqList = SATUAN_MOQ,
   onAddVendor,
   onDeleteVendor,
   onClickVendor,
   onUpdateKategoriVendor,
   onUpdatePertanyaanVendor,
+  onUpdateTujuanKunjungan,
+  onUpdateHasilKunjungan,
   onUpdateSatuanMoq,
 }) {
   const [showForm, setShowForm] = useState(false);
   const [showKelolaKategori, setShowKelolaKategori] = useState(false);
   const [showKelolaPertanyaan, setShowKelolaPertanyaan] = useState(false);
+  const [showKelolaTujuan, setShowKelolaTujuan] = useState(false);
+  const [showKelolaHasil, setShowKelolaHasil] = useState(false);
 
   const [filterKategori, setFilterKategori] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [modeTampilan, setModeTampilan] = useState("besar");
 
   const [formData, setFormData] = useState({
     nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "silver", catatan: "", pertanyaanAwal: [],
@@ -33,6 +49,12 @@ export default function VendorManager({
 
   const [newPertanyaan, setNewPertanyaan] = useState({ pertanyaan: "", tipe: "checkbox" });
   const [editingPertanyaanId, setEditingPertanyaanId] = useState(null); // State Edit Pertanyaan
+
+  // Kelola tujuan & hasil kunjungan
+  const [newTujuan, setNewTujuan] = useState("");
+  const [editingTujuanId, setEditingTujuanId] = useState(null);
+  const [newHasil, setNewHasil] = useState({ label: "", warna: "blue" });
+  const [editingHasilId, setEditingHasilId] = useState(null);
 
   const [showKategoriBaru, setShowKategoriBaru] = useState(false);
   const [newKategoriInline, setNewKategoriInline] = useState("");
@@ -63,8 +85,9 @@ export default function VendorManager({
       alamat: formData.alamat, moq: { nilai: parseInt(formData.moqNilai) || 0, satuan: formData.moqSatuan },
       hpp: parseInt(formData.hpp) || 0, status: formData.status, catatan: formData.catatan, pertanyaanAwal: formData.pertanyaanAwal, logKunjungan: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
-    const newDefaultPertanyaan = formData.pertanyaanAwal.map((q) => ({ id: q.id, pertanyaan: q.pertanyaan, tipe: q.tipe }));
-    if (onUpdatePertanyaanVendor) onUpdatePertanyaanVendor(newDefaultPertanyaan);
+    // PENTING: pertanyaan di form ini cuma milik vendor ini. Jangan disimpan
+    // balik ke template, kalau tidak template berubah tiap kali tambah vendor
+    // (pertanyaan yang dihapus di form ikut hilang untuk vendor berikutnya).
     onAddVendor(newVendor); setShowForm(false);
   };
 
@@ -91,7 +114,7 @@ export default function VendorManager({
   };
 
   const handleHapusPertanyaanInline = (index) => {
-    if (!confirm("Hapus pertanyaan ini?")) return;
+    if (!confirm("Hapus pertanyaan ini? Cuma untuk vendor ini — template pertanyaan nggak berubah.")) return;
     setFormData({ ...formData, pertanyaanAwal: formData.pertanyaanAwal.filter((_, i) => i !== index) });
   };
 
@@ -148,17 +171,196 @@ export default function VendorManager({
     setEditingPertanyaanId(null);
   };
   const handleHapusPertanyaan = (id) => {
-    if (!confirm("Hapus pertanyaan ini?")) return;
+    if (!confirm("Hapus pertanyaan ini dari template? Vendor yang sudah ada tetap menyimpan pertanyaan sendiri.")) return;
     onUpdatePertanyaanVendor(pertanyaanVendorList.filter((q) => q.id !== id));
   };
+
+  // --- LOGIC KELOLA TUJUAN KUNJUNGAN ---
+  const jumlahLogDenganTujuan = (id) => vendorList.reduce((n, v) => n + (v.logKunjungan || []).filter((l) => l.tujuanId === id).length, 0);
+  const handleBukaEditTujuan = (t) => { setNewTujuan(t.label); setEditingTujuanId(t.id); };
+  const handleBatalEditTujuan = () => { setNewTujuan(""); setEditingTujuanId(null); };
+  const handleSimpanTujuan = () => {
+    if (!newTujuan.trim()) return;
+    const list = Array.isArray(tujuanKunjunganList) ? tujuanKunjunganList : [];
+    if (editingTujuanId) {
+      onUpdateTujuanKunjungan(list.map((t) => (t.id === editingTujuanId ? { ...t, label: newTujuan } : t)));
+    } else {
+      onUpdateTujuanKunjungan([...list, { id: generateId("tujuan"), label: newTujuan }]);
+    }
+    setNewTujuan(""); setEditingTujuanId(null);
+  };
+  const handleHapusTujuan = (id) => {
+    const dipakai = jumlahLogDenganTujuan(id);
+    const pesan = dipakai > 0
+      ? `Tujuan ini dipakai di ${dipakai} log kunjungan. Log tetap aman (label tujuan ikut tersimpan di log), tapi tujuan ini hilang dari pilihan. Lanjut hapus?`
+      : "Hapus tujuan kunjungan ini?";
+    if (!confirm(pesan)) return;
+    onUpdateTujuanKunjungan((tujuanKunjunganList || []).filter((t) => t.id !== id));
+  };
+
+  // --- LOGIC KELOLA HASIL KUNJUNGAN ---
+  const jumlahLogDenganHasil = (id) => vendorList.reduce((n, v) => n + (v.logKunjungan || []).filter((l) => l.hasil === id).length, 0);
+  const handleBukaEditHasil = (h) => { setNewHasil({ label: h.label, warna: h.warna || "gray" }); setEditingHasilId(h.id); };
+  const handleBatalEditHasil = () => { setNewHasil({ label: "", warna: "blue" }); setEditingHasilId(null); };
+  const handleSimpanHasil = () => {
+    if (!newHasil.label.trim()) return;
+    const list = Array.isArray(hasilKunjunganList) ? hasilKunjunganList : [];
+    if (editingHasilId) {
+      onUpdateHasilKunjungan(list.map((h) => (h.id === editingHasilId ? { ...h, label: newHasil.label, warna: newHasil.warna } : h)));
+    } else {
+      onUpdateHasilKunjungan([...list, { id: generateId("hasil"), label: newHasil.label, warna: newHasil.warna }]);
+    }
+    setNewHasil({ label: "", warna: "blue" }); setEditingHasilId(null);
+  };
+  const handleHapusHasil = (id) => {
+    const dipakai = jumlahLogDenganHasil(id);
+    const pesan = dipakai > 0
+      ? `Hasil ini dipakai di ${dipakai} log kunjungan. Log tetap aman (label hasil ikut tersimpan di log), tapi hasil ini hilang dari pilihan. Lanjut hapus?`
+      : "Hapus hasil kunjungan ini?";
+    if (!confirm(pesan)) return;
+    onUpdateHasilKunjungan((hasilKunjunganList || []).filter((h) => h.id !== id));
+  };
+
+  // ========== RENDER KARTU / BARIS ==========
+  const badgeStatus = (vendor) => (
+    <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getWarnaStatus(vendor.status))}`}>{getLabelStatus(vendor.status)}</span>
+  );
+  const tombolHapus = (vendor, kelas = "btn btn-ghost btn-xs text-red-500") => (
+    <button className={kelas} onClick={(e) => { e.stopPropagation(); if (confirm("Hapus vendor ini?")) onDeleteVendor(vendor.id); }} title="Hapus vendor"><Trash2 size={14} /></button>
+  );
+
+  const renderKartu = (vendor) => {
+    const kategoriData = kategoriVendorList.find((k) => k.id === vendor.kategoriId);
+
+    if (modeTampilan === "kecil") {
+      return (
+        <div key={vendor.id} className="card bg-white shadow-sm border border-gray-200 hover:shadow transition cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
+          <div className="p-2 flex items-center gap-2">
+            <Factory size={16} className="text-gray-400 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-gray-800 truncate" title={vendor.nama}>{vendor.nama}</p>
+              <p className="text-[10px] text-gray-500 truncate">{getLabelStatus(vendor.status)} · {vendor.logKunjungan?.length || 0} kunjungan</p>
+            </div>
+            <span className="shrink-0" data-html2canvas-ignore="true">{tombolHapus(vendor, "btn btn-ghost btn-xs text-red-400")}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (modeTampilan === "sedang") {
+      return (
+        <div key={vendor.id} className="card bg-white shadow border border-gray-200 hover:shadow-md transition cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
+          <div className="card-body p-3">
+            <div className="flex justify-between items-start gap-1">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1 truncate"><Factory size={14} className="shrink-0" /> {vendor.nama}</h3>
+                {kategoriData && <span className="text-[11px] text-gray-500">{kategoriData.label}</span>}
+              </div>
+              <span data-html2canvas-ignore="true">{tombolHapus(vendor)}</span>
+            </div>
+            <div className="flex flex-wrap gap-1 my-1.5">{badgeStatus(vendor)}</div>
+            <div className="text-[11px] text-gray-600 space-y-0.5">
+              {vendor.kontak?.nama && <p className="flex items-center gap-1 truncate"><User size={11} /> {vendor.kontak.nama}</p>}
+              {vendor.moq?.nilai > 0 && <p className="flex items-center gap-1"><Package size={11} /> MOQ: {vendor.moq.nilai} {vendor.moq.satuan}</p>}
+              <p className="flex items-center gap-1"><Calendar size={11} /> {vendor.logKunjungan?.length || 0} kunjungan</p>
+            </div>
+            <div className="card-actions justify-end mt-1">
+              <span className="text-gray-400 text-[10px] flex items-center gap-1">Buka <ChevronRight size={10} /></span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={vendor.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
+        <div className="card-body p-4">
+          <div className="flex justify-between items-start mb-1">
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><Factory size={16} /> {vendor.nama}</h3>
+              {kategoriData && <span className="text-xs text-gray-500">{kategoriData.label}</span>}
+            </div>
+            <span data-html2canvas-ignore="true">{tombolHapus(vendor)}</span>
+          </div>
+          <div className="flex flex-wrap gap-1 my-2">{badgeStatus(vendor)}</div>
+          <div className="text-xs text-gray-600 space-y-1">
+            {vendor.kontak?.nama && <p className="flex items-center gap-1"><User size={12} /> {vendor.kontak.nama}</p>}
+            {vendor.kontak?.telp && <p className="flex items-center gap-1"><Phone size={12} /> {vendor.kontak.telp}</p>}
+            {vendor.moq?.nilai > 0 && <p className="flex items-center gap-1"><Package size={12} /> MOQ: {vendor.moq.nilai} {vendor.moq.satuan}</p>}
+            {vendor.hpp > 0 && <p className="flex items-center gap-1"><Wallet size={12} /> HPP: {formatRupiah(vendor.hpp)}</p>}
+            <p className="flex items-center gap-1"><Calendar size={12} /> {vendor.logKunjungan?.length || 0} kunjungan</p>
+          </div>
+          <div className="card-actions justify-end mt-2">
+            <span className="text-gray-400 text-xs flex items-center gap-1 hover:text-primary transition">Buka <ChevronRight size={12} /></span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Tabel: bentuk "data" supaya hasil Export PDF rapi dan terbaca.
+  const renderDaftar = () => (
+    <div className="card bg-white shadow border border-gray-200 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="table table-xs w-full text-gray-800">
+          <thead>
+            <tr className="bg-gray-50 text-gray-600">
+              <th className="w-8">#</th>
+              <th>Nama Vendor</th>
+              <th>Kategori</th>
+              <th>Status</th>
+              <th>Kontak</th>
+              <th>Telp</th>
+              <th className="text-right">MOQ</th>
+              <th className="text-right">HPP</th>
+              <th className="text-center">Kunjungan</th>
+              <th className="text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredVendor.map((vendor, i) => {
+              const kategoriData = kategoriVendorList.find((k) => k.id === vendor.kategoriId);
+              return (
+                <tr key={vendor.id} className="hover:bg-blue-50/40 cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
+                  <td className="text-gray-400">{i + 1}</td>
+                  <td className="font-semibold">{vendor.nama}</td>
+                  <td>{kategoriData ? kategoriData.label : "-"}</td>
+                  <td>{badgeStatus(vendor)}</td>
+                  <td>{vendor.kontak?.nama || "-"}</td>
+                  <td>{vendor.kontak?.telp || "-"}</td>
+                  <td className="text-right">{vendor.moq?.nilai > 0 ? `${vendor.moq.nilai} ${vendor.moq.satuan}` : "-"}</td>
+                  <td className="text-right">{vendor.hpp > 0 ? formatRupiah(vendor.hpp) : "-"}</td>
+                  <td className="text-center">{vendor.logKunjungan?.length || 0}</td>
+                  <td className="text-right" data-html2canvas-ignore="true">
+                    <div className="flex justify-end gap-1">
+                      <button className="btn btn-ghost btn-xs text-blue-600" onClick={(e) => { e.stopPropagation(); onClickVendor(vendor.id); }} title="Buka"><ChevronRight size={14} /></button>
+                      {tombolHapus(vendor)}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const kelasGrid = modeTampilan === "besar"
+    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+    : modeTampilan === "sedang"
+    ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+    : "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-2">
         <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Factory size={20} /> Vendor ({vendorList.length})</h2>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1" data-html2canvas-ignore="true">
           <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaKategori(true)} title="Kelola Kategori Vendor"><Settings size={14} className="mr-1"/> Kategori</button>
-          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaPertanyaan(true)} title="Kelola Pertanyaan Default"><Settings size={14} className="mr-1"/> Pertanyaan</button>
+          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaPertanyaan(true)} title="Kelola Pertanyaan Awal Vendor"><Settings size={14} className="mr-1"/> Pertanyaan</button>
+          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaTujuan(true)} title="Kelola Tujuan Kunjungan"><Target size={14} className="mr-1"/> Tujuan</button>
+          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaHasil(true)} title="Kelola Hasil Kunjungan"><CheckSquare size={14} className="mr-1"/> Hasil</button>
           <button className="btn btn-primary btn-xs" onClick={handleBukaForm}><Plus size={14} className="mr-1"/> Tambah Vendor</button>
         </div>
       </div>
@@ -178,7 +380,26 @@ export default function VendorManager({
             {(filterKategori !== "all" || filterStatus !== "all") && (
               <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterKategori("all"); setFilterStatus("all"); }}><X size={12} className="mr-1"/> Reset</button>
             )}
-            <span className="text-xs text-gray-400 ml-auto">{filteredVendor.length} vendor</span>
+            <div className="ml-auto flex items-center gap-2">
+              <div className="join" data-html2canvas-ignore="true" role="group" aria-label="Mode tampilan">
+                {MODE_TAMPILAN.map((m) => {
+                  const Ikon = m.ikon;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      title={m.judul}
+                      className={`btn btn-xs join-item ${modeTampilan === m.id ? "btn-primary" : "btn-ghost text-gray-600"}`}
+                      onClick={() => setModeTampilan(m.id)}
+                      aria-pressed={modeTampilan === m.id}
+                    >
+                      <Ikon size={14} className="md:mr-1" /> <span className="hidden md:inline">{m.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-xs text-gray-400">{filteredVendor.length} vendor</span>
+            </div>
           </div>
         </div>
       </div>
@@ -298,37 +519,11 @@ export default function VendorManager({
             <p className="text-sm">Belum ada vendor. Klik &quot;+ Tambah Vendor&quot; untuk mulai.</p>
           </div>
         </div>
+      ) : modeTampilan === "daftar" ? (
+        renderDaftar()
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredVendor.map((vendor) => {
-            const kategoriData = kategoriVendorList.find((k) => k.id === vendor.kategoriId);
-            return (
-              <div key={vendor.id} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
-                <div className="card-body p-4">
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="flex-1">
-                      <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><Factory size={16}/> {vendor.nama}</h3>
-                      {kategoriData && <span className="text-xs text-gray-500">{kategoriData.label}</span>}
-                    </div>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => { e.stopPropagation(); if (confirm("Hapus vendor ini?")) onDeleteVendor(vendor.id); }} title="Hapus vendor"><Trash2 size={14} /></button>
-                  </div>
-                  <div className="flex flex-wrap gap-1 my-2">
-                    <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getWarnaStatus(vendor.status))}`}>{getLabelStatus(vendor.status)}</span>
-                  </div>
-                  <div className="text-xs text-gray-600 space-y-1">
-                    {vendor.kontak?.nama && <p className="flex items-center gap-1"><User size={12}/> {vendor.kontak.nama}</p>}
-                    {vendor.kontak?.telp && <p className="flex items-center gap-1"><Phone size={12}/> {vendor.kontak.telp}</p>}
-                    {vendor.moq?.nilai > 0 && <p className="flex items-center gap-1"><Package size={12}/> MOQ: {vendor.moq.nilai} {vendor.moq.satuan}</p>}
-                    {vendor.hpp > 0 && <p className="flex items-center gap-1"><Wallet size={12}/> HPP: {formatRupiah(vendor.hpp)}</p>}
-                    <p className="flex items-center gap-1"><Calendar size={12}/> {vendor.logKunjungan?.length || 0} kunjungan</p>
-                  </div>
-                  <div className="card-actions justify-end mt-2">
-                    <span className="text-gray-400 text-xs flex items-center gap-1 hover:text-primary transition">Buka <ChevronRight size={12}/></span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className={kelasGrid}>
+          {filteredVendor.map((vendor) => renderKartu(vendor))}
         </div>
       )}
 
@@ -418,6 +613,99 @@ export default function VendorManager({
                     </>
                   ) : (
                     <button className="btn btn-primary btn-sm" onClick={handleSimpanPertanyaan}><Plus size={16} className="mr-1"/> Tambah</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KELOLA TUJUAN KUNJUNGAN */}
+      {showKelolaTujuan && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card bg-white shadow-xl w-full max-w-md">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><Target size={16}/> Kelola Tujuan Kunjungan</h3>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaTujuan(false)}><X size={18} /></button>
+              </div>
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {(tujuanKunjunganList || []).length === 0 && <p className="text-xs text-gray-400 italic text-center py-2">Belum ada tujuan.</p>}
+                {(tujuanKunjunganList || []).map((t) => (
+                  <div key={t.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
+                    <span className="text-sm text-gray-700 flex-1">{t.label}</span>
+                    <div className="flex gap-1">
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditTujuan(t)} title="Edit Tujuan"><Pencil size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusTujuan(t.id)} title="Hapus Tujuan"><Trash2 size={14}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <input
+                  type="text"
+                  className="input input-bordered input-sm flex-1 text-gray-800 bg-white"
+                  placeholder={editingTujuanId ? "Edit tujuan..." : "Tujuan baru (misal: Cek kualitas barang)"}
+                  value={newTujuan}
+                  onChange={(e) => setNewTujuan(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSimpanTujuan()}
+                />
+                {editingTujuanId ? (
+                  <>
+                    <button className="btn btn-success btn-sm text-white" onClick={handleSimpanTujuan}><Save size={16}/></button>
+                    <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEditTujuan}><X size={16}/></button>
+                  </>
+                ) : (
+                  <button className="btn btn-primary btn-sm" onClick={handleSimpanTujuan}><Plus size={16}/></button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KELOLA HASIL KUNJUNGAN */}
+      {showKelolaHasil && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="card bg-white shadow-xl w-full max-w-md">
+            <div className="card-body p-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><CheckSquare size={16}/> Kelola Hasil Kunjungan</h3>
+                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaHasil(false)}><X size={18} /></button>
+              </div>
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {(hasilKunjunganList || []).length === 0 && <p className="text-xs text-gray-400 italic text-center py-2">Belum ada hasil.</p>}
+                {(hasilKunjunganList || []).map((h) => (
+                  <div key={h.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
+                    <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(h.warna)}`}>{h.label}</span>
+                    <div className="flex gap-1">
+                      <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditHasil(h)} title="Edit Hasil"><Pencil size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusHasil(h.id)} title="Hapus Hasil"><Trash2 size={14}/></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 space-y-2">
+                <input
+                  type="text"
+                  className="input input-bordered input-sm w-full text-gray-800 bg-white"
+                  placeholder={editingHasilId ? "Edit hasil..." : "Hasil baru (misal: Perlu revisi)"}
+                  value={newHasil.label}
+                  onChange={(e) => setNewHasil({ ...newHasil, label: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && handleSimpanHasil()}
+                />
+                <div className="flex gap-2">
+                  <select className="select select-bordered select-sm flex-1 text-gray-800 bg-white" value={newHasil.warna} onChange={(e) => setNewHasil({ ...newHasil, warna: e.target.value })}>
+                    {WARNA_HASIL.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
+                  </select>
+                  {editingHasilId ? (
+                    <>
+                      <button className="btn btn-success btn-sm text-white" onClick={handleSimpanHasil}><Save size={16}/></button>
+                      <button className="btn btn-ghost btn-sm text-gray-600" onClick={handleBatalEditHasil}><X size={16}/></button>
+                    </>
+                  ) : (
+                    <button className="btn btn-primary btn-sm" onClick={handleSimpanHasil}><Plus size={16} className="mr-1"/> Tambah</button>
                   )}
                 </div>
               </div>
