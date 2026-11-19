@@ -10,15 +10,7 @@ import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
 import { syncUserToSheets } from "@/lib/sheetsSync";
-
-function parsePrivateKey(raw) {
-  if (!raw) return "";
-  let key = String(raw).trim();
-  if (key.startsWith('"') && key.endsWith('"')) key = key.slice(1, -1);
-  if (key.startsWith("'") && key.endsWith("'")) key = key.slice(1, -1);
-  if (key.includes("\\n")) key = key.replace(/\\n/g, "\n");
-  return key.trim();
-}
+import { parsePrivateKey } from "@/lib/privateKey";
 
 let adminApp = null;
 function getAdminApp() {
@@ -31,7 +23,10 @@ function getAdminApp() {
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: parsePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
+      privateKey: parsePrivateKey(
+        process.env.FIREBASE_PRIVATE_KEY,
+        "FIREBASE_PRIVATE_KEY"
+      ),
     }),
   });
   return adminApp;
