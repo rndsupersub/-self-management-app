@@ -92,12 +92,14 @@ export async function POST(req) {
       if (remindersPribadi.length > 0) {
         for (const rem of remindersPribadi) {
           try {
-            // PERUBAHAN PENTING: Kirim rem.jamMulai dan rem.deadline ke fungsi
-            await kirimReminder(chatId, rem.scheduleId, rem.lapis, rem.config, rem.jamMulai, rem.deadline);
+            // Pakai ID reminder (config), bukan ID item jadwal: tombol callback
+            // harus bisa di-resolve balik ke config yang sama.
+            await kirimReminder(chatId, rem.reminderId, rem.lapis, rem.config, rem.jamMulai, rem.deadline);
 
-            // Tulis log pakai ID jadwal + ID config lama. Jadi web yang nulis
-            // progress dengan ID jadwal tetap kebaca, dan setting lama tetap aman.
-            const ids = [...new Set([rem.reminderId, rem.scheduleId])];
+            // Tulis log pakai ID jadwal + ID config lama + ID item hari ini.
+            // Jadi web yang nulis progress dengan ID jadwal tetap kebaca,
+            // setting lama tetap aman, dan item Minggu (olahraga_ringan) ikut.
+            const ids = [...new Set([rem.reminderId, rem.scheduleId, rem.scheduleItemId].filter(Boolean))];
             ids.forEach((id) => {
               logPribadiHariIni[id] = {
                 ...(logPribadiHariIni[id] || {}),

@@ -32,7 +32,10 @@ export default function DashboardLayout({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!currentUser) { router.push("/login"); return; }
+      if (!currentUser) {
+        router.push("/login");
+        return;
+      }
       setUser(currentUser);
 
       try {
@@ -73,69 +76,149 @@ export default function DashboardLayout({ children }) {
     await setDoc(doc(db, "users", user.uid), { menusCustom: newCustom }, { merge: true });
   };
 
-  const handleLogout = async () => { await signOut(auth); router.push("/login"); };
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-base-200">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+        <p className="text-xs font-medium text-slate-500">Memuat workspace...</p>
+      </div>
+    );
+  }
 
   if (isViewerRoute) {
     return (
-      <div className="h-screen flex flex-col bg-base-200">
-        <div className="navbar bg-base-100 shadow-sm px-4 md:px-6" data-html2canvas-ignore="true">
-          <div className="flex-1">
-            <h1 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-              <Brain size={24} className="text-primary" /> Self Management — Viewer
-            </h1>
+      <div className="flex h-screen flex-col bg-base-200">
+        <div
+          className="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur md:px-6"
+          data-html2canvas-ignore="true"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-sm">
+              <Brain size={18} />
+            </span>
+            <div>
+              <h1 className="text-sm font-bold text-slate-800">Self Management</h1>
+              <p className="text-[11px] text-slate-400">Mode Viewer</p>
+            </div>
           </div>
-          <button className="btn btn-ghost btn-sm text-error hover:bg-error/10" onClick={handleLogout}>
-            <LogOut size={16} className="md:mr-1" /> <span className="hidden md:inline">Logout</span>
+          <button
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+            onClick={handleLogout}
+          >
+            <LogOut size={15} /> <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
-        <main id="export-area" className="flex-1 overflow-y-auto p-4 md:p-6 bg-base-200">{children}</main>
+        <main id="export-area" className="flex-1 overflow-y-auto p-4 md:p-6">
+          {children}
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-base-200">
-      <div className="navbar bg-base-100 shadow-sm px-4 md:px-6 flex-wrap gap-2 z-20 relative" data-html2canvas-ignore="true">
-        <div className="flex-1 flex items-center gap-2">
-          <button className="btn btn-ghost btn-sm btn-square md:hidden" onClick={() => setMobileSidebarOpen(true)}>
-            <Menu size={20} />
-          </button>
-          <h1 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
-            <Brain size={24} className="text-primary" /> Self Management
-          </h1>
-        </div>
+    <div className="flex h-screen flex-col">
+      {/* TOP BAR */}
+      <header
+        className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/85 backdrop-blur-md"
+        data-html2canvas-ignore="true"
+      >
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 md:px-5">
+          <div className="flex flex-1 items-center gap-2">
+            <button
+              className="grid h-9 w-9 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 md:hidden"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Buka menu"
+            >
+              <Menu size={19} />
+            </button>
 
-        <div className="flex gap-2 items-center flex-wrap justify-end">
-          {!isViewer && (
-            <>
-              <MenuManager menus={menus} activities={activities} menusCustom={menusCustom} user={user} onUpdate={handleUpdateMenus} onUpdateCustom={handleUpdateCustom} />
-              <SyncSheetsButton user={user} />
-              <ViewerManager user={user} />
-              <TelegramSetting user={user} />
-            </>
-          )}
-          <div className="hidden md:flex items-center gap-2 text-sm font-mono text-gray-500 bg-base-200 px-3 py-1.5 rounded-lg">
-            <CalendarDays size={16} /> {today}
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-500/30">
+                <Brain size={18} />
+              </span>
+              <div className="leading-tight">
+                <h1 className="text-sm font-bold tracking-tight text-slate-800 md:text-base">
+                  Self Management
+                </h1>
+                <p className="hidden text-[11px] text-slate-400 sm:block">
+                  Personal OS · satu tempat buat semua progres
+                </p>
+              </div>
+            </div>
           </div>
-          <button className="btn btn-ghost btn-sm text-error hover:bg-error/10" onClick={handleLogout}>
-            <LogOut size={16} className="md:mr-1" /> <span className="hidden md:inline">Logout</span>
-          </button>
-        </div>
-      </div>
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className={`fixed inset-0 bg-black/40 z-40 transition-opacity md:hidden ${mobileSidebarOpen ? "opacity-100 visible" : "opacity-0 invisible"}`} onClick={() => setMobileSidebarOpen(false)} />
-        <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-base-100 shadow-xl md:hidden transform transition-transform duration-300 ease-in-out ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <Sidebar menus={menus} collapsed={false} setCollapsed={() => {}} onCloseMobile={() => setMobileSidebarOpen(false)} />
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            {!isViewer && (
+              <>
+                <MenuManager
+                  menus={menus}
+                  activities={activities}
+                  menusCustom={menusCustom}
+                  user={user}
+                  onUpdate={handleUpdateMenus}
+                  onUpdateCustom={handleUpdateCustom}
+                />
+                <SyncSheetsButton user={user} />
+                <ViewerManager user={user} />
+                <TelegramSetting user={user} />
+              </>
+            )}
+
+            <div className="hidden items-center gap-1.5 rounded-xl bg-slate-100/80 px-3 py-1.5 text-[11px] font-medium text-slate-500 lg:flex">
+              <CalendarDays size={14} /> {today}
+            </div>
+
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+              onClick={handleLogout}
+            >
+              <LogOut size={15} /> <span className="hidden md:inline">Logout</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* MOBILE SIDEBAR */}
+        <div
+          className={`fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity md:hidden ${
+            mobileSidebarOpen ? "visible opacity-100" : "invisible opacity-0"
+          }`}
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+        <div
+          className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-white shadow-2xl transition-transform duration-300 ease-out md:hidden ${
+            mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <Sidebar
+            menus={menus}
+            collapsed={false}
+            setCollapsed={() => {}}
+            onCloseMobile={() => setMobileSidebarOpen(false)}
+          />
         </div>
 
-        <div className={`hidden md:block shrink-0 ${sidebarCollapsed ? "w-16" : "w-64"} transition-all duration-300 bg-base-100 z-10`} data-html2canvas-ignore="true">
-          <Sidebar menus={menus} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
+        {/* DESKTOP SIDEBAR */}
+        <div
+          className={`hidden shrink-0 border-r border-slate-200/70 bg-white/60 transition-all duration-300 md:block ${
+            sidebarCollapsed ? "w-[74px]" : "w-64"
+          }`}
+          data-html2canvas-ignore="true"
+        >
+          <Sidebar
+            menus={menus}
+            collapsed={sidebarCollapsed}
+            setCollapsed={setSidebarCollapsed}
+          />
         </div>
 
-        <main id="export-area" className="flex-1 min-w-0 overflow-y-auto p-4 md:p-6 bg-base-200">
+        <main id="export-area" className="min-w-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>

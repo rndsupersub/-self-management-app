@@ -2,7 +2,32 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar, Play, CheckCircle2, Settings, X, Plus, Save, Trash2, Clock, Pencil, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Play,
+  CheckCircle2,
+  Settings,
+  X,
+  Plus,
+  Save,
+  Trash2,
+  Clock,
+  Pencil,
+  ArrowUp,
+  ArrowDown,
+  RotateCcw,
+  MoveRight,
+} from "lucide-react";
+import {
+  bersihkanLabel,
+  formatJamJadwal,
+  getJadwalHarian,
+  namaHari,
+  parseJamJadwal,
+  urutkanJadwal,
+} from "@/lib/jadwalHarian";
 
 // FUNGSI SAKTI UNTUK DAPET TANGGAL LOKAL (BUKAN UTC)
 const getLocalDateStr = (date = new Date()) => {
@@ -12,9 +37,21 @@ const getLocalDateStr = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatTanggal = (tanggal) => {
+  if (!tanggal) return "";
+  return new Date(`${tanggal}T00:00:00`).toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
+
 export default function Schedule({
   jadwalUser = { kerja: [], minggu: [] },
   onUpdateJadwal,
+  jadwalOverride = {},
+  onUpdateJadwalOverride,
   progress = {},
   onUpdateProgress,
   selectedDate,
@@ -22,51 +59,55 @@ export default function Schedule({
   userData,
 }) {
   const [showKelolaJadwal, setShowKelolaJadwal] = useState(false);
-  
+
   const [editKerja, setEditKerja] = useState([]);
   const [editMinggu, setEditMinggu] = useState([]);
   const [activeTab, setActiveTab] = useState("kerja");
 
-  const [formBaru, setFormBaru] = useState({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
+  const [formBaru, setFormBaru] = useState({
+    label: "",
+    unit: "",
+    jamMulai: "",
+    jamSelesai: "",
+  });
   const [editingItem, setEditingItem] = useState(null);
 
-  const getHariIni = (dateStr) => {
-    const d = new Date(dateStr);
-    const day = d.getDay();
-    return day === 0 ? "minggu" : "kerja";
+  const tanggalAktif = selectedDate || getLocalDateStr();
+
+  // SATU SUMBER JADWAL: jadwal dasar + perubahan harian (kalau ada).
+  const infoHari = getJadwalHarian(
+    jadwalUser,
+    jadwalOverride?.[tanggalAktif],
+    tanggalAktif
+  );
+  const jadwalHariIni = infoHari.daftar || [];
+  const ditampilkan = urutkanJadwal(jadwalHariIni);
+  const progressHariIni = progress[tanggalAktif] || {};
+  const jumlahDipindah = jadwalHariIni.filter((item) => item._dipindah).length;
+
+  const sekarang = new Date();
+  const isHariIni = tanggalAktif === getLocalDateStr(sekarang);
+  const menitSekarang = sekarang.getHours() * 60 + sekarang.getMinutes();
+  const jamKeMenit = (jam) => {
+    const cocok = String(jam || "").match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    return cocok ? Number(cocok[1]) * 60 + Number(cocok[2]) : null;
   };
 
-  const hariIni = selectedDate ? getHariIni(selectedDate) : "kerja";
-  const jadwalHariIni = jadwalUser?.[hariIni] || [];
-  const progressHariIni = progress[selectedDate] || {};
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  };
-
-  // PERBAIKAN: Pakai getLocalDateStr() biar nggak geser ke UTC
-  const handlePrevDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() - 1);
+  const geserTanggal = (selisih) => {
+    const d = new Date(`${tanggalAktif}T00:00:00`);
+    d.setDate(d.getDate() + selisih);
     setSelectedDate(getLocalDateStr(d));
-  };
-
-  const handleNextDay = () => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + 1);
-    setSelectedDate(getLocalDateStr(d));
-  };
-
-  const handleToday = () => {
-    setSelectedDate(getLocalDateStr());
   };
 
   const handleToggleSelesai = (actId) => {
     if (!onUpdateProgress) return;
     const current = progressHariIni[actId]?.selesai || false;
-    onUpdateProgress(selectedDate, actId, { selesai: !current });
+    onUpdateProgress(tanggalAktif, actId, { selesai: !current });
+  };
+
+  const handleKembalikan = async (act) => {
+    if (!onUpdateJadwalOverride) return;
+    await onUpdateJadwalOverride(tanggalAktif, act._kunci, null);
   };
 
   const handleSimpanJadwal = async () => {
@@ -79,9 +120,13 @@ export default function Schedule({
   const handleSaveEdit = () => {
     if (!editingItem) return;
     if (activeTab === "kerja") {
-      setEditKerja(editKerja.map(item => item.id === editingItem.id ? editingItem : item));
+      setEditKerja(
+        editKerja.map((item) => (item.id === editingItem.id ? editingItem : item))
+      );
     } else {
-      setEditMinggu(editMinggu.map(item => item.id === editingItem.id ? editingItem : item));
+      setEditMinggu(
+        editMinggu.map((item) => (item.id === editingItem.id ? editingItem : item))
+      );
     }
     setEditingItem(null);
   };
@@ -98,14 +143,16 @@ export default function Schedule({
       id: `jadwal_${Date.now()}`,
       label: formBaru.label,
       unit: formBaru.unit || "",
-      jam: formBaru.jamMulai && formBaru.jamSelesai ? `${formBaru.jamMulai} - ${formBaru.jamSelesai}` : "",
+      jam:
+        formBaru.jamMulai && formBaru.jamSelesai
+          ? `${formBaru.jamMulai} - ${formBaru.jamSelesai}`
+          : "",
     };
     if (activeTab === "kerja") setEditKerja([...editKerja, newItem]);
     else setEditMinggu([...editMinggu, newItem]);
     setFormBaru({ label: "", unit: "", jamMulai: "", jamSelesai: "" });
   };
 
-  // ========== FUNGSI NAIK / TURUN (PANAH) ==========
   const handleMoveUp = (index) => {
     if (index === 0) return;
     const list = activeTab === "kerja" ? [...editKerja] : [...editMinggu];
@@ -122,117 +169,213 @@ export default function Schedule({
     else setEditMinggu(list);
   };
 
-  const cleanLabel = (text) => {
-    if (!text) return "";
-    return text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
-  };
-
-  const parseJam = (act) => {
-    if (!act) return { mulai: "", selesai: "" };
-    if (act.jam && typeof act.jam === 'string' && act.jam.includes('-')) {
-      const parts = act.jam.split('-');
-      return { mulai: parts[0].trim(), selesai: parts[1].trim() };
-    }
-    if (act.waktu && typeof act.waktu === 'string' && act.waktu.includes('-')) {
-      const parts = act.waktu.split('--');
-      if (parts.length > 1) return { mulai: parts[0].trim(), selesai: parts[1].trim() };
-    }
-    const mulai = act.jamMulai || act.waktuMulai || act.start || "";
-    const selesai = act.jamSelesai || act.waktuSelesai || act.end || "";
-    return { mulai, selesai };
+  const bukaKelolaJadwal = () => {
+    // Salin jadwal terbaru ke editor pas modalnya dibuka.
+    setEditKerja(JSON.parse(JSON.stringify(jadwalUser?.kerja || [])));
+    setEditMinggu(JSON.parse(JSON.stringify(jadwalUser?.minggu || [])));
+    setEditingItem(null);
+    setShowKelolaJadwal(true);
   };
 
   return (
-    <div className="card bg-white shadow border border-gray-200">
-      <div className="card-body p-4">
-        
-        {/* HEADER NAVIGASI TANGGAL */}
-        <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-          <div className="flex items-center gap-1">
-            <button className="btn btn-ghost btn-sm text-gray-700" onClick={handlePrevDay}>
-              <ChevronLeft size={18} />
-            </button>
-            <h3 className="text-sm font-bold text-gray-800 min-w-[200px] text-center flex items-center justify-center gap-2">
-              <Calendar size={16} /> {formatDate(selectedDate)}
-            </h3>
-            <button className="btn btn-ghost btn-sm text-gray-700" onClick={handleNextDay}>
-              <ChevronRight size={18} />
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              className="input input-bordered input-sm text-gray-800 bg-white"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-            <button className="btn btn-outline btn-xs text-gray-700" onClick={handleToday}>
-              Hari Ini
-            </button>
-          </div>
-        </div>
-
-        {/* BADGE HARI & TOMBOL KELOLA */}
-        <div className="mb-3 flex justify-between items-center">
-          <span className="badge badge-primary text-white font-semibold px-3 py-3">
-            {hariIni === "kerja" ? "Hari Kerja" : "Hari Minggu"}
-          </span>
+    <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+      {/* HEADER */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 md:px-5">
+        <div className="flex items-center gap-2">
           <button
-            className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1"
-            onClick={() => {
-              // Salin jadwal terbaru ke editor pas modalnya dibuka (dulu lewat effect).
-              setEditKerja(JSON.parse(JSON.stringify(jadwalUser?.kerja || [])));
-              setEditMinggu(JSON.parse(JSON.stringify(jadwalUser?.minggu || [])));
-              setEditingItem(null);
-              setShowKelolaJadwal(true);
-            }}
-            data-html2canvas-ignore="true"
+            type="button"
+            className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            onClick={() => geserTanggal(-1)}
+            aria-label="Hari sebelumnya"
           >
-            <Settings size={14} /> Kelola Jadwal
+            <ChevronLeft size={18} />
+          </button>
+
+          <div className="min-w-[190px] text-center">
+            <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-slate-800">
+              <Calendar size={15} className="text-indigo-500" />
+              {formatTanggal(tanggalAktif)}
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              {infoHari.labelHari}
+              {jumlahDipindah > 0 ? ` · ${jumlahDipindah} dipindah` : ""}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            onClick={() => geserTanggal(1)}
+            aria-label="Hari berikutnya"
+          >
+            <ChevronRight size={18} />
           </button>
         </div>
 
-        {/* LIST JADWAL DI DASHBOARD */}
-        {jadwalHariIni.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
-            <p className="text-sm">Belum ada jadwal untuk hari ini.</p>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            value={tanggalAktif}
+            onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+            aria-label="Pilih tanggal"
+          />
+          <button
+            type="button"
+            className="h-9 rounded-xl border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            onClick={() => setSelectedDate(getLocalDateStr())}
+          >
+            Hari ini
+          </button>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 sm:px-3"
+            onClick={bukaKelolaJadwal}
+            aria-label="Kelola jadwal"
+            data-html2canvas-ignore="true"
+          >
+            <Settings size={14} />
+            <span className="hidden sm:inline">Kelola</span>
+          </button>
+        </div>
+      </div>
+
+      {/* LIST JADWAL */}
+      <div className="px-3 py-3 md:px-4">
+        {ditampilkan.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 px-6 py-10 text-center">
+            <p className="text-sm font-medium text-slate-600">
+              Belum ada jadwal untuk hari ini.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Tambahkan aktivitas lewat Kelola Jadwal.
+            </p>
+            <button
+              type="button"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
+              onClick={bukaKelolaJadwal}
+              data-html2canvas-ignore="true"
+            >
+              <Plus size={14} /> Kelola Jadwal
+            </button>
           </div>
         ) : (
-          <div className="space-y-2">
-            {jadwalHariIni.map((act) => {
+          <div className="space-y-0.5">
+            {ditampilkan.map((act, index) => {
               const isSelesai = progressHariIni[act.id]?.selesai || false;
-              const labelBersih = cleanLabel(act.label);
-              const { mulai, selesai } = parseJam(act);
+              const labelBersih = bersihkanLabel(act.label);
+              const { mulai, selesai } = parseJamJadwal(act);
+              const a = jamKeMenit(mulai);
+              const b = jamKeMenit(selesai);
+              const sedangBerlangsung =
+                isHariIni &&
+                a !== null &&
+                !isSelesai &&
+                menitSekarang >= a &&
+                menitSekarang <= (b !== null && b > a ? b : a + 60);
 
               return (
                 <div
-                  key={act.id}
-                  className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border transition ${
-                    isSelesai ? "bg-green-50 border-green-200" : "bg-gray-50 border-gray-200"
+                  key={act._kunci || act.id || index}
+                  className={`group flex gap-3 rounded-xl px-2 py-2.5 transition ${
+                    sedangBerlangsung ? "bg-indigo-50/70" : "hover:bg-slate-50"
                   }`}
                 >
-                  <div className="flex-1 flex flex-wrap items-center gap-3">
-                    {(mulai || selesai) && (
-                      <span className="text-xs font-mono text-gray-500 w-32 shrink-0 flex items-center gap-1">
-                        <Clock size={12} /> {mulai || "--:--"} -- {selesai || "--:--"}
-                      </span>
-                    )}
-                    <p className={`text-sm font-semibold ${isSelesai ? "text-green-800 line-through opacity-70" : "text-gray-800"}`}>
-                      {labelBersih}
+                  {/* JAM */}
+                  <div className="w-12 shrink-0 pt-0.5 text-right">
+                    <p className="text-[12px] font-semibold tabular-nums text-slate-700">
+                      {mulai || "—"}
                     </p>
-                    {act.unit && <span className="text-xs text-gray-500">({act.unit})</span>}
+                    {selesai && (
+                      <p className="text-[10px] tabular-nums text-slate-400">{selesai}</p>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2" data-html2canvas-ignore="true">
-                    <button
-                      className={`btn btn-xs flex items-center gap-1 ${
-                        isSelesai ? "btn-success text-white" : "btn-outline text-gray-700"
+                  {/* TIMELINE */}
+                  <div className="relative flex w-3 shrink-0 justify-center">
+                    {index < ditampilkan.length - 1 && (
+                      <span className="absolute inset-y-0 mt-3 w-px bg-slate-200" />
+                    )}
+                    <span
+                      className={`relative mt-1.5 h-2.5 w-2.5 rounded-full ring-4 ${
+                        isSelesai
+                          ? "bg-emerald-500 ring-emerald-100"
+                          : sedangBerlangsung
+                            ? "bg-indigo-500 ring-indigo-100"
+                            : "bg-slate-300 ring-slate-100"
                       }`}
-                      onClick={() => handleToggleSelesai(act.id)}
+                    />
+                  </div>
+
+                  {/* ISI */}
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 pb-1">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className={`truncate text-sm font-semibold ${
+                            isSelesai
+                              ? "text-slate-400 line-through"
+                              : "text-slate-800"
+                          }`}
+                        >
+                          {labelBersih || act.label || "Tanpa nama"}
+                        </p>
+
+                        {act._dipindah && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-amber-200/70">
+                            <MoveRight size={11} /> dipindah
+                          </span>
+                        )}
+
+                        {sedangBerlangsung && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
+                            sekarang
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
+                        {act.unit && <span>{act.unit}</span>}
+                        {act._dipindah && (
+                          <span className="inline-flex items-center gap-1 text-amber-600/80">
+                            <Clock size={11} /> asal {act._jamAsli || "-"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className="flex items-center gap-1"
+                      data-html2canvas-ignore="true"
                     >
-                      {isSelesai ? <CheckCircle2 size={14} /> : <Play size={14} />}
-                      {isSelesai ? "Selesai" : "Mulai"}
-                    </button>
+                      {act._dipindah && onUpdateJadwalOverride && (
+                        <button
+                          type="button"
+                          className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-slate-500 transition hover:bg-amber-50 hover:text-amber-700"
+                          onClick={() => handleKembalikan(act)}
+                          title="Kembalikan ke jam semula (jadwal asli nggak berubah)"
+                        >
+                          <RotateCcw size={13} /> Kembalikan
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition ${
+                          isSelesai
+                            ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                            : "border border-slate-200 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                        }`}
+                        onClick={() => handleToggleSelesai(act.id || act._kunci)}
+                      >
+                        {isSelesai ? (
+                          <CheckCircle2 size={13} />
+                        ) : (
+                          <Play size={13} />
+                        )}
+                        {isSelesai ? "Selesai" : "Mulai"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -241,127 +384,290 @@ export default function Schedule({
         )}
       </div>
 
+      {jumlahDipindah > 0 && (
+        <div className="border-t border-slate-100 bg-amber-50/50 px-4 py-2.5 text-[11px] text-amber-700">
+          Perubahan ini berlaku untuk <b>{namaHari(tanggalAktif)}</b>,{" "}
+          {formatTanggal(tanggalAktif)} saja. Jadwal asli tetap aman dan dipakai lagi
+          besok.
+        </div>
+      )}
+
       {/* MODAL KELOLA JADWAL */}
       {showKelolaJadwal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" data-html2canvas-ignore="true">
-          <div className="card bg-white shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="card-body p-4">
-              
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-base font-bold text-gray-800">Kelola Jadwal</h3>
-                <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setShowKelolaJadwal(false)}><X size={18} /></button>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+          data-html2canvas-ignore="true"
+        >
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
+              <div>
+                <h3 className="text-base font-bold text-slate-800">Kelola Jadwal</h3>
+                <p className="text-[11px] text-slate-400">
+                  Perubahan di sini jadi jadwal tetap (semua hari).
+                </p>
+              </div>
+              <button
+                type="button"
+                className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+                onClick={() => setShowKelolaJadwal(false)}
+                aria-label="Tutup"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-5 p-5">
+              <div className="inline-flex rounded-xl bg-slate-100 p-1">
+                {[
+                  { id: "kerja", label: "Hari Kerja" },
+                  { id: "minggu", label: "Hari Minggu" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
+                      activeTab === tab.id
+                        ? "bg-white text-indigo-700 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setEditingItem(null);
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div className="tabs tabs-boxed bg-gray-50 border border-gray-200 p-1 w-fit mb-4">
-                <button className={`tab ${activeTab === "kerja" ? "tab-active bg-primary text-white" : ""}`} onClick={() => {setActiveTab("kerja"); setEditingItem(null);}}>Hari Kerja</button>
-                <button className={`tab ${activeTab === "minggu" ? "tab-active bg-primary text-white" : ""}`} onClick={() => {setActiveTab("minggu"); setEditingItem(null);}}>Hari Minggu</button>
-              </div>
+              <div className="space-y-2">
+                {(activeTab === "kerja" ? editKerja : editMinggu).map(
+                  (item, index, arr) => {
+                    const { mulai, selesai } = parseJamJadwal(item);
 
-              {/* LIST ITEM DENGAN FITUR EDIT, DELETE, & PANAH */}
-              <div className="space-y-3 mb-6">
-                {(activeTab === "kerja" ? editKerja : editMinggu).map((item, index, arr) => {
-                  const { mulai, selesai } = parseJam(item);
-
-                  if (editingItem && editingItem.id === item.id) {
-                    const parseEdit = parseJam(editingItem);
-                    return (
-                      <div key={item.id} className="flex flex-wrap items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-300">
-                        <div className="flex items-center gap-1">
-                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={parseEdit.mulai || ""} onChange={(e) => {
-                            const newJam = `${e.target.value} - ${parseEdit.selesai || "00:00"}`;
-                            setEditingItem({...editingItem, jam: newJam, waktu: newJam, jamMulai: e.target.value});
-                          }} title="Jam Mulai" />
-                          <span className="text-gray-500">-</span>
-                          <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={parseEdit.selesai || ""} onChange={(e) => {
-                            const newJam = `${parseEdit.mulai || "00:00"} - ${e.target.value}`;
-                            setEditingItem({...editingItem, jam: newJam, waktu: newJam, jamSelesai: e.target.value});
-                          }} title="Jam Selesai" />
+                    if (editingItem && editingItem.id === item.id) {
+                      const parseEdit = parseJamJadwal(editingItem);
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3"
+                        >
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="time"
+                              className="h-8 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                              value={parseEdit.mulai || ""}
+                              onChange={(e) => {
+                                const newJam = `${e.target.value} - ${
+                                  parseEdit.selesai || "00:00"
+                                }`;
+                                setEditingItem({
+                                  ...editingItem,
+                                  jam: newJam,
+                                  waktu: newJam,
+                                  jamMulai: e.target.value,
+                                });
+                              }}
+                              title="Jam Mulai"
+                            />
+                            <span className="text-slate-400">–</span>
+                            <input
+                              type="time"
+                              className="h-8 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                              value={parseEdit.selesai || ""}
+                              onChange={(e) => {
+                                const newJam = `${
+                                  parseEdit.mulai || "00:00"
+                                } - ${e.target.value}`;
+                                setEditingItem({
+                                  ...editingItem,
+                                  jam: newJam,
+                                  waktu: newJam,
+                                  jamSelesai: e.target.value,
+                                });
+                              }}
+                              title="Jam Selesai"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            className="h-8 min-w-[140px] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800"
+                            value={editingItem.label}
+                            onChange={(e) =>
+                              setEditingItem({ ...editingItem, label: e.target.value })
+                            }
+                            placeholder="Nama Kegiatan"
+                          />
+                          <input
+                            type="text"
+                            className="h-8 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                            value={editingItem.unit || ""}
+                            onChange={(e) =>
+                              setEditingItem({ ...editingItem, unit: e.target.value })
+                            }
+                            placeholder="Unit"
+                          />
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500 text-white transition hover:bg-emerald-600"
+                              onClick={handleSaveEdit}
+                              aria-label="Simpan item"
+                            >
+                              <Save size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100"
+                              onClick={() => setEditingItem(null)}
+                              aria-label="Batal edit"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
                         </div>
-                        <input type="text" className="input input-bordered input-sm flex-1 min-w-[150px] text-gray-800 bg-white" value={editingItem.label} onChange={(e) => setEditingItem({...editingItem, label: e.target.value})} placeholder="Nama Kegiatan" />
-                        <input type="text" className="input input-bordered input-sm w-24 text-gray-800 bg-white" value={editingItem.unit || ""} onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})} placeholder="Unit" />
-                        
-                        <div className="flex gap-1">
-                          <button className="btn btn-success btn-sm text-white" onClick={handleSaveEdit}><Save size={16} /></button>
-                          <button className="btn btn-ghost btn-sm text-gray-600" onClick={() => setEditingItem(null)}><X size={16} /></button>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-slate-300"
+                      >
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <div className="flex flex-col">
+                            <button
+                              type="button"
+                              className={`grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-slate-100 ${
+                                index === 0 ? "opacity-30" : ""
+                              }`}
+                              onClick={() => handleMoveUp(index)}
+                              disabled={index === 0}
+                              aria-label="Geser ke atas"
+                            >
+                              <ArrowUp size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className={`grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-slate-100 ${
+                                index === arr.length - 1 ? "opacity-30" : ""
+                              }`}
+                              onClick={() => handleMoveDown(index)}
+                              disabled={index === arr.length - 1}
+                              aria-label="Geser ke bawah"
+                            >
+                              <ArrowDown size={13} />
+                            </button>
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">
+                              {bersihkanLabel(item.label)}
+                            </p>
+                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+                              {(mulai || selesai) && (
+                                <span className="inline-flex items-center gap-1 tabular-nums">
+                                  <Clock size={11} /> {formatJamJadwal(mulai, selesai)}
+                                </span>
+                              )}
+                              {item.unit && <span>{item.unit}</span>}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            type="button"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-indigo-500 transition hover:bg-indigo-50"
+                            onClick={() =>
+                              setEditingItem(JSON.parse(JSON.stringify(item)))
+                            }
+                            title="Edit"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-rose-500 transition hover:bg-rose-50"
+                            onClick={() => handleHapusItem(item.id)}
+                            title="Hapus"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </div>
                       </div>
                     );
                   }
+                )}
 
-                  return (
-                    <div key={item.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
-                      
-                      <div className="flex items-center gap-3">
-                        {/* TOMBOL PANAH ATAS / BAWAH */}
-                        <div className="flex flex-col gap-0.5">
-                          <button
-                            className={`btn btn-ghost btn-xs px-1 h-6 min-h-0 ${index === 0 ? "text-gray-300" : "text-gray-600 hover:bg-gray-200"}`}
-                            onClick={() => handleMoveUp(index)}
-                            disabled={index === 0}
-                            title="Geser ke atas"
-                          >
-                            <ArrowUp size={14} />
-                          </button>
-                          <button
-                            className={`btn btn-ghost btn-xs px-1 h-6 min-h-0 ${index === arr.length - 1 ? "text-gray-300" : "text-gray-600 hover:bg-gray-200"}`}
-                            onClick={() => handleMoveDown(index)}
-                            disabled={index === arr.length - 1}
-                            title="Geser ke bawah"
-                          >
-                            <ArrowDown size={14} />
-                          </button>
-                        </div>
-
-                        {/* INFO JADWAL */}
-                        <div className="flex items-center gap-3 ml-1">
-                          {(mulai || selesai) && (
-                            <span className="text-xs font-mono text-gray-500 flex items-center gap-1">
-                              <Clock size={12} /> {mulai} -- {selesai}
-                            </span>
-                          )}
-                          <div>
-                            <p className="text-sm font-semibold text-gray-800">{cleanLabel(item.label)}</p>
-                            {item.unit && <p className="text-xs text-gray-500">({item.unit})</p>}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* TOMBOL EDIT & HAPUS */}
-                      <div className="flex gap-1">
-                        <button className="btn btn-ghost btn-sm btn-square text-blue-500" onClick={() => setEditingItem(JSON.parse(JSON.stringify(item)))} title="Edit">
-                          <Pencil size={16} />
-                        </button>
-                        <button className="btn btn-ghost btn-sm btn-square text-red-500" onClick={() => handleHapusItem(item.id)} title="Hapus">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
                 {(activeTab === "kerja" ? editKerja : editMinggu).length === 0 && (
-                  <p className="text-sm text-center text-gray-500 italic py-4">Belum ada jadwal.</p>
+                  <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs italic text-slate-400">
+                    Belum ada jadwal.
+                  </p>
                 )}
               </div>
 
               {/* FORM TAMBAH BARU */}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3">
-                <p className="text-sm font-bold text-blue-700 flex items-center gap-2"><Plus size={16} /> Tambah Item Baru</p>
-                
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
+                <p className="mb-3 flex items-center gap-1.5 text-xs font-bold text-indigo-700">
+                  <Plus size={14} /> Tambah Item Baru
+                </p>
+
                 <div className="flex flex-wrap gap-2">
-                  <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={formBaru.jamMulai} onChange={(e) => setFormBaru({ ...formBaru, jamMulai: e.target.value })} title="Jam Mulai" />
-                  <span className="text-gray-500 self-center">-</span>
-                  <input type="time" className="input input-bordered input-sm w-28 text-gray-800 bg-white" value={formBaru.jamSelesai} onChange={(e) => setFormBaru({ ...formBaru, jamSelesai: e.target.value })} title="Jam Selesai" />
-                  <input type="text" className="input input-bordered input-sm flex-1 min-w-[150px] text-gray-800 bg-white" placeholder="Nama Kegiatan (misal: Olahraga)" value={formBaru.label} onChange={(e) => setFormBaru({ ...formBaru, label: e.target.value })} />
-                  <input type="text" className="input input-bordered input-sm w-24 text-gray-800 bg-white" placeholder="Unit (misal: 60 menit)" value={formBaru.unit} onChange={(e) => setFormBaru({ ...formBaru, unit: e.target.value })} />
+                  <input
+                    type="time"
+                    className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                    value={formBaru.jamMulai}
+                    onChange={(e) =>
+                      setFormBaru({ ...formBaru, jamMulai: e.target.value })
+                    }
+                    title="Jam Mulai"
+                  />
+                  <span className="self-center text-slate-400">–</span>
+                  <input
+                    type="time"
+                    className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                    value={formBaru.jamSelesai}
+                    onChange={(e) =>
+                      setFormBaru({ ...formBaru, jamSelesai: e.target.value })
+                    }
+                    title="Jam Selesai"
+                  />
+                  <input
+                    type="text"
+                    className="h-9 min-w-[150px] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800"
+                    placeholder="Nama Kegiatan (misal: Olahraga)"
+                    value={formBaru.label}
+                    onChange={(e) => setFormBaru({ ...formBaru, label: e.target.value })}
+                  />
+                  <input
+                    type="text"
+                    className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                    placeholder="Unit"
+                    value={formBaru.unit}
+                    onChange={(e) => setFormBaru({ ...formBaru, unit: e.target.value })}
+                  />
                 </div>
-                
-                <button className="btn btn-outline btn-sm w-full border-blue-400 text-blue-700 hover:bg-blue-100" onClick={handleTambahItem} disabled={!formBaru.label.trim()}>Tambah ke Daftar</button>
+
+                <button
+                  type="button"
+                  className="mt-3 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={handleTambahItem}
+                  disabled={!formBaru.label.trim()}
+                >
+                  Tambah ke Daftar
+                </button>
               </div>
 
-              <div className="mt-6 flex justify-end">
-                <button className="btn btn-primary btn-block md:w-auto" onClick={handleSimpanJadwal}><Save size={18} className="mr-2" /> Simpan Semua Perubahan</button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                  onClick={handleSimpanJadwal}
+                >
+                  <Save size={16} /> Simpan Semua Perubahan
+                </button>
               </div>
-
             </div>
           </div>
         </div>

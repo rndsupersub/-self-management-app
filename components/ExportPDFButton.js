@@ -8,7 +8,8 @@ export default function ExportPDFButton({
   targetId = "export-area", 
   fileName = "laporan.pdf", 
   title = "Laporan",
-  orientation = "auto" 
+  orientation = "auto",
+  variant = "default",
 }) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -26,7 +27,11 @@ export default function ExportPDFButton({
     <button
       onClick={handleExport}
       disabled={isExporting}
-      className="btn btn-outline btn-sm gap-1 text-gray-700 hover:bg-gray-100"
+      className={`btn btn-sm gap-1 ${
+        variant === "light"
+          ? "border-white/40 bg-white/15 text-white hover:bg-white/25"
+          : "btn-outline text-gray-700 hover:bg-gray-100"
+      }`}
       title="Export halaman ini ke PDF"
       data-html2canvas-ignore="true" // Biar tombol ini ga ikut ke print
     >

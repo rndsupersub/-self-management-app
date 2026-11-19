@@ -10,7 +10,8 @@ import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
-import { DEFAULT_JADWAL } from "@/lib/jadwalData";
+import { DEFAULT_JADWAL, deteksiJadwalOtomatis } from "@/lib/jadwalData";
+import { getJadwalHarian, namaHari } from "@/lib/jadwalHarian";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
 import { migrasiStatusVendorPekerjaan, migrasiStatusVendorBisnis } from "@/lib/vendorData";
 
@@ -33,6 +34,8 @@ export default function Dashboard() {
   const [menusCustomLogHarian, setMenusCustomLogHarian] = useState({});
   const [menusCustomTargetHarian, setMenusCustomTargetHarian] = useState({});
   const [jadwalUser, setJadwalUser] = useState(DEFAULT_JADWAL);
+  // Perubahan jadwal harian (mis. dipindah dari Telegram) — jadwal asli aman.
+  const [jadwalOverride, setJadwalOverride] = useState({});
   
   // PERBAIKAN: Pakai getLocalDateStr() bukan toISOString()
   const [selectedDate, setSelectedDate] = useState(getLocalDateStr());
@@ -161,6 +164,13 @@ export default function Dashboard() {
         setMenusCustomTargetHarian(targetCustomBaru || {});
 
         setJadwalUser(jadwalBaru);
+        setJadwalOverride(
+          data.jadwalOverride &&
+            typeof data.jadwalOverride === "object" &&
+            !Array.isArray(data.jadwalOverride)
+            ? data.jadwalOverride
+            : {}
+        );
         if (progressBaru && typeof progressBaru === "object" && !Array.isArray(progressBaru)) setProgress(progressBaru || {}); else { await setDoc(docRef, { dailyProgress: {} }, { merge: true }); setProgress({}); }
 
         if (data.keuanganDompet && Array.isArray(data.keuanganDompet)) setDompetList(data.keuanganDompet); else { await setDoc(docRef, { keuanganDompet: DEFAULT_DOMPET }, { merge: true }); setDompetList(DEFAULT_DOMPET); }
@@ -173,10 +183,10 @@ export default function Dashboard() {
         if (data.keuanganSetting && typeof data.keuanganSetting === "object") setKeuanganSetting({ ...DEFAULT_SETTING, ...data.keuanganSetting }); else { await setDoc(docRef, { keuanganSetting: DEFAULT_SETTING }, { merge: true }); setKeuanganSetting(DEFAULT_SETTING); }
 
       } else {
-        const initialData = { activities: DEFAULT_ACTIVITIES, menus: DEFAULT_MENUS, menusArsip: [], menusCustom: {}, menusCustomLogHarian: {}, menusCustomTargetHarian: {}, jadwalUser: DEFAULT_JADWAL, dailyProgress: {}, keuanganDompet: DEFAULT_DOMPET, keuanganGoals: DEFAULT_GOALS, keuanganTransaksi: {}, keuanganSetting: DEFAULT_SETTING };
+        const initialData = { activities: DEFAULT_ACTIVITIES, menus: DEFAULT_MENUS, menusArsip: [], menusCustom: {}, menusCustomLogHarian: {}, menusCustomTargetHarian: {}, jadwalUser: DEFAULT_JADWAL, jadwalOverride: {}, dailyProgress: {}, keuanganDompet: DEFAULT_DOMPET, keuanganGoals: DEFAULT_GOALS, keuanganTransaksi: {}, keuanganSetting: DEFAULT_SETTING };
         await setDoc(docRef, initialData);
         setUserData({ ...initialData, _uid: user.uid });
-        setActivities(DEFAULT_ACTIVITIES); setMenus(DEFAULT_MENUS); setMenusCustom({}); setMenusCustomLogHarian({}); setMenusCustomTargetHarian({}); setJadwalUser(DEFAULT_JADWAL); setProgress({});
+        setActivities(DEFAULT_ACTIVITIES); setMenus(DEFAULT_MENUS); setMenusCustom({}); setMenusCustomLogHarian({}); setMenusCustomTargetHarian({});         setJadwalUser(DEFAULT_JADWAL); setJadwalOverride({}); setProgress({});
       }
       setLoading(false);
     });
@@ -205,18 +215,166 @@ export default function Dashboard() {
     await setDoc(docRef, { jadwalUser: mergedJadwal }, { merge: true });
   };
 
-  if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  // Pindahkan satu item jadwal untuk SATU tanggal saja.
+  // `slot = null` artinya kembalikan ke jam semula (hapus perubahan harian).
+  const updateJadwalOverride = async (tanggal, kunci, slot) => {
+    if (!user || !tanggal || !kunci) return;
+
+    const hari = { ...(jadwalOverride[tanggal] || {}) };
+    if (slot) {
+      hari[kunci] = { ...slot, at: new Date().toISOString() };
+    } else {
+      delete hari[kunci];
+    }
+
+    const baru = { ...jadwalOverride };
+    if (Object.keys(hari).length === 0) delete baru[tanggal];
+    else baru[tanggal] = hari;
+
+    setJadwalOverride(baru);
+    setUserData((prev) => (prev ? { ...prev, jadwalOverride: baru } : prev));
+    await setDoc(doc(db, "users", user.uid), { jadwalOverride: baru }, { merge: true });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen text-sm text-gray-500">
+        Memuat dashboard...
+      </div>
+    );
+  }
+
+  const infoHari = getJadwalHarian(
+    jadwalUser,
+    jadwalOverride[selectedDate],
+    selectedDate
+  );
+  const jumlahHari = infoHari.daftar.length;
+  const progressHari = progress[selectedDate] || {};
+  const selesaiHari = infoHari.daftar.filter((item) => {
+    if (
+      progressHari[item.id]?.selesai === true ||
+      progressHari[item._kunci]?.selesai === true
+    ) {
+      return true;
+    }
+    // Sumber yang sama dengan web/Telegram: aktivitas yang datanya udah diisi
+    // juga dihitung selesai, bukan cuma yang diklik manual.
+    try {
+      return deteksiJadwalOtomatis(item.id, selectedDate, userData)?.auto === true;
+    } catch (err) {
+      return false;
+    }
+  }).length;
+  const persenHari = jumlahHari ? Math.round((selesaiHari / jumlahHari) * 100) : 0;
+
+  const jamSekarang = new Date().getHours();
+  const sapaan =
+    jamSekarang < 11
+      ? "Selamat pagi"
+      : jamSekarang < 15
+        ? "Selamat siang"
+        : jamSekarang < 18
+          ? "Selamat sore"
+          : "Selamat malam";
+
+  const tanggalPanjang = new Date(`${selectedDate}T00:00:00`).toLocaleDateString(
+    "id-ID",
+    { day: "numeric", month: "long", year: "numeric" }
+  );
 
   return (
-    <>
-      <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-        <ExportPDFButton targetId="export-area" fileName={`Dashboard_${today}.pdf`} title="Dashboard Self Management" />
+    <div className="w-full max-w-6xl mx-auto space-y-6 pb-10">
+      {/* HERO / RINGKASAN HARI INI */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-500 px-6 py-7 md:px-8 md:py-8 text-white shadow-xl shadow-indigo-600/15">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-24 right-24 h-48 w-48 rounded-full bg-violet-300/20 blur-2xl" />
+
+        <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-100/90">
+              Dashboard
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+              {sapaan} 👋
+            </h1>
+            <p className="mt-1 text-sm text-indigo-100">
+              {namaHari(selectedDate)}, {tanggalPanjang}
+              <span className="mx-2 text-indigo-200/60">•</span>
+              {infoHari.labelHari}
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 backdrop-blur">
+                ✅ {selesaiHari} dari {jumlahHari} selesai
+              </span>
+              {Object.keys(jadwalOverride[selectedDate] || {}).length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300/20 px-3 py-1.5 text-amber-50">
+                  🕒 Ada jadwal yang dipindah
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-5">
+            <div className="relative grid h-24 w-24 place-items-center rounded-full bg-white/10">
+              <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full -rotate-90">
+                <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="3" />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="15.5"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(persenHari / 100) * 97.4} 97.4`}
+                />
+              </svg>
+              <div className="text-center">
+                <p className="text-xl font-bold leading-none">{persenHari}%</p>
+                <p className="mt-1 text-[10px] uppercase tracking-wider text-indigo-100">selesai</p>
+              </div>
+            </div>
+            <div className="hidden sm:block" data-html2canvas-ignore="true">
+              <ExportPDFButton
+                targetId="export-area"
+                fileName={`Dashboard_${today}.pdf`}
+                title="Dashboard Self Management"
+                variant="light"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="sm:hidden flex justify-end" data-html2canvas-ignore="true">
+        <ExportPDFButton
+          targetId="export-area"
+          fileName={`Dashboard_${today}.pdf`}
+          title="Dashboard Self Management"
+        />
       </div>
 
-      <div className="w-full max-w-5xl mx-auto space-y-6">
-        <Schedule jadwalUser={jadwalUser} onUpdateJadwal={updateJadwal} progress={progress} onUpdateProgress={updateProgress} selectedDate={selectedDate} setSelectedDate={setSelectedDate} userData={userData} />
-        <RingkasanKeuangan dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={keuanganSetting} onClickDetail={() => router.push("/dashboard/keuangan")} />
-      </div>
-    </>
+      <Schedule
+        jadwalUser={jadwalUser}
+        onUpdateJadwal={updateJadwal}
+        jadwalOverride={jadwalOverride}
+        onUpdateJadwalOverride={updateJadwalOverride}
+        progress={progress}
+        onUpdateProgress={updateProgress}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        userData={userData}
+      />
+
+      <RingkasanKeuangan
+        dompetList={dompetList}
+        goalsList={goalsList}
+        keuanganTransaksi={keuanganTransaksi}
+        setting={keuanganSetting}
+        onClickDetail={() => router.push("/dashboard/keuangan")}
+      />
+    </div>
   );
 }

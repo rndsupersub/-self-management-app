@@ -30,10 +30,21 @@ import {
   REMINDER_CONFIG,
   buildStatusReminderText,
   buildStatusReminderButtons,
+  buildPindahText,
+  buildPindahButtons,
+  getPindahInfo,
+  getJadwalHariIni,
+  cariJadwalUntukReminder,
   parseReminderCallback,
   getReminderConfig,
   todayStr,
 } from "@/lib/telegramReminder";
+import {
+  formatJamJadwal,
+  getJadwalHarian,
+  namaHari,
+  parseJamJadwal,
+} from "@/lib/jadwalHarian";
 
 // === TAMBAHAN BARU: Import helper buat reminder proyek ===
 import { REMINDER_PROYEK_CONFIG } from "@/lib/telegramReminderProyek";
@@ -1680,41 +1691,38 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
 
   // ==== TAMBAHAN BARU: HANDLE COMMAND /dashboard ====
   if (command === "dashboard") {
-    const jadwalUser = userData.jadwalUser || { kerja: [], minggu: [] };
-    
-    // Ambil hari ini (0 = Minggu, 1 = Senin, dst)
-    const dayIndex = new Date().getDay(); 
-    const isMinggu = dayIndex === 0;
-    
-    const jadwalHariIni = isMinggu ? (jadwalUser.minggu || []) : (jadwalUser.kerja || []);
-    const labelHari = isMinggu ? "Hari Minggu" : "Hari Kerja";
+    // Tanggal & hari pakai WIB. Dulu new Date().getDay() ikut zona server
+    // (UTC), jadi jam 00:00–06:59 WIB masih kebaca hari sebelumnya.
+    const tanggal = todayStr();
+    const infoHari = getJadwalHarian(
+      userData.jadwalUser,
+      userData.jadwalOverride?.[tanggal],
+      tanggal
+    );
+    const jadwalHariIni = infoHari.daftar || [];
+    const labelHari = infoHari.labelHari;
+    const hariIni = namaHari(tanggal);
 
     if (jadwalHariIni.length === 0) {
       await sendTelegramMessage(chatId, `📅 <b>Jadwal ${labelHari}</b>\n\nBelum ada jadwal yang diatur untuk hari ini, Bos.`);
       return;
     }
 
-    let pesan = `📅 <b>JADWAL ${labelHari.toUpperCase()} (HARI INI)</b>\n\n`;
-    
+    let pesan = `📅 <b>JADWAL ${labelHari.toUpperCase()} (${hariIni.toUpperCase()})</b>\n${tanggal}\n\n`;
+
     jadwalHariIni.forEach((item, index) => {
-      // Bersihin emoji di label
       const labelBersih = (item.label || "").replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
-      
-      // Ambil jam (support format lama dan baru)
-      let jamStr = "";
-      if (item.jam) jamStr = item.jam;
-      else if (item.jamMulai || item.waktuMulai) {
-         jamStr = `${item.jamMulai || item.waktuMulai} - ${item.jamSelesai || item.waktuSelesai}`;
-      } else if (item.waktu) jamStr = item.waktu;
-      
-      pesan += `<b>${index + 1}. ${labelBersih}</b>\n`;
-      if (jamStr && jamStr !== " - ") pesan += `⏰ ${jamStr}\n`;
+      const { mulai, selesai } = parseJamJadwal(item);
+      const jamStr = formatJamJadwal(mulai, selesai);
+
+      pesan += `<b>${index + 1}. ${labelBersih}</b>${item._dipindah ? " 🕒" : ""}\n`;
+      if (jamStr) pesan += `⏰ ${jamStr}${item._dipindah ? " <i>(dipindah hari ini)</i>" : ""}\n`;
       if (item.unit) pesan += `🎯 Target: ${item.unit}\n`;
       pesan += `\n`;
     });
 
     pesan += `💡 <i>Buka web untuk menandai kegiatan yang sudah selesai.</i>`;
-    
+
     await sendTelegramMessage(chatId, pesan);
     return;
   }
@@ -2146,26 +2154,53 @@ async function handleCallback(callbackQuery, userData, firestore) {
       return;
     }
 
-    // Tombol lama pakai ID config (blender), tombol baru pakai ID jadwal
-    // (blender_solidworks). Resolve dua-duanya ke key yang sama.
+    // Satu sumber jadwal: config → item hari ini (termasuk yang dipindah).
     const remInfo = getReminderConfig(menuId);
     const reminderKey = remInfo?.id || menuId;
     const scheduleKey = remInfo?.config?.scheduleId || menuId;
     const reminderLabel = remInfo?.config?.label || menuId;
-    const reminderIds = [...new Set([reminderKey, scheduleKey])];
+    const todayLocal = todayStr();
+    const jadwalHariIni = getJadwalHariIni(userData, todayLocal);
+    const jadwalItem = remInfo
+      ? cariJadwalUntukReminder(jadwalHariIni, remInfo.config)
+      : null;
+    // ID yang benar-benar dibaca web hari ini (Minggu: olahraga_ringan).
+    const itemId = jadwalItem?.id || jadwalItem?._kunci || scheduleKey;
+    const reminderIds = [...new Set([reminderKey, scheduleKey, itemId].filter(Boolean))];
+
+    const logHariIni = { ...((userData.reminderLog || {})[todayLocal] || {}) };
+    const tandaiSemuaLapis = () => {
+      reminderIds.forEach((id) => {
+        logHariIni[id] = { ...(logHariIni[id] || {}), 1: true, 2: true, 3: true, 4: true };
+      });
+    };
+    const simpanLog = () =>
+      firestore
+        .collection("users")
+        .doc(userData._uid)
+        .set(
+          {
+            reminderLog: {
+              ...(userData.reminderLog || {}),
+              [todayLocal]: logHariIni,
+            },
+          },
+          { merge: true }
+        );
 
     if (remAction === "rem_mulai" && menuId) {
-      const todayLocal = todayStr();
       const progressHariIni = (userData.dailyProgress || {})[todayLocal] || {};
+      tandaiSemuaLapis();
       await firestore.collection("users").doc(userData._uid).set(
         {
           dailyProgress: {
             ...(userData.dailyProgress || {}),
             [todayLocal]: {
               ...progressHariIni,
-              // Web baca progress pakai ID jadwal.
-              [scheduleKey]: {
-                ...(progressHariIni[scheduleKey] || {}),
+              // Pakai ID item hari ini (bukan cuma ID config), biar tombol
+              // "Udah Mulai" juga kebaca di web untuk item Minggu.
+              [itemId]: {
+                ...(progressHariIni[itemId] || {}),
                 mulai: true,
                 mulaiAt: new Date().toISOString(),
                 override: true,
@@ -2174,10 +2209,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
           },
           reminderLog: {
             ...(userData.reminderLog || {}),
-            [todayLocal]: {
-              ...((userData.reminderLog || {})[todayLocal] || {}),
-              ...Object.fromEntries(reminderIds.map((id) => [id, { 1: true, 2: true, 3: true, 4: true }])),
-            },
+            [todayLocal]: logHariIni,
           },
         },
         { merge: true }
@@ -2200,45 +2232,103 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (remAction === "rem_isi" && menuId) {
+      tandaiSemuaLapis();
       await editTelegramMessage(
         chatId,
         messageId,
         `✅ <b>Oke!</b>\n\nLo mau isi <b>${reminderLabel}</b> sekarang.\n\n📝 Silakan buka web: <b>self-management-app</b>\n\n<i>Reminder dimatiin.</i>`
       );
-      const todayLocal = todayStr();
-      await firestore.collection("users").doc(userData._uid).set(
-        {
-          reminderLog: {
-            ...(userData.reminderLog || {}),
-            [todayLocal]: {
-              ...((userData.reminderLog || {})[todayLocal] || {}),
-              ...Object.fromEntries(reminderIds.map((id) => [id, { 1: true, 2: true, 3: true, 4: true }])),
-            },
-          },
-        },
-        { merge: true }
-      );
+      await simpanLog();
       return;
     }
 
     if (remAction === "rem_skip" && menuId) {
-      const todayLocal = todayStr();
-      await firestore.collection("users").doc(userData._uid).set(
-        {
-          reminderLog: {
-            ...(userData.reminderLog || {}),
-            [todayLocal]: {
-              ...((userData.reminderLog || {})[todayLocal] || {}),
-              ...Object.fromEntries(reminderIds.map((id) => [id, { 1: true, 2: true, 3: true, 4: true }])),
-            },
-          },
-        },
-        { merge: true }
-      );
+      tandaiSemuaLapis();
+      await simpanLog();
       await editTelegramMessage(
         chatId,
         messageId,
         `🚫 <b>Oke, skip hari ini.</b>\n\nReminder buat <b>${reminderLabel}</b> dimatiin sampai besok.\n\n<i>Jangan lupa besok ya, bos!</i>`
+      );
+      return;
+    }
+
+    if (remAction === "rem_pindah" && menuId) {
+      const info = getPindahInfo(userData, reminderKey, todayLocal);
+      if (!info) {
+        await editTelegramMessage(
+          chatId,
+          messageId,
+          `⚠️ <b>${reminderLabel}</b> nggak ada di jadwal hari ini.\n\nCek <b>Kelola Jadwal</b> di web ya.`
+        );
+        return;
+      }
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        buildPindahText(info),
+        info.slots.length > 0
+          ? buildPindahButtons(reminderKey, info.slots)
+          : [
+              [
+                { text: "✅ Isi Sekarang", callback_data: `rem_isi|${reminderKey}` },
+                { text: "🚫 Skip Hari Ini", callback_data: `rem_skip|${reminderKey}` },
+              ],
+            ]
+      );
+      return;
+    }
+
+    if (remAction === "rem_slot" && menuId) {
+      const index = Number(parts[2]);
+      const info = getPindahInfo(userData, reminderKey, todayLocal);
+      const slot = info?.slots?.[index];
+
+      // Fail-closed: slot dihitung ulang dari jadwal terbaru. Kalau jadwal
+      // sempat berubah, jangan pindah ke jam yang udah nggak kosong.
+      if (!info || !slot) {
+        await editTelegramMessage(
+          chatId,
+          messageId,
+          `⚠️ Slot itu udah nggak tersedia karena jadwal berubah.\n\nKetik /reminder atau tunggu pengingat berikutnya buat lihat pilihan terbaru.`
+        );
+        return;
+      }
+
+      const overrideHari = { ...(userData.jadwalOverride?.[todayLocal] || {}) };
+      overrideHari[info.item._kunci] = {
+        jam: `${slot.mulai} - ${slot.selesai}`,
+        mulai: slot.mulai,
+        selesai: slot.selesai,
+        asli:
+          info.item._jamAsli ||
+          formatJamJadwal(info.sekarang.mulai, info.sekarang.selesai),
+        label: reminderLabel,
+        at: new Date().toISOString(),
+      };
+
+      // Reset log hari ini buat aktivitas ini: reminder harus bunyi lagi
+      // sesuai jam baru, bukan dianggap "udah lewat".
+      reminderIds.forEach((id) => delete logHariIni[id]);
+
+      await firestore.collection("users").doc(userData._uid).set(
+        {
+          jadwalOverride: {
+            ...(userData.jadwalOverride || {}),
+            [todayLocal]: overrideHari,
+          },
+          reminderLog: {
+            ...(userData.reminderLog || {}),
+            [todayLocal]: logHariIni,
+          },
+        },
+        { merge: true }
+      );
+
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        `✅ <b>${reminderLabel} dipindah</b>\n\n🕒 Jam baru: <b>${slot.mulai} – ${slot.selesai}</b>\n📅 Berlaku: hari ini (${todayLocal}) saja\n\nJadwal di web otomatis ikut berubah. Besok balik ke jam semula.\n\n<i>Reminder disesuaikan ke jam baru.</i>`
       );
       return;
     }

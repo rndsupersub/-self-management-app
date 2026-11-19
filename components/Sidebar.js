@@ -7,8 +7,19 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { DEFAULT_MENUS } from "@/lib/defaultData";
-import { 
-  Home, Briefcase, BookOpen, Book, Wallet, Video, Activity, BookMarked, Building, X
+import {
+  Home,
+  Briefcase,
+  BookOpen,
+  Book,
+  Wallet,
+  Video,
+  Activity,
+  BookMarked,
+  Building,
+  X,
+  ChevronsLeft,
+  Sparkles,
 } from "lucide-react";
 
 export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
@@ -51,101 +62,156 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
     .filter((m) => m.visible !== false)
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  const currentPath = pathname.replace("/dashboard", "").split("/").filter(Boolean);
+  const currentPath = (pathname || "").replace("/dashboard", "").split("/").filter(Boolean);
   const isDashboardHome = currentPath.length === 0;
   const currentTopId = currentPath[0] || null;
 
   const handleNavigate = (menu) => {
     if (menu.id === "dashboard") router.push("/dashboard");
     else router.push(`/dashboard/${menu.id}`);
-    if (onCloseMobile) onCloseMobile(); // Tutup sidebar otomatis di HP
+    if (onCloseMobile) onCloseMobile();
   };
 
-  // Helper untuk nentuin Icon berdasarkan ID Menu
   const getIcon = (id) => {
-    const iconProps = { size: 18, className: "shrink-0" };
+    const iconProps = { size: 17, className: "shrink-0" };
     switch (id) {
-      case "dashboard": return <Home {...iconProps} />;
-      case "pekerjaan": return <Briefcase {...iconProps} />;
-      case "belajar": return <BookOpen {...iconProps} />;
-      case "bedah-buku": return <Book {...iconProps} />;
-      case "keuangan": return <Wallet {...iconProps} />;
-      case "youtube": return <Video {...iconProps} />;
-      case "olahraga": return <Activity {...iconProps} />;
-      case "hafalan": return <BookMarked {...iconProps} />;
-      case "bisnis": return <Building {...iconProps} />;
-      default: return <BookOpen {...iconProps} />;
+      case "dashboard":
+        return <Home {...iconProps} />;
+      case "pekerjaan":
+        return <Briefcase {...iconProps} />;
+      case "belajar":
+        return <BookOpen {...iconProps} />;
+      case "bedah-buku":
+        return <Book {...iconProps} />;
+      case "keuangan":
+        return <Wallet {...iconProps} />;
+      case "youtube":
+        return <Video {...iconProps} />;
+      case "olahraga":
+        return <Activity {...iconProps} />;
+      case "hafalan":
+        return <BookMarked {...iconProps} />;
+      case "bisnis":
+        return <Building {...iconProps} />;
+      default:
+        return <BookOpen {...iconProps} />;
     }
   };
 
+  const isActive = (menu) =>
+    menu.id === "dashboard" ? isDashboardHome : currentTopId === menu.id;
+
+  const labelBersih = (label) =>
+    String(label || "").replace(/^[^\w\s]+\s/, "");
+
+  // ===== MODE RINGKAS (desktop) =====
   if (collapsed) {
     return (
-      <div className="h-full flex flex-col items-center py-4 border-r border-base-200 bg-base-100">
+      <div className="flex h-full flex-col items-center gap-1 py-3">
         <button
-          className="btn btn-ghost btn-sm text-gray-500 hover:bg-base-200"
+          className="mb-1 grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           onClick={() => setCollapsed(false)}
-          title="Expand sidebar"
+          title="Lebarkan sidebar"
         >
-          ☰
+          <ChevronsLeft size={17} className="rotate-180" />
         </button>
+
+        <div className="flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto px-2">
+          {visibleMenus.map((menu) => (
+            <button
+              key={menu.id}
+              className={`grid h-10 w-10 place-items-center rounded-xl transition ${
+                isActive(menu)
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              }`}
+              onClick={() => handleNavigate(menu)}
+              title={labelBersih(menu.label)}
+              aria-label={labelBersih(menu.label)}
+            >
+              {getIcon(menu.id)}
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col border-r border-base-200 bg-base-100 shadow-sm">
-      <div className="flex items-center justify-between p-4 border-b border-base-200">
-        <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
-          📋 Menu Utama
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+          Menu Utama
         </span>
-        {/* Tombol close buat HP, tombol collapse buat Desktop */}
         {onCloseMobile ? (
-          <button className="btn btn-ghost btn-sm btn-circle md:hidden" onClick={onCloseMobile}>
-            <X size={18} />
+          <button
+            className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 md:hidden"
+            onClick={onCloseMobile}
+            aria-label="Tutup menu"
+          >
+            <X size={17} />
           </button>
         ) : (
           <button
-            className="btn btn-ghost btn-sm btn-circle text-gray-500"
+            className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             onClick={() => setCollapsed(true)}
-            title="Collapse sidebar"
+            title="Kecilkan sidebar"
+            aria-label="Kecilkan sidebar"
           >
-            «
+            <ChevronsLeft size={17} />
           </button>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
+      <div className="flex-1 space-y-1 overflow-y-auto px-2.5 py-3">
         {loadingMenus ? (
-          <p className="text-xs text-base-content/50 italic text-center py-4">
-            Memuat menu...
-          </p>
+          <div className="space-y-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-9 animate-pulse rounded-xl bg-slate-100" />
+            ))}
+          </div>
         ) : visibleMenus.length === 0 ? (
-          <p className="text-xs text-base-content/50 italic text-center py-4">
+          <p className="px-2 py-4 text-center text-[11px] italic text-slate-400">
             Belum ada menu. Klik &quot;Kelola Menu&quot; di navbar.
           </p>
         ) : (
           visibleMenus.map((menu) => {
-            const isActive = menu.id === "dashboard" ? isDashboardHome : currentTopId === menu.id;
+            const active = isActive(menu);
             return (
               <button
                 key={menu.id}
-                className={`btn btn-sm w-full justify-start gap-3 ${
-                  isActive 
-                    ? "btn-primary text-white shadow-md" 
-                    : "btn-ghost text-gray-600 hover:bg-base-200 font-normal"
+                className={`group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition ${
+                  active
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`}
                 onClick={() => handleNavigate(menu)}
               >
-                {getIcon(menu.id)}
-                <span className="truncate">{menu.label.replace(/^[^\w\s]+\s/, '')}</span> {/* Hapus emoji dari text label */}
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-indigo-600" />
+                )}
+                <span className={active ? "text-indigo-600" : "text-slate-400"}>
+                  {getIcon(menu.id)}
+                </span>
+                <span className="truncate">{labelBersih(menu.label)}</span>
               </button>
             );
           })
         )}
       </div>
 
-      <div className="p-4 border-t border-base-200 text-xs text-gray-400 text-center">
-        {visibleMenus.length} menu aktif
+      <div className="border-t border-slate-100 px-4 py-3">
+        <div className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 px-3 py-2.5">
+          <Sparkles size={14} className="shrink-0 text-indigo-500" />
+          <div className="min-w-0">
+            <p className="truncate text-[11px] font-semibold text-indigo-700">
+              {visibleMenus.length} menu aktif
+            </p>
+            <p className="truncate text-[10px] text-slate-400">
+              Jalanin satu-satu, konsisten.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
