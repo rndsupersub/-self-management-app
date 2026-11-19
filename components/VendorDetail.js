@@ -397,7 +397,7 @@ export default function VendorDetail({
         </div>
       </div>
 
-      <div className="card bg-white shadow border border-purple-200">
+      <div className="card bg-white shadow border border-stone-200">
         <div className="card-body p-4">
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><BarChart3 size={16}/> Evaluasi Kinerja Vendor</h3>
@@ -411,7 +411,7 @@ export default function VendorDetail({
             <>
               <div className="tabs tabs-boxed bg-gray-50 border border-gray-200 p-1 w-fit mb-3" data-html2canvas-ignore="true">
                 {periodeEvaluasiList.map((freq) => (
-                  <button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-purple-600 text-white" : ""}`} onClick={() => setActivePeriode(freq.id)}>{freq.label}</button>
+                  <button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-stone-800 text-white" : ""}`} onClick={() => setActivePeriode(freq.id)}>{freq.label}</button>
                 ))}
               </div>
 

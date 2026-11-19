@@ -447,10 +447,10 @@ export default function VendorManager({
                 <textarea className="textarea textarea-bordered w-full text-sm text-gray-800 bg-white" rows="2" placeholder="Catatan tentang vendor ini..." value={formData.catatan} onChange={(e) => setFormData({ ...formData, catatan: e.target.value })} />
               </div>
 
-              <div className="bg-purple-50 rounded p-3 border border-purple-200 space-y-2">
+              <div className="bg-stone-50 rounded p-3 border border-stone-200 space-y-2">
                 <div className="flex justify-between items-center">
-                  <p className="text-xs font-semibold text-purple-700 flex items-center gap-1"><List size={14}/> Pertanyaan Awal Vendor</p>
-                  <button className="btn btn-ghost btn-xs text-purple-700" onClick={handleTambahPertanyaanInline}><Plus size={12} className="mr-1"/> Tambah Pertanyaan</button>
+                  <p className="text-xs font-semibold text-stone-700 flex items-center gap-1"><List size={14}/> Pertanyaan Awal Vendor</p>
+                  <button className="btn btn-ghost btn-xs text-stone-700" onClick={handleTambahPertanyaanInline}><Plus size={12} className="mr-1"/> Tambah Pertanyaan</button>
                 </div>
                 {formData.pertanyaanAwal.length === 0 && <p className="text-xs text-gray-400 italic text-center py-2">Belum ada pertanyaan.</p>}
                 {formData.pertanyaanAwal.map((q, idx) => (

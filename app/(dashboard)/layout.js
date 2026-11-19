@@ -84,7 +84,7 @@ export default function DashboardLayout({ children }) {
   if (loading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-base-200">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-stone-800" />
         <p className="text-xs font-medium text-slate-500">Memuat workspace...</p>
       </div>
     );
@@ -98,7 +98,7 @@ export default function DashboardLayout({ children }) {
           data-html2canvas-ignore="true"
         >
           <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-sm">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-stone-900 text-white shadow-sm">
               <Brain size={18} />
             </span>
             <div>
@@ -138,7 +138,7 @@ export default function DashboardLayout({ children }) {
             </button>
 
             <div className="flex items-center gap-2.5">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-sm shadow-indigo-500/30">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-stone-900 text-white shadow-sm shadow-stone-900/20">
                 <Brain size={18} />
               </span>
               <div className="leading-tight">

@@ -122,7 +122,7 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
               key={menu.id}
               className={`grid h-10 w-10 place-items-center rounded-xl transition ${
                 isActive(menu)
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/30"
+                  ? "bg-stone-900 text-white shadow-sm shadow-stone-900/20"
                   : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
               }`}
               onClick={() => handleNavigate(menu)}
@@ -182,15 +182,15 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
                 key={menu.id}
                 className={`group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition ${
                   active
-                    ? "bg-indigo-50 text-indigo-700"
+                    ? "bg-stone-100 text-stone-900"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`}
                 onClick={() => handleNavigate(menu)}
               >
                 {active && (
-                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-indigo-600" />
+                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-stone-800" />
                 )}
-                <span className={active ? "text-indigo-600" : "text-slate-400"}>
+                <span className={active ? "text-stone-700" : "text-slate-400"}>
                   {getIcon(menu.id)}
                 </span>
                 <span className="truncate">{labelBersih(menu.label)}</span>
@@ -201,10 +201,10 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
       </div>
 
       <div className="border-t border-slate-100 px-4 py-3">
-        <div className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 px-3 py-2.5">
-          <Sparkles size={14} className="shrink-0 text-indigo-500" />
+        <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
+          <Sparkles size={14} className="shrink-0 text-stone-500" />
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold text-indigo-700">
+            <p className="truncate text-[11px] font-semibold text-stone-700">
               {visibleMenus.length} menu aktif
             </p>
             <p className="truncate text-[10px] text-slate-400">

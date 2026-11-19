@@ -193,7 +193,7 @@ export default function Schedule({
 
           <div className="min-w-[190px] text-center">
             <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-slate-800">
-              <Calendar size={15} className="text-indigo-500" />
+              <Calendar size={15} className="text-stone-500" />
               {formatTanggal(tanggalAktif)}
             </p>
             <p className="mt-0.5 text-[11px] text-slate-400">
@@ -215,14 +215,14 @@ export default function Schedule({
         <div className="flex items-center gap-2">
           <input
             type="date"
-            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-stone-400 focus:ring-2 focus:ring-stone-100"
             value={tanggalAktif}
             onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
             aria-label="Pilih tanggal"
           />
           <button
             type="button"
-            className="h-9 rounded-xl border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            className="h-9 rounded-xl border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900"
             onClick={() => setSelectedDate(getLocalDateStr())}
           >
             Hari ini
@@ -252,7 +252,7 @@ export default function Schedule({
             </p>
             <button
               type="button"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-700"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-stone-800"
               onClick={bukaKelolaJadwal}
               data-html2canvas-ignore="true"
             >
@@ -278,7 +278,7 @@ export default function Schedule({
                 <div
                   key={act._kunci || act.id || index}
                   className={`group flex gap-3 rounded-xl px-2 py-2.5 transition ${
-                    sedangBerlangsung ? "bg-indigo-50/70" : "hover:bg-slate-50"
+                    sedangBerlangsung ? "bg-stone-100/70" : "hover:bg-slate-50"
                   }`}
                 >
                   {/* JAM */}
@@ -301,7 +301,7 @@ export default function Schedule({
                         isSelesai
                           ? "bg-emerald-500 ring-emerald-100"
                           : sedangBerlangsung
-                            ? "bg-indigo-500 ring-indigo-100"
+                            ? "bg-stone-700 ring-stone-200"
                             : "bg-slate-300 ring-slate-100"
                       }`}
                     />
@@ -328,7 +328,7 @@ export default function Schedule({
                         )}
 
                         {sedangBerlangsung && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-medium text-stone-700">
                             sekarang
                           </span>
                         )}
@@ -427,7 +427,7 @@ export default function Schedule({
                     type="button"
                     className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
                       activeTab === tab.id
-                        ? "bg-white text-indigo-700 shadow-sm"
+                        ? "bg-white text-stone-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                     onClick={() => {
@@ -450,7 +450,7 @@ export default function Schedule({
                       return (
                         <div
                           key={item.id}
-                          className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3"
+                          className="flex flex-wrap items-center gap-2 rounded-xl border border-stone-300 bg-stone-50 p-3"
                         >
                           <div className="flex items-center gap-1">
                             <input
@@ -578,7 +578,7 @@ export default function Schedule({
                         <div className="flex shrink-0 gap-1">
                           <button
                             type="button"
-                            className="grid h-8 w-8 place-items-center rounded-lg text-indigo-500 transition hover:bg-indigo-50"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-stone-500 transition hover:bg-stone-100"
                             onClick={() =>
                               setEditingItem(JSON.parse(JSON.stringify(item)))
                             }
@@ -608,8 +608,8 @@ export default function Schedule({
               </div>
 
               {/* FORM TAMBAH BARU */}
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-                <p className="mb-3 flex items-center gap-1.5 text-xs font-bold text-indigo-700">
+              <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                <p className="mb-3 flex items-center gap-1.5 text-xs font-bold text-stone-800">
                   <Plus size={14} /> Tambah Item Baru
                 </p>
 
@@ -651,7 +651,7 @@ export default function Schedule({
 
                 <button
                   type="button"
-                  className="mt-3 w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-3 w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-800 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={handleTambahItem}
                   disabled={!formBaru.label.trim()}
                 >
@@ -662,7 +662,7 @@ export default function Schedule({
               <div className="flex justify-end">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                  className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800"
                   onClick={handleSimpanJadwal}
                 >
                   <Save size={16} /> Simpan Semua Perubahan

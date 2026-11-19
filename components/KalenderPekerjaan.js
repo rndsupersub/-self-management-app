@@ -667,8 +667,8 @@ export default function KalenderPekerjaan({
                   );
                 })}
               </div>
-              <div className="bg-purple-50 rounded p-3 border border-purple-200 space-y-2">
-                <p className="text-xs font-semibold text-purple-700 flex items-center gap-1">{editingKategoriId ? <><Pencil size={14}/> Edit Kategori</> : <><Plus size={14}/> Tambah Kategori Baru</>}</p>
+              <div className="bg-stone-50 rounded p-3 border border-stone-200 space-y-2">
+                <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingKategoriId ? <><Pencil size={14}/> Edit Kategori</> : <><Plus size={14}/> Tambah Kategori Baru</>}</p>
                 <div className="flex gap-2">
                   <input type="text" className="input input-bordered input-sm flex-1 text-gray-800 bg-white" placeholder="Nama kategori (misal: Industrial Manufaktur)" value={kategoriForm.label} onChange={(e) => setKategoriForm({ ...kategoriForm, label: e.target.value })} />
                 </div>

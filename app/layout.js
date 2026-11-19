@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="id" data-theme="calmindigo">
+    <html lang="id" data-theme="calmneutral">
       <head>
         {/* 
           PERBAIKAN: 

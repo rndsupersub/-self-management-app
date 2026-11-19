@@ -71,8 +71,8 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
           </div>
 
           {showFieldForm && (
-            <div className="bg-purple-50 rounded p-3 mb-3 space-y-2 border border-purple-200">
-              <p className="text-xs font-semibold text-purple-700 flex items-center gap-1"><Settings size={14}/> Kelola Field Evaluasi</p>
+            <div className="bg-stone-50 rounded p-3 mb-3 space-y-2 border border-stone-200">
+              <p className="text-xs font-semibold text-stone-700 flex items-center gap-1"><Settings size={14}/> Kelola Field Evaluasi</p>
               <div className="space-y-1">
                 {fieldEvaluasi.map((f) => (
                   <div key={f.id} className="flex items-center justify-between bg-white rounded px-2 py-1 border border-gray-200"><span className="text-xs text-gray-700">{f.label}</span><button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusField(f.id)}><Trash2 size={14}/></button></div>

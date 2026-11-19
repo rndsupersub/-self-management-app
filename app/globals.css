@@ -6,46 +6,46 @@
 }
 
 @plugin "daisyui/theme" {
-  name: "calmindigo";
+  name: "calmneutral";
   default: true;
   prefersdark: false;
   color-scheme: light;
 
-  /* Base — background & text */
+  /* Base — kertas hangat & tinta netral */
   --color-base-100: oklch(100% 0 0);
-  --color-base-200: oklch(96% 0.007 248);
-  --color-base-300: oklch(93% 0.013 256);
-  --color-base-content: oklch(21% 0.042 266);
+  --color-base-200: oklch(96.7% 0.003 60);
+  --color-base-300: oklch(92.3% 0.006 55);
+  --color-base-content: oklch(21.6% 0.006 56);
 
-  /* Primary — indigo */
-  --color-primary: oklch(51% 0.262 277);
-  --color-primary-content: oklch(100% 0 0);
+  /* Primary — charcoal (bukan ungu) */
+  --color-primary: oklch(27% 0.006 55);
+  --color-primary-content: oklch(99% 0 0);
 
-  /* Secondary — sky muted */
-  --color-secondary: oklch(65% 0.13 240);
-  --color-secondary-content: oklch(100% 0 0);
+  /* Secondary — warm slate */
+  --color-secondary: oklch(44.4% 0.011 74);
+  --color-secondary-content: oklch(99% 0 0);
 
-  /* Accent — amber */
-  --color-accent: oklch(76% 0.16 70);
-  --color-accent-content: oklch(25% 0.05 70);
+  /* Accent — pasir lembut */
+  --color-accent: oklch(78% 0.04 80);
+  --color-accent-content: oklch(25% 0.01 60);
 
-  /* Neutral — deep slate */
-  --color-neutral: oklch(28% 0.03 265);
-  --color-neutral-content: oklch(98% 0.003 248);
+  /* Neutral — deep stone */
+  --color-neutral: oklch(27% 0.006 55);
+  --color-neutral-content: oklch(98% 0.002 60);
 
-  /* Semantic */
-  --color-info: oklch(68% 0.169 237);
+  /* Semantic — tetap jelas, tapi tidak menyala */
+  --color-info: oklch(55% 0.035 250);
   --color-info-content: oklch(100% 0 0);
-  --color-success: oklch(69% 0.17 162);
+  --color-success: oklch(56% 0.1 155);
   --color-success-content: oklch(100% 0 0);
-  --color-warning: oklch(76% 0.16 70);
-  --color-warning-content: oklch(25% 0.05 70);
-  --color-error: oklch(58% 0.22 16);
+  --color-warning: oklch(74% 0.12 75);
+  --color-warning-content: oklch(25% 0.03 70);
+  --color-error: oklch(55% 0.16 25);
   --color-error-content: oklch(100% 0 0);
 
   /* Radius konsisten */
   --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
+  --radius-field: 0.75rem;
   --radius-box: 1rem;
 
   /* Size */
@@ -66,10 +66,10 @@
 }
 
 body {
-  background-color: #f6f7fb;
+  background-color: #f7f6f4;
   background-image:
-    radial-gradient(1100px 520px at 8% -12%, rgba(99, 102, 241, 0.1), transparent 60%),
-    radial-gradient(900px 460px at 100% 0%, rgba(139, 92, 246, 0.07), transparent 55%);
+    radial-gradient(1100px 520px at 8% -12%, rgba(120, 113, 108, 0.08), transparent 60%),
+    radial-gradient(900px 460px at 100% 0%, rgba(168, 162, 158, 0.09), transparent 55%);
   background-attachment: fixed;
   color: var(--color-base-content);
   font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -114,6 +114,37 @@ a {
 }
 
 ::selection {
-  background: oklch(51% 0.262 277 / 0.2);
-  color: oklch(21% 0.042 266);
+  background: rgba(120, 113, 108, 0.2);
+  color: oklch(21.6% 0.006 56);
+}
+
+/* Penyelarasan visual lintas fitur: kartu, tombol, form, tab, modal.
+   Ditaruh di layer components supaya utility (bg-*, border-*, shadow-*)
+   di tiap komponen tetap menang. */
+@layer components {
+  .card {
+    border: 1px solid var(--color-stone-200);
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgb(28 25 23 / 0.03);
+  }
+
+  .btn {
+    border-radius: 0.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .input,
+  .select,
+  .textarea {
+    border-radius: 0.75rem;
+  }
+
+  .tab {
+    border-radius: 0.625rem;
+  }
+
+  .modal-box {
+    border-radius: 1.25rem;
+  }
 }

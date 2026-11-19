@@ -310,9 +310,9 @@ export default function MurajaahMingguan({
                 {entriesMingguIni.length}
               </p>
             </div>
-            <div className="bg-purple-50 rounded p-2 border border-purple-200">
+            <div className="bg-stone-100 rounded p-2 border border-stone-200">
               <p className="text-xs text-gray-500">Rata-rata/hari</p>
-              <p className="text-lg font-bold text-purple-700">
+              <p className="text-lg font-bold text-stone-800">
                 {entriesMingguIni.length > 0
                   ? (
                       statistikMinggu.totalHalaman / entriesMingguIni.length

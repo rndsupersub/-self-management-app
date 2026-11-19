@@ -29,7 +29,7 @@ export default function ExportPDFButton({
       disabled={isExporting}
       className={`btn btn-sm gap-1 ${
         variant === "light"
-          ? "border-white/40 bg-white/15 text-white hover:bg-white/25"
+          ? "border-white/20 bg-white/10 text-stone-100 hover:bg-white/20"
           : "btn-outline text-gray-700 hover:bg-gray-100"
       }`}
       title="Export halaman ini ke PDF"

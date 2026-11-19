@@ -123,7 +123,7 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
           <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><HeartPulse size={16}/> Rincian Health Score</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="bg-blue-50 rounded p-2 border border-blue-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Wallet size={12}/> Budget</p><p className="text-base font-bold text-blue-700">{healthScore.breakdown.budgetScore} / 40</p></div>
-            <div className="bg-purple-50 rounded p-2 border border-purple-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Target size={12}/> Goals</p><p className="text-base font-bold text-purple-700">{healthScore.breakdown.goalsScore} / 30</p></div>
+            <div className="bg-stone-100 rounded p-2 border border-stone-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Target size={12}/> Goals</p><p className="text-base font-bold text-stone-800">{healthScore.breakdown.goalsScore} / 30</p></div>
             <div className="bg-green-50 rounded p-2 border border-green-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Landmark size={12}/> Tabungan</p><p className="text-base font-bold text-green-700">{healthScore.breakdown.tabunganScore} / 20</p></div>
             <div className="bg-orange-50 rounded p-2 border border-orange-200"><p className="text-xs text-gray-600 flex items-center gap-1"><MessageSquare size={12}/> Konsistensi</p><p className="text-base font-bold text-orange-700">{healthScore.breakdown.konsistensiScore} / 10</p></div>
           </div>

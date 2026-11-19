@@ -10,7 +10,7 @@ import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_ACTIVITIES, DEFAULT_MENUS } from "@/lib/defaultData";
-import { DEFAULT_JADWAL, deteksiJadwalOtomatis } from "@/lib/jadwalData";
+import { DEFAULT_JADWAL } from "@/lib/jadwalData";
 import { getJadwalHarian, namaHari } from "@/lib/jadwalHarian";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING } from "@/lib/keuanganData";
 import { migrasiStatusVendorPekerjaan, migrasiStatusVendorBisnis } from "@/lib/vendorData";
@@ -249,25 +249,6 @@ export default function Dashboard() {
     jadwalOverride[selectedDate],
     selectedDate
   );
-  const jumlahHari = infoHari.daftar.length;
-  const progressHari = progress[selectedDate] || {};
-  const selesaiHari = infoHari.daftar.filter((item) => {
-    if (
-      progressHari[item.id]?.selesai === true ||
-      progressHari[item._kunci]?.selesai === true
-    ) {
-      return true;
-    }
-    // Sumber yang sama dengan web/Telegram: aktivitas yang datanya udah diisi
-    // juga dihitung selesai, bukan cuma yang diklik manual.
-    try {
-      return deteksiJadwalOtomatis(item.id, selectedDate, userData)?.auto === true;
-    } catch (err) {
-      return false;
-    }
-  }).length;
-  const persenHari = jumlahHari ? Math.round((selesaiHari / jumlahHari) * 100) : 0;
-
   const jamSekarang = new Date().getHours();
   const sapaan =
     jamSekarang < 11
@@ -286,75 +267,42 @@ export default function Dashboard() {
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6 pb-10">
       {/* HERO / RINGKASAN HARI INI */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-500 px-6 py-7 md:px-8 md:py-8 text-white shadow-xl shadow-indigo-600/15">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-24 right-24 h-48 w-48 rounded-full bg-violet-300/20 blur-2xl" />
+      <section className="relative overflow-hidden rounded-2xl border border-stone-800 bg-stone-900 px-6 py-7 text-white shadow-xl shadow-stone-900/10 md:px-8 md:py-8">
+        <div className="pointer-events-none absolute -right-20 -top-28 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 left-1/3 h-56 w-56 rounded-full bg-white/[0.04] blur-3xl" />
 
-        <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-100/90">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-400">
               Dashboard
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
               {sapaan} 👋
             </h1>
-            <p className="mt-1 text-sm text-indigo-100">
+            <p className="mt-1 text-sm text-stone-300">
               {namaHari(selectedDate)}, {tanggalPanjang}
-              <span className="mx-2 text-indigo-200/60">•</span>
+              <span className="mx-2 text-stone-600">•</span>
               {infoHari.labelHari}
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 backdrop-blur">
-                ✅ {selesaiHari} dari {jumlahHari} selesai
+            {Object.keys(jadwalOverride[selectedDate] || {}).length > 0 && (
+              <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                Ada jadwal yang dipindah
               </span>
-              {Object.keys(jadwalOverride[selectedDate] || {}).length > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-300/20 px-3 py-1.5 text-amber-50">
-                  🕒 Ada jadwal yang dipindah
-                </span>
-              )}
-            </div>
+            )}
           </div>
 
-          <div className="flex shrink-0 items-center gap-5">
-            <div className="relative grid h-24 w-24 place-items-center rounded-full bg-white/10">
-              <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full -rotate-90">
-                <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="3" />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="15.5"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeDasharray={`${(persenHari / 100) * 97.4} 97.4`}
-                />
-              </svg>
-              <div className="text-center">
-                <p className="text-xl font-bold leading-none">{persenHari}%</p>
-                <p className="mt-1 text-[10px] uppercase tracking-wider text-indigo-100">selesai</p>
-              </div>
-            </div>
-            <div className="hidden sm:block" data-html2canvas-ignore="true">
-              <ExportPDFButton
-                targetId="export-area"
-                fileName={`Dashboard_${today}.pdf`}
-                title="Dashboard Self Management"
-                variant="light"
-              />
-            </div>
+          <div className="shrink-0" data-html2canvas-ignore="true">
+            <ExportPDFButton
+              targetId="export-area"
+              fileName={`Dashboard_${today}.pdf`}
+              title="Dashboard Self Management"
+              variant="light"
+            />
           </div>
         </div>
       </section>
-
-      <div className="sm:hidden flex justify-end" data-html2canvas-ignore="true">
-        <ExportPDFButton
-          targetId="export-area"
-          fileName={`Dashboard_${today}.pdf`}
-          title="Dashboard Self Management"
-        />
-      </div>
 
       <Schedule
         jadwalUser={jadwalUser}
