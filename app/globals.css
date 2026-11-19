@@ -80,7 +80,7 @@ body {
 /* Scrollbar tipis biar halaman terasa lebih rapi */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+  scrollbar-color: rgba(120, 113, 108, 0.45) transparent;
 }
 
 ::-webkit-scrollbar {
@@ -93,14 +93,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.45);
+  background: rgba(120, 113, 108, 0.35);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.6);
+  background: rgba(87, 83, 78, 0.55);
   background-clip: content-box;
 }
 
@@ -116,6 +116,14 @@ a {
 ::selection {
   background: rgba(120, 113, 108, 0.2);
   color: oklch(21.6% 0.006 56);
+}
+
+/* Kontrol native (checkbox, radio, range) ikut warna tema, bukan biru browser. */
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--color-primary);
 }
 
 /* Penyelarasan visual lintas fitur: kartu, tombol, form, tab, modal.

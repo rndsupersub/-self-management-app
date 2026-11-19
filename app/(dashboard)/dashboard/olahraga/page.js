@@ -62,10 +62,10 @@ export default function OlahragaPage() {
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}>
+        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}>
           <Calendar size={16} className="mr-2" /> Kalender
         </button>
-        <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}>
+        <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}>
           <Activity size={16} className="mr-2" /> Evaluasi Mingguan
         </button>
       </div>

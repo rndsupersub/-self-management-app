@@ -218,7 +218,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
 
             <div className="flex gap-1">
               <button
-                className="btn btn-ghost btn-xs text-red-500"
+                className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                 onClick={() => setConfirmHapus(true)}
                 title="Hapus buku"
               >
@@ -230,7 +230,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
           {/* Konfirmasi Hapus */}
           {confirmHapus && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded p-3">
-              <p className="text-sm text-red-700 mb-2">
+              <p className="text-sm text-error mb-2">
                 Yakin mau hapus buku ini? Semua riwayat baca bakal hilang.
               </p>
               <div className="flex gap-2">
@@ -395,7 +395,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
             🟢 Udah dibaca • ⚪ Belum dibaca • Klik halaman untuk toggle
           </p>
           {halamanMulai > 1 && (
-            <p className="text-xs text-blue-600 mb-3">
+            <p className="text-xs text-stone-800 mb-3">
               ℹ️ Halaman 1–{halamanMulai - 1} adalah front matter, tidak dihitung dalam progress.
             </p>
           )}
@@ -412,7 +412,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
                     dibaca
                       ? "bg-green-500 text-white border-green-600 hover:bg-green-600"
                       : isFrontMatter
-                      ? "bg-blue-50 text-blue-400 border-blue-200 hover:bg-blue-100"
+                      ? "bg-stone-100 text-stone-400 border-stone-200 hover:bg-stone-100"
                       : "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200"
                   }`}
                   title={`Halaman ${h}${dibaca ? " (udah dibaca)" : ""}${isFrontMatter ? " (front matter)" : ""}`}
@@ -427,7 +427,7 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
 
       {/* ========== KESIMPULAN AKHIR ========== */}
       {bukuSelesai && (
-        <div className="card bg-gradient-to-br from-green-50 to-blue-50 shadow border-2 border-green-300">
+        <div className="card bg-gradient-to-br from-green-50 to-stone-100 shadow border-2 border-green-300">
           <div className="card-body p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-base font-bold text-green-800">
@@ -519,14 +519,14 @@ export default function DetailBuku({ buku, onUpdateBuku, onDeleteBuku }) {
                         {entry.halamanList?.length || 0} hal)
                       </span>
                       <button
-                        className="btn btn-ghost btn-xs text-blue-500"
+                        className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800"
                         onClick={() => handleEditRiwayat(entry)}
                         title="Edit riwayat"
                       >
                         ✏️
                       </button>
                       <button
-                        className="btn btn-ghost btn-xs text-red-500"
+                        className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                         onClick={() => handleHapusRiwayat(entry.tanggal)}
                         title="Hapus riwayat"
                       >

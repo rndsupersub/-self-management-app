@@ -73,12 +73,12 @@ export default function ViewerOwnerPage() {
   };
 
   const getBadgeClass = (warna) => {
-    const map = { red: "bg-red-100 text-red-700 border-red-300", yellow: "bg-yellow-100 text-yellow-700 border-yellow-300", blue: "bg-blue-100 text-blue-700 border-blue-300", gray: "bg-gray-100 text-gray-700 border-gray-300", orange: "bg-orange-100 text-orange-700 border-orange-300", purple: "bg-purple-100 text-purple-700 border-purple-300", green: "bg-green-100 text-green-700 border-green-300", brown: "bg-amber-100 text-amber-700 border-amber-300", pink: "bg-pink-100 text-pink-700 border-pink-300" };
+    const map = { red: "bg-red-100 text-error border-red-300", yellow: "bg-yellow-100 text-yellow-700 border-yellow-300", blue: "bg-stone-200 text-stone-700 border-stone-300", gray: "bg-gray-100 text-gray-700 border-gray-300", orange: "bg-orange-100 text-orange-700 border-orange-300", purple: "bg-purple-100 text-purple-700 border-purple-300", green: "bg-green-100 text-green-700 border-green-300", brown: "bg-amber-100 text-amber-700 border-amber-300", pink: "bg-pink-100 text-pink-700 border-pink-300" };
     return map[warna] || map.gray;
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
-  if (error) return <div className="p-6 text-red-500 text-center">{error}</div>;
+  if (error) return <div className="p-6 text-error text-center">{error}</div>;
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -129,7 +129,7 @@ export default function ViewerOwnerPage() {
                 {selectedPT.brands.map((brand) => (
                   <button key={brand.id} className="card bg-gray-50 border border-gray-200 hover:bg-gray-100 hover:shadow-md transition cursor-pointer text-left" onClick={() => setSelectedBrand(brand)}>
                     <div className="card-body p-4 flex-row items-center gap-3">
-                      <Tag size={24} className="text-blue-500" />
+                      <Tag size={24} className="text-stone-600" />
                       <div className="flex-1">
                         <p className="font-bold text-gray-800">{brand.nama}</p>
                         <p className="text-xs text-gray-500">{brand.kegiatan?.length || 0} kegiatan</p>

@@ -102,8 +102,8 @@ export default function KalenderTransaksi({
   const getDotColor = (trxList) => {
     if (!trxList || trxList.length === 0) return null;
     if (trxList.some((t) => t.jenis === "masuk")) return "bg-green-500";
-    if (trxList.some((t) => t.jenis === "keluar")) return "bg-red-500";
-    if (trxList.some((t) => t.jenis === "tabungan")) return "bg-blue-500";
+    if (trxList.some((t) => t.jenis === "keluar")) return "bg-error";
+    if (trxList.some((t) => t.jenis === "tabungan")) return "bg-stone-600";
     if (trxList.some((t) => t.jenis === "sedekah")) return "bg-orange-500";
     return "bg-gray-400";
   };
@@ -118,8 +118,8 @@ export default function KalenderTransaksi({
   const getJenisLabel = (id) => jenisList.find((j) => j.id === id)?.label || id;
   const getJenisColor = (id) => {
     if (id === "masuk") return "text-green-700 bg-green-50 border-green-200";
-    if (id === "keluar") return "text-red-700 bg-red-50 border-red-200";
-    if (id === "tabungan") return "text-blue-700 bg-blue-50 border-blue-200";
+    if (id === "keluar") return "text-error bg-red-50 border-red-200";
+    if (id === "tabungan") return "text-stone-700 bg-stone-100 border-stone-200";
     if (id === "sedekah") return "text-orange-700 bg-orange-50 border-orange-200";
     return "text-gray-700 bg-gray-50 border-gray-200";
   };
@@ -177,8 +177,8 @@ export default function KalenderTransaksi({
 
               let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
               if (isToday && !isSelected && !isHolidayDate) boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
-              if (isHolidayDate && !isSelected) boxClass = "bg-red-600 text-white border-red-700 font-bold";
-              if (isSelected) boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-1 ring-blue-300";
+              if (isHolidayDate && !isSelected) boxClass = "bg-error text-white border-error font-bold";
+              if (isSelected) boxClass = "bg-stone-200 text-stone-900 border-2 border-stone-800 font-bold ring-1 ring-stone-300";
 
               return (
                 <button key={item.date} className={`aspect-square rounded border ${boxClass} relative transition text-sm`} onClick={() => setSelectedDate(item.date)} title={holiday || ""}>
@@ -191,8 +191,8 @@ export default function KalenderTransaksi({
 
           <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
             <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /><span>Masuk</span></div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /><span>Keluar</span></div>
-            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /><span>Tabungan</span></div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-error" /><span>Keluar</span></div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-stone-600" /><span>Tabungan</span></div>
             <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /><span>Sedekah</span></div>
           </div>
         </div>
@@ -211,8 +211,8 @@ export default function KalenderTransaksi({
           </div>
 
           {showForm && (
-            <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3" data-html2canvas-ignore="true">
-              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">{editingId ? <><Pencil size={14}/> Edit Transaksi</> : <><Plus size={14}/> Tambah Transaksi</>}</p>
+            <div className="bg-stone-100 rounded p-3 space-y-3 border border-stone-200 mb-3" data-html2canvas-ignore="true">
+              <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingId ? <><Pencil size={14}/> Edit Transaksi</> : <><Plus size={14}/> Tambah Transaksi</>}</p>
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">Jenis</label>
                 <div className="grid grid-cols-4 gap-1">
@@ -273,7 +273,7 @@ export default function KalenderTransaksi({
                     </div>
                     <div className="flex gap-1" data-html2canvas-ignore="true">
                       <button className="btn btn-ghost btn-xs" onClick={() => handleBukaEdit(trx)} disabled={menyimpan}><Pencil size={14} /></button>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(trx.id)} disabled={menyimpan}><Trash2 size={14} /></button>
+                      <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapus(trx.id)} disabled={menyimpan}><Trash2 size={14} /></button>
                     </div>
                   </div>
                 );

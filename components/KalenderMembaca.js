@@ -154,8 +154,8 @@ export default function KalenderMembaca({
 
               let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
               if (isToday && !isSelected && !isHolidayDate) boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
-              if (isHolidayDate && !isSelected) boxClass = "bg-red-600 text-white border-red-700 font-bold";
-              if (isSelected) boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-1 ring-blue-300";
+              if (isHolidayDate && !isSelected) boxClass = "bg-error text-white border-error font-bold";
+              if (isSelected) boxClass = "bg-stone-200 text-stone-900 border-2 border-stone-800 font-bold ring-1 ring-stone-300";
 
               return (
                 <button key={item.date} className={`aspect-square rounded border ${boxClass} relative transition text-sm`} onClick={() => handleDateClick(item.date)} title={holiday || ""}>
@@ -167,9 +167,9 @@ export default function KalenderMembaca({
           </div>
 
           <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-red-600 border border-red-700" /><span>Libur Nasional</span></div>
+            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-error border border-error" /><span>Libur Nasional</span></div>
             <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300" /><span>Hari Ini</span></div>
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-600" /><span>Tanggal Dipilih</span></div>
+            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-stone-200 border-2 border-stone-800" /><span>Tanggal Dipilih</span></div>
             <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /><span>Sudah Hafal</span></div>
             <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500" /><span>Belum Selesai</span></div>
           </div>
@@ -181,12 +181,12 @@ export default function KalenderMembaca({
           <div className="card-body p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-1"><Pin size={16}/> {formatTanggal(selectedDate)}</h3>
-              {selectedEntry && <button className="btn btn-ghost btn-xs text-red-500" onClick={handleHapus}><Trash2 size={14} className="mr-1"/> Hapus</button>}
+              {selectedEntry && <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={handleHapus}><Trash2 size={14} className="mr-1"/> Hapus</button>}
             </div>
 
             {showForm && (
-              <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200">
-                <p className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Pencil size={14}/> Input Hafalan</p>
+              <div className="bg-stone-100 rounded p-3 space-y-3 border border-stone-200">
+                <p className="text-xs font-semibold text-stone-700 flex items-center gap-1"><Pencil size={14}/> Input Hafalan</p>
                 
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block flex items-center gap-1"><Library size={14}/> Juz</label>

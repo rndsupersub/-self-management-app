@@ -75,7 +75,7 @@ export default function GoalsManager({ goalsList = DEFAULT_GOALS, dompetList = D
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
             <p className="text-xs text-gray-500 flex items-center gap-1"><PieChart size={14}/> Progress Total</p>
-            <p className="text-lg font-bold text-blue-700">{ringkasan.persen}% ({ringkasan.selesai}/{goalsData.length})</p>
+            <p className="text-lg font-bold text-stone-700">{ringkasan.persen}% ({ringkasan.selesai}/{goalsData.length})</p>
           </div>
         </div>
       </div>
@@ -86,7 +86,7 @@ export default function GoalsManager({ goalsList = DEFAULT_GOALS, dompetList = D
       </div>
 
       {showForm && (
-        <div className="card bg-white shadow border border-blue-300">
+        <div className="card bg-white shadow border border-stone-300">
           <div className="card-body p-4 space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-1">{editingId ? <><Pencil size={16}/> Edit Goal</> : <><Plus size={16}/> Tambah Goal Baru</>}</h3>
@@ -144,7 +144,7 @@ export default function GoalsManager({ goalsList = DEFAULT_GOALS, dompetList = D
                   </div>
                   <div className="flex gap-1">
                     <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => handleBukaEdit(goal)}><Pencil size={14}/></button>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapus(goal.id)}><Trash2 size={14}/></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setConfirmHapus(goal.id)}><Trash2 size={14}/></button>
                   </div>
                 </div>
                 <progress className={`progress w-full h-3 ${getProgressColor(goal.persen)}`} value={goal.persen} max="100" />

@@ -191,7 +191,7 @@ export default function HafalanSuratPage() {
                     <p className="text-xs text-gray-600 mt-1">Halaman {entry.halamanMulai}--{entry.halamanSelesai}</p>
                     {entry.catatan && <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{entry.catatan}</p>}
                   </div>
-                  <button className="btn btn-ghost btn-xs text-red-500" onClick={() => { if(confirm("Hapus?")) { const up = {...hafalanMembaca}; delete up[entry.tanggal]; setHafalanMembaca(up); simpanSettings({hafalanMembaca: up}); } }}><Trash2 size={14} /></button>
+                  <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => { if(confirm("Hapus?")) { const up = {...hafalanMembaca}; delete up[entry.tanggal]; setHafalanMembaca(up); simpanSettings({hafalanMembaca: up}); } }}><Trash2 size={14} /></button>
                 </div>
               ))}
             </div>
@@ -210,9 +210,9 @@ export default function HafalanSuratPage() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-800 flex items-center gap-1"><Clock size={14} /> {formatTanggalPendek(entry.tanggal)}</p>
                     <p className="text-xs text-gray-600 mt-1">Halaman {entry.halamanMulai}--{entry.halamanSelesai}</p>
-                    {getTotalKesalahan(entry.kesalahan) > 0 && <p className="text-xs text-red-600 mt-1">{formatKesalahan(entry.kesalahan)}</p>}
+                    {getTotalKesalahan(entry.kesalahan) > 0 && <p className="text-xs text-error mt-1">{formatKesalahan(entry.kesalahan)}</p>}
                   </div>
-                  <button className="btn btn-ghost btn-xs text-red-500" onClick={() => { if(confirm("Hapus?")) { const up = {...hafalanMurajaah}; delete up[entry.tanggal]; setHafalanMurajaah(up); simpanSettings({hafalanMurajaah: up}); } }}><Trash2 size={14} /></button>
+                  <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => { if(confirm("Hapus?")) { const up = {...hafalanMurajaah}; delete up[entry.tanggal]; setHafalanMurajaah(up); simpanSettings({hafalanMurajaah: up}); } }}><Trash2 size={14} /></button>
                 </div>
               ))}
             </div>
@@ -239,7 +239,7 @@ export default function HafalanSuratPage() {
                   <div className="flex-1">
                     <p className="text-sm text-gray-800 flex items-center gap-1"><Clock size={14} /> {formatTanggalPendek(vn.tanggal)} • {vn.duration} detik</p>
                   </div>
-                  <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusVN(vn.id)}><Trash2 size={14} /></button>
+                  <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusVN(vn.id)}><Trash2 size={14} /></button>
                 </div>
               ))}
             </div>

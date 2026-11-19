@@ -75,7 +75,7 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
               <p className="text-xs font-semibold text-stone-700 flex items-center gap-1"><Settings size={14}/> Kelola Field Evaluasi</p>
               <div className="space-y-1">
                 {fieldEvaluasi.map((f) => (
-                  <div key={f.id} className="flex items-center justify-between bg-white rounded px-2 py-1 border border-gray-200"><span className="text-xs text-gray-700">{f.label}</span><button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusField(f.id)}><Trash2 size={14}/></button></div>
+                  <div key={f.id} className="flex items-center justify-between bg-white rounded px-2 py-1 border border-gray-200"><span className="text-xs text-gray-700">{f.label}</span><button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusField(f.id)}><Trash2 size={14}/></button></div>
                 ))}
               </div>
               <div className="flex gap-2 mt-2">
@@ -86,8 +86,8 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
           )}
 
           {showForm && (
-            <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200">
-              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">{editingId ? <><Pencil size={14}/> Edit Minggu</> : <><Plus size={14}/> Tambah Minggu Baru</>}</p>
+            <div className="bg-stone-100 rounded p-3 space-y-3 border border-stone-200">
+              <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingId ? <><Pencil size={14}/> Edit Minggu</> : <><Plus size={14}/> Tambah Minggu Baru</>}</p>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div><label className="text-xs text-gray-600 mb-1 block">Minggu ke-</label><input type="number" min="1" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formData.mingguKe} onChange={(e) => setFormData({ ...formData, mingguKe: e.target.value })} /></div>
@@ -118,7 +118,7 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
               <div className={`rounded p-2 border ${saran.saran === "naik" ? "bg-green-50 border-green-200" : saran.saran === "turun" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"}`}>
                 <p className="text-xs font-semibold flex items-center gap-1">
                   {saran.saran === "naik" && <><ArrowUp size={14} className="text-green-600"/> Saran: NAIK level</>}
-                  {saran.saran === "turun" && <><ArrowDown size={14} className="text-red-600"/> Saran: TURUN level</>}
+                  {saran.saran === "turun" && <><ArrowDown size={14} className="text-error"/> Saran: TURUN level</>}
                   {saran.saran === "stay" && <><Pause size={14} className="text-yellow-600"/> Saran: STAY level</>}
                 </p>
                 <p className="text-xs text-gray-600 mt-1">{saran.alasan}</p>
@@ -172,7 +172,7 @@ export default function EvaluasiMingguan({ minggu = [], fieldEvaluasi = DEFAULT_
                   </div>
                   <div className="flex gap-1">
                     <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(m)} title="Edit"><Pencil size={14}/></button>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(m.id)} title="Hapus"><Trash2 size={14}/></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapus(m.id)} title="Hapus"><Trash2 size={14}/></button>
                   </div>
                 </div>
 

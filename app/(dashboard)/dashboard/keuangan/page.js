@@ -121,12 +121,12 @@ export default function KeuanganPage() {
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit flex-wrap" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "dashboard" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dashboard")}><BarChart3 size={14} className="mr-1"/> Dashboard</button>
-        <button className={`tab ${activeTab === "transaksi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("transaksi")}><Pencil size={14} className="mr-1"/> Input Transaksi</button>
-        <button className={`tab ${activeTab === "dompet" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dompet")}><Wallet size={14} className="mr-1"/> Kelola Dompet</button>
-        <button className={`tab ${activeTab === "goals" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("goals")}><Target size={14} className="mr-1"/> Kelola Goals</button>
-        <button className={`tab ${activeTab === "riwayat" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("riwayat")}><History size={14} className="mr-1"/> Riwayat</button>
-        <button className={`tab ${activeTab === "setting" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("setting")}><Settings size={14} className="mr-1"/> Setting</button>
+        <button className={`tab ${activeTab === "dashboard" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dashboard")}><BarChart3 size={14} className="mr-1"/> Dashboard</button>
+        <button className={`tab ${activeTab === "transaksi" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("transaksi")}><Pencil size={14} className="mr-1"/> Input Transaksi</button>
+        <button className={`tab ${activeTab === "dompet" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("dompet")}><Wallet size={14} className="mr-1"/> Kelola Dompet</button>
+        <button className={`tab ${activeTab === "goals" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("goals")}><Target size={14} className="mr-1"/> Kelola Goals</button>
+        <button className={`tab ${activeTab === "riwayat" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("riwayat")}><History size={14} className="mr-1"/> Riwayat</button>
+        <button className={`tab ${activeTab === "setting" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("setting")}><Settings size={14} className="mr-1"/> Setting</button>
       </div>
 
       <div id="export-area">

@@ -269,8 +269,8 @@ export default function SettingKeuangan({
 
           {/* FORM SUMBER */}
           {showFormSumber && (
-            <div className="bg-blue-50 rounded p-3 mb-3 space-y-2 border border-blue-200">
-              <p className="text-xs font-semibold text-blue-700">
+            <div className="bg-stone-100 rounded p-3 mb-3 space-y-2 border border-stone-200">
+              <p className="text-xs font-semibold text-stone-700">
                 {editingSumberId ? "✏️ Edit Sumber" : "➕ Tambah Sumber"}
               </p>
 
@@ -351,7 +351,7 @@ export default function SettingKeuangan({
                       ✏️
                     </button>
                     <button
-                      className="btn btn-ghost btn-xs text-red-500"
+                      className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                       onClick={() => handleHapusSumber(s.id)}
                       title="Hapus"
                     >
@@ -384,7 +384,7 @@ export default function SettingKeuangan({
                 key={j.id}
                 className={`tab ${
                   activeJenisKategori === j.id
-                    ? "tab-active bg-blue-600 text-white"
+                    ? "tab-active bg-stone-800 text-white"
                     : ""
                 }`}
                 onClick={() => {
@@ -474,7 +474,7 @@ export default function SettingKeuangan({
                           ✏️
                         </button>
                         <button
-                          className="btn btn-ghost btn-xs text-red-500"
+                          className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                           onClick={() => handleHapusKategori(k.id)}
                           title="Hapus"
                         >

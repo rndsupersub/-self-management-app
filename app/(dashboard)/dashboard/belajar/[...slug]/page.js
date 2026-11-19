@@ -202,10 +202,10 @@ export default function BelajarDetailPage() {
             <div key={subId} className="card bg-white shadow border border-gray-200 hover:shadow-lg transition cursor-pointer" onClick={() => router.push(`/dashboard/belajar/${subPath}`)}>
               <div className="card-body p-4">
                 <div className="flex justify-between items-start gap-2">
-                  <h2 className="card-title text-base text-gray-800 flex-1 flex items-center gap-2"><Folder size={18} className="text-blue-500"/> {cleanSubName}</h2>
+                  <h2 className="card-title text-base text-gray-800 flex-1 flex items-center gap-2"><Folder size={18} className="text-stone-600"/> {cleanSubName}</h2>
                   <div className="flex gap-1 shrink-0" data-html2canvas-ignore="true">
-                    <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRename(sub.id, sub.nama, e)} title="Rename"><Pencil size={14} /></button>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapus(sub.id, e)} title="Hapus"><Trash2 size={14} /></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={(e) => handleRename(sub.id, sub.nama, e)} title="Rename"><Pencil size={14} /></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={(e) => handleHapus(sub.id, e)} title="Hapus"><Trash2 size={14} /></button>
                   </div>
                 </div>
                 <div className="card-actions justify-end mt-2"><span className="text-gray-400 text-xs flex items-center gap-1 hover:text-primary transition">Buka <ArrowRight size={12}/></span></div>
@@ -220,7 +220,7 @@ export default function BelajarDetailPage() {
   const renderTabs = (tabs) => (
     <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
       {tabs.map((t) => (
-        <button key={t.id} className={`tab ${activeTab === t.id ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab(t.id)}>
+        <button key={t.id} className={`tab ${activeTab === t.id ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab(t.id)}>
           {t.icon && <span className="mr-2">{t.icon}</span>}
           {t.label}
         </button>
@@ -289,9 +289,9 @@ export default function BelajarDetailPage() {
                 <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Fitur</button>
               </div>
               {showColorPicker && (
-                <div className="card bg-white shadow border border-blue-300 mb-4">
+                <div className="card bg-white shadow border border-stone-300 mb-4">
                   <div className="card-body p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool &quot;{(item.nama || "").replace(/^[^\w\s]+\s/, '')}&quot;</p>
+                    <p className="text-xs font-semibold text-stone-700 mb-2 flex items-center gap-1"><Palette size={14} /> Pilih Warna untuk Tool &quot;{(item.nama || "").replace(/^[^\w\s]+\s/, '')}&quot;</p>
                     <div className="flex flex-wrap gap-2">
                       {WARNA_OPTIONS.map((w) => (
                         <button key={w.id} className={`w-8 h-8 rounded ${w.bg} border-2 ${warnaTool === w.id ? "border-gray-800 ring-2 ring-gray-400" : "border-white"}`} onClick={() => handleUpdateWarnaTool(w.id)} title={w.label} />
@@ -379,7 +379,7 @@ export default function BelajarDetailPage() {
       {showForm && (
         <div className="card bg-white shadow border border-gray-200 mb-4" data-html2canvas-ignore="true">
           <div className="card-body p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">Tambah item baru</p>
+            <p className="text-xs font-semibold text-stone-700 mb-2">Tambah item baru</p>
             <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Nama item" value={formData.nama} onChange={(e) => setFormData({ nama: e.target.value })} autoFocus />
             <div className="flex gap-2 mt-3">
               <button className="btn btn-primary btn-sm flex-1" onClick={handleTambah}>Tambah</button>

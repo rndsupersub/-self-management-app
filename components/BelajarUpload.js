@@ -232,8 +232,8 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
           </div>
 
           {showForm && (
-            <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200">
-              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">{editingLogId ? <><Pencil size={14}/> Edit Catatan</> : <><Plus size={14}/> Tambah Catatan</>}</p>
+            <div className="bg-stone-100 rounded p-3 space-y-3 border border-stone-200">
+              <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingLogId ? <><Pencil size={14}/> Edit Catatan</> : <><Plus size={14}/> Tambah Catatan</>}</p>
 
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">Sub-Kategori</label>
@@ -318,7 +318,7 @@ export default function BelajarUpload({ item, onUpdate, path = [], kategoriId, k
                       </div>
                       <div className="flex gap-1" data-html2canvas-ignore="true">
                         <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(log)} title="Edit"><Pencil size={14}/></button>
-                        <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(log)} title="Hapus"><Trash2 size={14}/></button>
+                        <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapus(log)} title="Hapus"><Trash2 size={14}/></button>
                       </div>
                     </div>
                   </div>

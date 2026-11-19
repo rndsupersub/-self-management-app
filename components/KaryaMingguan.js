@@ -43,8 +43,8 @@ export default function KaryaMingguan({ karyaMingguan = [], onUpdate }) {
         </div>
 
         {showForm && (
-          <div className="bg-blue-50 p-3 rounded border border-blue-200 mb-4 space-y-2">
-            <p className="text-xs font-semibold text-blue-700">Tambah Karya Baru</p>
+          <div className="bg-stone-100 p-3 rounded border border-stone-200 mb-4 space-y-2">
+            <p className="text-xs font-semibold text-stone-700">Tambah Karya Baru</p>
             <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Judul Karya (misal: Review SolidWorks)" value={formData.judul} onChange={(e) => setFormData({ ...formData, judul: e.target.value })} />
             <input type="url" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Link TikTok (https://tiktok.com/...)" value={formData.link} onChange={(e) => setFormData({ ...formData, link: e.target.value })} />
             <div className="flex gap-2">
@@ -69,7 +69,7 @@ export default function KaryaMingguan({ karyaMingguan = [], onUpdate }) {
                     <LinkIcon size={12} /> Lihat Karya
                   </a>
                 </div>
-                <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(karya.id)}><Trash2 size={16} /></button>
+                <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapus(karya.id)}><Trash2 size={16} /></button>
               </div>
             ))}
           </div>

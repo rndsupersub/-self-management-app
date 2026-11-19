@@ -335,9 +335,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
 
       <div className="flex flex-wrap justify-between items-center gap-2" data-html2canvas-ignore="true">
         <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
-          <button className={`tab ${activeTab === "harian" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("harian"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Harian</button>
-          <button className={`tab ${activeTab === "mingguan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("mingguan"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Mingguan</button>
-          <button className={`tab ${activeTab === "bulanan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("bulanan"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Bulanan</button>
+          <button className={`tab ${activeTab === "harian" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("harian"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Harian</button>
+          <button className={`tab ${activeTab === "mingguan" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("mingguan"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Mingguan</button>
+          <button className={`tab ${activeTab === "bulanan" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("bulanan"); setEditingIndex(null); }}><Calendar size={14} className="mr-1"/> Bulanan</button>
         </div>
         <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaField(true)}>
           <Settings size={14}/> Kelola Field Laporan
@@ -414,9 +414,9 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                         <div className="flex gap-1 shrink-0">
                           <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => toggleLaporan(report.id)} title={tertutup[report.id] ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"}>{tertutup[report.id] ? <Eye size={16}/> : <EyeOff size={16}/>}</button>
                           {!isEditing && (
-                            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
+                            <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
                           )}
-                          <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
+                          <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
                         </div>
                       </div>
 
@@ -496,8 +496,8 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                       <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex justify-between items-center">
                         <span className="flex items-center gap-1"><Calendar size={14}/> {label}</span>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" onClick={() => handleEditHistory(lap)} className="btn btn-ghost btn-xs text-blue-500" title="Edit History"><Pencil size={14}/></button>
-                          <button type="button" onClick={() => handleHapusLaporan(lap.key)} className="btn btn-ghost btn-xs text-red-500" title="Hapus History"><Trash2 size={14}/></button>
+                          <button type="button" onClick={() => handleEditHistory(lap)} className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" title="Edit History"><Pencil size={14}/></button>
+                          <button type="button" onClick={() => handleHapusLaporan(lap.key)} className="btn btn-ghost btn-xs text-stone-400 hover:text-error" title="Hapus History"><Trash2 size={14}/></button>
                         </div>
                       </summary>
                       <div className="mt-2 space-y-2">
@@ -539,12 +539,12 @@ export default function LaporanPekerjaan({ kegiatanList = [], vendorList = [], l
                 {fields.map((f) => (
                   <div key={f.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
                     <div className="flex-1"><p className="text-sm text-gray-700">{f.label}</p><span className="text-[10px] text-gray-500">Tipe: {f.tipe}</span></div>
-                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditField(f)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusField(f.id)}><Trash2 size={14}/></button></div>
+                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditField(f)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusField(f.id)}><Trash2 size={14}/></button></div>
                   </div>
                 ))}
               </div>
-              <div className="bg-blue-50 rounded p-3 border border-blue-200 space-y-2">
-                <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">{editingFieldId ? <><Pencil size={14}/> Edit Field</> : <><Plus size={14}/> Tambah Field Baru</>}</p>
+              <div className="bg-stone-100 rounded p-3 border border-stone-200 space-y-2">
+                <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingFieldId ? <><Pencil size={14}/> Edit Field</> : <><Plus size={14}/> Tambah Field Baru</>}</p>
                 <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama field (misal: Kendala)" value={fieldForm.label} onChange={(e) => setFieldForm({ ...fieldForm, label: e.target.value })} />
                 <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={fieldForm.tipe} onChange={(e) => setFieldForm({ ...fieldForm, tipe: e.target.value })}>
                   <option value="long">Teks Panjang</option>

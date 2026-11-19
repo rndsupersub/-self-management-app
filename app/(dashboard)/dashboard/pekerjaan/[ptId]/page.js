@@ -118,8 +118,8 @@ export default function PTDetailPage() {
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <Building2 className="text-primary" size={24} /> {pt.nama}
             </h1>
-            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditNamaDraft(null); setEditMode(true); }} title="Edit Nama"><Pencil size={16} /></button>
-            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusPT(true)} title="Hapus PT"><Trash2 size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => { setEditNamaDraft(null); setEditMode(true); }} title="Edit Nama"><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setConfirmHapusPT(true)} title="Hapus PT"><Trash2 size={16} /></button>
           </div>
         )}
         <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>+ Tambah Brand</button>
@@ -127,7 +127,7 @@ export default function PTDetailPage() {
 
       {confirmHapusPT && (
         <div className="bg-red-50 border border-red-200 rounded p-3 mb-4" data-html2canvas-ignore="true">
-          <p className="text-sm text-red-700 mb-2">Yakin mau hapus <strong>{pt.nama}</strong>? Semua brand dan kegiatan akan hilang.</p>
+          <p className="text-sm text-error mb-2">Yakin mau hapus <strong>{pt.nama}</strong>? Semua brand dan kegiatan akan hilang.</p>
           <div className="flex gap-2">
             <button className="btn btn-error btn-sm" onClick={handleHapusPT}>Ya, Hapus</button>
             <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setConfirmHapusPT(false)}>Batal</button>
@@ -138,7 +138,7 @@ export default function PTDetailPage() {
       {showForm && (
         <div className="card bg-white shadow border border-gray-200 mb-4" data-html2canvas-ignore="true">
           <div className="card-body p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">Tambah brand baru</p>
+            <p className="text-xs font-semibold text-stone-700 mb-2">Tambah brand baru</p>
             <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Nama Brand" value={formData.nama} onChange={(e) => setFormData({ nama: e.target.value })} autoFocus />
             <div className="flex gap-2 mt-3">
               <button className="btn btn-primary btn-sm flex-1" onClick={handleTambahBrand}>Simpan</button>
@@ -164,7 +164,7 @@ export default function PTDetailPage() {
                   <h2 className="card-title text-base text-gray-800 flex items-center gap-2">
                     <Tag size={18} className="text-gray-500" /> {brand.nama}
                   </h2>
-                  <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusBrand(brand.id, e)} title="Hapus"><Trash2 size={14} /></button>
+                  <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={(e) => handleHapusBrand(brand.id, e)} title="Hapus"><Trash2 size={14} /></button>
                 </div>
                 <p className="text-sm text-gray-500">{brand.kegiatan?.length || 0} Kegiatan</p>
                 <div className="card-actions justify-end mt-2">

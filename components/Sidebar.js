@@ -109,7 +109,7 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
     return (
       <div className="flex h-full flex-col items-center gap-1 py-3">
         <button
-          className="mb-1 grid h-9 w-9 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          className="mb-1 grid h-9 w-9 place-items-center rounded-xl text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
           onClick={() => setCollapsed(false)}
           title="Lebarkan sidebar"
         >
@@ -123,7 +123,7 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
               className={`grid h-10 w-10 place-items-center rounded-xl transition ${
                 isActive(menu)
                   ? "bg-stone-900 text-white shadow-sm shadow-stone-900/20"
-                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                  : "text-stone-500 hover:bg-stone-100 hover:text-stone-800"
               }`}
               onClick={() => handleNavigate(menu)}
               title={labelBersih(menu.label)}
@@ -139,13 +139,13 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+      <div className="flex items-center justify-between border-b border-stone-200 px-4 py-3.5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
           Menu Utama
         </span>
         {onCloseMobile ? (
           <button
-            className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 md:hidden"
+            className="grid h-8 w-8 place-items-center rounded-lg text-stone-500 transition hover:bg-stone-100 md:hidden"
             onClick={onCloseMobile}
             aria-label="Tutup menu"
           >
@@ -153,7 +153,7 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
           </button>
         ) : (
           <button
-            className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            className="grid h-8 w-8 place-items-center rounded-lg text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
             onClick={() => setCollapsed(true)}
             title="Kecilkan sidebar"
             aria-label="Kecilkan sidebar"
@@ -167,11 +167,11 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
         {loadingMenus ? (
           <div className="space-y-2">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-9 animate-pulse rounded-xl bg-slate-100" />
+              <div key={i} className="h-9 animate-pulse rounded-xl bg-stone-200" />
             ))}
           </div>
         ) : visibleMenus.length === 0 ? (
-          <p className="px-2 py-4 text-center text-[11px] italic text-slate-400">
+          <p className="px-2 py-4 text-center text-[11px] italic text-stone-400">
             Belum ada menu. Klik &quot;Kelola Menu&quot; di navbar.
           </p>
         ) : (
@@ -183,14 +183,14 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
                 className={`group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition ${
                   active
                     ? "bg-stone-100 text-stone-900"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
                 }`}
                 onClick={() => handleNavigate(menu)}
               >
                 {active && (
                   <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-stone-800" />
                 )}
-                <span className={active ? "text-stone-700" : "text-slate-400"}>
+                <span className={active ? "text-stone-700" : "text-stone-400"}>
                   {getIcon(menu.id)}
                 </span>
                 <span className="truncate">{labelBersih(menu.label)}</span>
@@ -200,14 +200,14 @@ export default function Sidebar({ collapsed, setCollapsed, onCloseMobile }) {
         )}
       </div>
 
-      <div className="border-t border-slate-100 px-4 py-3">
+      <div className="border-t border-stone-200 px-4 py-3">
         <div className="flex items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
           <Sparkles size={14} className="shrink-0 text-stone-500" />
           <div className="min-w-0">
             <p className="truncate text-[11px] font-semibold text-stone-700">
               {visibleMenus.length} menu aktif
             </p>
-            <p className="truncate text-[10px] text-slate-400">
+            <p className="truncate text-[10px] text-stone-400">
               Jalanin satu-satu, konsisten.
             </p>
           </div>

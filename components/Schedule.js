@@ -178,13 +178,13 @@ export default function Schedule({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-sm">
       {/* HEADER */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-4 md:px-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 px-4 py-4 md:px-5">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            className="grid h-9 w-9 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-stone-800"
             onClick={() => geserTanggal(-1)}
             aria-label="Hari sebelumnya"
           >
@@ -192,11 +192,11 @@ export default function Schedule({
           </button>
 
           <div className="min-w-[190px] text-center">
-            <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-slate-800">
+            <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-stone-800">
               <Calendar size={15} className="text-stone-500" />
               {formatTanggal(tanggalAktif)}
             </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">
+            <p className="mt-0.5 text-[11px] text-stone-400">
               {infoHari.labelHari}
               {jumlahDipindah > 0 ? ` · ${jumlahDipindah} dipindah` : ""}
             </p>
@@ -204,7 +204,7 @@ export default function Schedule({
 
           <button
             type="button"
-            className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            className="grid h-9 w-9 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-stone-800"
             onClick={() => geserTanggal(1)}
             aria-label="Hari berikutnya"
           >
@@ -215,21 +215,21 @@ export default function Schedule({
         <div className="flex items-center gap-2">
           <input
             type="date"
-            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition focus:border-stone-400 focus:ring-2 focus:ring-stone-100"
+            className="h-9 rounded-xl border border-stone-200 bg-white px-3 text-xs text-stone-700 outline-none transition focus:border-stone-400 focus:ring-2 focus:ring-stone-100"
             value={tanggalAktif}
             onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
             aria-label="Pilih tanggal"
           />
           <button
             type="button"
-            className="h-9 rounded-xl border border-slate-200 px-3 text-xs font-medium text-slate-600 transition hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900"
+            className="h-9 rounded-xl border border-stone-200 px-3 text-xs font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-100 hover:text-stone-900"
             onClick={() => setSelectedDate(getLocalDateStr())}
           >
             Hari ini
           </button>
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 sm:px-3"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-medium text-stone-500 transition hover:bg-stone-100 hover:text-stone-800 sm:px-3"
             onClick={bukaKelolaJadwal}
             aria-label="Kelola jadwal"
             data-html2canvas-ignore="true"
@@ -243,11 +243,11 @@ export default function Schedule({
       {/* LIST JADWAL */}
       <div className="px-3 py-3 md:px-4">
         {ditampilkan.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 px-6 py-10 text-center">
-            <p className="text-sm font-medium text-slate-600">
+          <div className="rounded-xl border border-dashed border-stone-200 px-6 py-10 text-center">
+            <p className="text-sm font-medium text-stone-600">
               Belum ada jadwal untuk hari ini.
             </p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-stone-400">
               Tambahkan aktivitas lewat Kelola Jadwal.
             </p>
             <button
@@ -278,23 +278,23 @@ export default function Schedule({
                 <div
                   key={act._kunci || act.id || index}
                   className={`group flex gap-3 rounded-xl px-2 py-2.5 transition ${
-                    sedangBerlangsung ? "bg-stone-100/70" : "hover:bg-slate-50"
+                    sedangBerlangsung ? "bg-stone-100/70" : "hover:bg-stone-100"
                   }`}
                 >
                   {/* JAM */}
                   <div className="w-12 shrink-0 pt-0.5 text-right">
-                    <p className="text-[12px] font-semibold tabular-nums text-slate-700">
+                    <p className="text-[12px] font-semibold tabular-nums text-stone-700">
                       {mulai || "—"}
                     </p>
                     {selesai && (
-                      <p className="text-[10px] tabular-nums text-slate-400">{selesai}</p>
+                      <p className="text-[10px] tabular-nums text-stone-400">{selesai}</p>
                     )}
                   </div>
 
                   {/* TIMELINE */}
                   <div className="relative flex w-3 shrink-0 justify-center">
                     {index < ditampilkan.length - 1 && (
-                      <span className="absolute inset-y-0 mt-3 w-px bg-slate-200" />
+                      <span className="absolute inset-y-0 mt-3 w-px bg-stone-200" />
                     )}
                     <span
                       className={`relative mt-1.5 h-2.5 w-2.5 rounded-full ring-4 ${
@@ -302,7 +302,7 @@ export default function Schedule({
                           ? "bg-emerald-500 ring-emerald-100"
                           : sedangBerlangsung
                             ? "bg-stone-700 ring-stone-200"
-                            : "bg-slate-300 ring-slate-100"
+                            : "bg-stone-300 ring-stone-200"
                       }`}
                     />
                   </div>
@@ -314,8 +314,8 @@ export default function Schedule({
                         <p
                           className={`truncate text-sm font-semibold ${
                             isSelesai
-                              ? "text-slate-400 line-through"
-                              : "text-slate-800"
+                              ? "text-stone-400 line-through"
+                              : "text-stone-800"
                           }`}
                         >
                           {labelBersih || act.label || "Tanpa nama"}
@@ -334,7 +334,7 @@ export default function Schedule({
                         )}
                       </div>
 
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-400">
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-stone-400">
                         {act.unit && <span>{act.unit}</span>}
                         {act._dipindah && (
                           <span className="inline-flex items-center gap-1 text-amber-600/80">
@@ -351,7 +351,7 @@ export default function Schedule({
                       {act._dipindah && onUpdateJadwalOverride && (
                         <button
                           type="button"
-                          className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-slate-500 transition hover:bg-amber-50 hover:text-amber-700"
+                          className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[11px] font-medium text-stone-500 transition hover:bg-amber-50 hover:text-amber-700"
                           onClick={() => handleKembalikan(act)}
                           title="Kembalikan ke jam semula (jadwal asli nggak berubah)"
                         >
@@ -364,7 +364,7 @@ export default function Schedule({
                         className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition ${
                           isSelesai
                             ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                            : "border border-slate-200 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                            : "border border-stone-200 text-stone-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                         }`}
                         onClick={() => handleToggleSelesai(act.id || act._kunci)}
                       >
@@ -385,7 +385,7 @@ export default function Schedule({
       </div>
 
       {jumlahDipindah > 0 && (
-        <div className="border-t border-slate-100 bg-amber-50/50 px-4 py-2.5 text-[11px] text-amber-700">
+        <div className="border-t border-stone-200 bg-amber-50/50 px-4 py-2.5 text-[11px] text-amber-700">
           Perubahan ini berlaku untuk <b>{namaHari(tanggalAktif)}</b>,{" "}
           {formatTanggal(tanggalAktif)} saja. Jadwal asli tetap aman dan dipakai lagi
           besok.
@@ -395,20 +395,20 @@ export default function Schedule({
       {/* MODAL KELOLA JADWAL */}
       {showKelolaJadwal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4 backdrop-blur-sm"
           data-html2canvas-ignore="true"
         >
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white/95 px-5 py-4 backdrop-blur">
               <div>
-                <h3 className="text-base font-bold text-slate-800">Kelola Jadwal</h3>
-                <p className="text-[11px] text-slate-400">
+                <h3 className="text-base font-bold text-stone-800">Kelola Jadwal</h3>
+                <p className="text-[11px] text-stone-400">
                   Perubahan di sini jadi jadwal tetap (semua hari).
                 </p>
               </div>
               <button
                 type="button"
-                className="grid h-9 w-9 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+                className="grid h-9 w-9 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100"
                 onClick={() => setShowKelolaJadwal(false)}
                 aria-label="Tutup"
               >
@@ -417,7 +417,7 @@ export default function Schedule({
             </div>
 
             <div className="space-y-5 p-5">
-              <div className="inline-flex rounded-xl bg-slate-100 p-1">
+              <div className="inline-flex rounded-xl bg-stone-200 p-1">
                 {[
                   { id: "kerja", label: "Hari Kerja" },
                   { id: "minggu", label: "Hari Minggu" },
@@ -428,7 +428,7 @@ export default function Schedule({
                     className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
                       activeTab === tab.id
                         ? "bg-white text-stone-900 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
+                        : "text-stone-500 hover:text-stone-700"
                     }`}
                     onClick={() => {
                       setActiveTab(tab.id);
@@ -455,7 +455,7 @@ export default function Schedule({
                           <div className="flex items-center gap-1">
                             <input
                               type="time"
-                              className="h-8 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                              className="h-8 w-24 rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-800"
                               value={parseEdit.mulai || ""}
                               onChange={(e) => {
                                 const newJam = `${e.target.value} - ${
@@ -470,10 +470,10 @@ export default function Schedule({
                               }}
                               title="Jam Mulai"
                             />
-                            <span className="text-slate-400">–</span>
+                            <span className="text-stone-400">–</span>
                             <input
                               type="time"
-                              className="h-8 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                              className="h-8 w-24 rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-800"
                               value={parseEdit.selesai || ""}
                               onChange={(e) => {
                                 const newJam = `${
@@ -491,7 +491,7 @@ export default function Schedule({
                           </div>
                           <input
                             type="text"
-                            className="h-8 min-w-[140px] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800"
+                            className="h-8 min-w-[140px] flex-1 rounded-lg border border-stone-200 bg-white px-2.5 text-xs text-stone-800"
                             value={editingItem.label}
                             onChange={(e) =>
                               setEditingItem({ ...editingItem, label: e.target.value })
@@ -500,7 +500,7 @@ export default function Schedule({
                           />
                           <input
                             type="text"
-                            className="h-8 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                            className="h-8 w-24 rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-800"
                             value={editingItem.unit || ""}
                             onChange={(e) =>
                               setEditingItem({ ...editingItem, unit: e.target.value })
@@ -518,7 +518,7 @@ export default function Schedule({
                             </button>
                             <button
                               type="button"
-                              className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100"
+                              className="grid h-8 w-8 place-items-center rounded-lg text-stone-500 transition hover:bg-stone-100"
                               onClick={() => setEditingItem(null)}
                               aria-label="Batal edit"
                             >
@@ -532,13 +532,13 @@ export default function Schedule({
                     return (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-slate-300"
+                        className="flex items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white p-3 transition hover:border-stone-300"
                       >
                         <div className="flex min-w-0 items-center gap-2.5">
                           <div className="flex flex-col">
                             <button
                               type="button"
-                              className={`grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-slate-100 ${
+                              className={`grid h-5 w-5 place-items-center rounded text-stone-500 transition hover:bg-stone-100 ${
                                 index === 0 ? "opacity-30" : ""
                               }`}
                               onClick={() => handleMoveUp(index)}
@@ -549,7 +549,7 @@ export default function Schedule({
                             </button>
                             <button
                               type="button"
-                              className={`grid h-5 w-5 place-items-center rounded text-slate-500 transition hover:bg-slate-100 ${
+                              className={`grid h-5 w-5 place-items-center rounded text-stone-500 transition hover:bg-stone-100 ${
                                 index === arr.length - 1 ? "opacity-30" : ""
                               }`}
                               onClick={() => handleMoveDown(index)}
@@ -561,10 +561,10 @@ export default function Schedule({
                           </div>
 
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-slate-800">
+                            <p className="truncate text-sm font-semibold text-stone-800">
                               {bersihkanLabel(item.label)}
                             </p>
-                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-400">
+                            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-stone-400">
                               {(mulai || selesai) && (
                                 <span className="inline-flex items-center gap-1 tabular-nums">
                                   <Clock size={11} /> {formatJamJadwal(mulai, selesai)}
@@ -601,7 +601,7 @@ export default function Schedule({
                 )}
 
                 {(activeTab === "kerja" ? editKerja : editMinggu).length === 0 && (
-                  <p className="rounded-xl border border-dashed border-slate-200 py-6 text-center text-xs italic text-slate-400">
+                  <p className="rounded-xl border border-dashed border-stone-200 py-6 text-center text-xs italic text-stone-400">
                     Belum ada jadwal.
                   </p>
                 )}
@@ -616,17 +616,17 @@ export default function Schedule({
                 <div className="flex flex-wrap gap-2">
                   <input
                     type="time"
-                    className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                    className="h-9 w-24 rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-800"
                     value={formBaru.jamMulai}
                     onChange={(e) =>
                       setFormBaru({ ...formBaru, jamMulai: e.target.value })
                     }
                     title="Jam Mulai"
                   />
-                  <span className="self-center text-slate-400">–</span>
+                  <span className="self-center text-stone-400">–</span>
                   <input
                     type="time"
-                    className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                    className="h-9 w-24 rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-800"
                     value={formBaru.jamSelesai}
                     onChange={(e) =>
                       setFormBaru({ ...formBaru, jamSelesai: e.target.value })
@@ -635,14 +635,14 @@ export default function Schedule({
                   />
                   <input
                     type="text"
-                    className="h-9 min-w-[150px] flex-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-800"
+                    className="h-9 min-w-[150px] flex-1 rounded-lg border border-stone-200 bg-white px-2.5 text-xs text-stone-800"
                     placeholder="Nama Kegiatan (misal: Olahraga)"
                     value={formBaru.label}
                     onChange={(e) => setFormBaru({ ...formBaru, label: e.target.value })}
                   />
                   <input
                     type="text"
-                    className="h-9 w-24 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-800"
+                    className="h-9 w-24 rounded-lg border border-stone-200 bg-white px-2 text-xs text-stone-800"
                     placeholder="Unit"
                     value={formBaru.unit}
                     onChange={(e) => setFormBaru({ ...formBaru, unit: e.target.value })}

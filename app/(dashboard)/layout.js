@@ -85,7 +85,7 @@ export default function DashboardLayout({ children }) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-base-200">
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-stone-800" />
-        <p className="text-xs font-medium text-slate-500">Memuat workspace...</p>
+        <p className="text-xs font-medium text-stone-500">Memuat workspace...</p>
       </div>
     );
   }
@@ -94,7 +94,7 @@ export default function DashboardLayout({ children }) {
     return (
       <div className="flex h-screen flex-col bg-base-200">
         <div
-          className="flex items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 py-3 backdrop-blur md:px-6"
+          className="flex items-center justify-between border-b border-stone-200/70 bg-white/80 px-4 py-3 backdrop-blur md:px-6"
           data-html2canvas-ignore="true"
         >
           <div className="flex items-center gap-2.5">
@@ -102,8 +102,8 @@ export default function DashboardLayout({ children }) {
               <Brain size={18} />
             </span>
             <div>
-              <h1 className="text-sm font-bold text-slate-800">Self Management</h1>
-              <p className="text-[11px] text-slate-400">Mode Viewer</p>
+              <h1 className="text-sm font-bold text-stone-800">Self Management</h1>
+              <p className="text-[11px] text-stone-400">Mode Viewer</p>
             </div>
           </div>
           <button
@@ -124,13 +124,13 @@ export default function DashboardLayout({ children }) {
     <div className="flex h-screen flex-col">
       {/* TOP BAR */}
       <header
-        className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/85 backdrop-blur-md"
+        className="sticky top-0 z-30 border-b border-stone-200/70 bg-white/85 backdrop-blur-md"
         data-html2canvas-ignore="true"
       >
         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 md:px-5">
           <div className="flex flex-1 items-center gap-2">
             <button
-              className="grid h-9 w-9 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 md:hidden"
+              className="grid h-9 w-9 place-items-center rounded-xl text-stone-600 transition hover:bg-stone-100 md:hidden"
               onClick={() => setMobileSidebarOpen(true)}
               aria-label="Buka menu"
             >
@@ -142,10 +142,10 @@ export default function DashboardLayout({ children }) {
                 <Brain size={18} />
               </span>
               <div className="leading-tight">
-                <h1 className="text-sm font-bold tracking-tight text-slate-800 md:text-base">
+                <h1 className="text-sm font-bold tracking-tight text-stone-800 md:text-base">
                   Self Management
                 </h1>
-                <p className="hidden text-[11px] text-slate-400 sm:block">
+                <p className="hidden text-[11px] text-stone-400 sm:block">
                   Personal OS · satu tempat buat semua progres
                 </p>
               </div>
@@ -169,7 +169,7 @@ export default function DashboardLayout({ children }) {
               </>
             )}
 
-            <div className="hidden items-center gap-1.5 rounded-xl bg-slate-100/80 px-3 py-1.5 text-[11px] font-medium text-slate-500 lg:flex">
+            <div className="hidden items-center gap-1.5 rounded-xl bg-stone-200/80 px-3 py-1.5 text-[11px] font-medium text-stone-500 lg:flex">
               <CalendarDays size={14} /> {today}
             </div>
 
@@ -186,7 +186,7 @@ export default function DashboardLayout({ children }) {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* MOBILE SIDEBAR */}
         <div
-          className={`fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm transition-opacity md:hidden ${
+          className={`fixed inset-0 z-40 bg-stone-900/40 backdrop-blur-sm transition-opacity md:hidden ${
             mobileSidebarOpen ? "visible opacity-100" : "invisible opacity-0"
           }`}
           onClick={() => setMobileSidebarOpen(false)}
@@ -206,7 +206,7 @@ export default function DashboardLayout({ children }) {
 
         {/* DESKTOP SIDEBAR */}
         <div
-          className={`hidden shrink-0 border-r border-slate-200/70 bg-white/60 transition-all duration-300 md:block ${
+          className={`hidden shrink-0 border-r border-stone-200/70 bg-white/60 transition-all duration-300 md:block ${
             sidebarCollapsed ? "w-[74px]" : "w-64"
           }`}
           data-html2canvas-ignore="true"

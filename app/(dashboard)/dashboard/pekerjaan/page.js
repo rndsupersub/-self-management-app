@@ -83,7 +83,7 @@ export default function PekerjaanPage() {
       {showForm && (
         <div className="card bg-white shadow border border-gray-200 mb-4" data-html2canvas-ignore="true">
           <div className="card-body p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">Tambah PT baru</p>
+            <p className="text-xs font-semibold text-stone-700 mb-2">Tambah PT baru</p>
             <input type="text" className="input input-bordered w-full text-gray-800 bg-white" placeholder="Nama PT (misal: PT Elfiqa)" value={formData.nama} onChange={(e) => setFormData({ nama: e.target.value })} autoFocus />
             <div className="flex gap-2 mt-3">
               <button className="btn btn-primary btn-sm flex-1" onClick={handleTambahPT}>Simpan</button>
@@ -110,8 +110,8 @@ export default function PekerjaanPage() {
                     <Building2 size={18} className="text-gray-500" /> {pt.nama}
                   </h2>
                   <div className="flex gap-1 shrink-0" data-html2canvas-ignore="true">
-                    <button className="btn btn-ghost btn-xs text-blue-500" onClick={(e) => handleRenamePT(pt.id, pt.nama, e)} title="Edit"><Pencil size={14} /></button>
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusPT(pt.id, e)} title="Hapus"><Trash2 size={14} /></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={(e) => handleRenamePT(pt.id, pt.nama, e)} title="Edit"><Pencil size={14} /></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={(e) => handleHapusPT(pt.id, e)} title="Hapus"><Trash2 size={14} /></button>
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">{pt.brands?.length || 0} Brand • {pt.brands?.reduce((sum, b) => sum + (b.kegiatan?.length || 0), 0) || 0} Kegiatan</p>

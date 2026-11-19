@@ -212,14 +212,14 @@ export default function VendorDetail({
               {kategoriData && <p className="text-sm text-gray-500">{kategoriData.label}</p>}
             </div>
             <div className="flex gap-1" data-html2canvas-ignore="true">
-              <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setShowEditProfil(true)} title="Edit Profil Vendor"><Pencil size={16} /></button>
-              <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusVendor(true)} title="Hapus vendor"><Trash2 size={16} /></button>
+              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => setShowEditProfil(true)} title="Edit Profil Vendor"><Pencil size={16} /></button>
+              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setConfirmHapusVendor(true)} title="Hapus vendor"><Trash2 size={16} /></button>
             </div>
           </div>
 
           {confirmHapusVendor && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded p-3" data-html2canvas-ignore="true">
-              <p className="text-sm text-red-700 mb-2">Yakin mau hapus vendor ini? Semua log kunjungan dan evaluasi bakal hilang.</p>
+              <p className="text-sm text-error mb-2">Yakin mau hapus vendor ini? Semua log kunjungan dan evaluasi bakal hilang.</p>
               <div className="flex gap-2">
                 <button className="btn btn-error btn-sm" onClick={() => { onDeleteVendor(vendor.id); setConfirmHapusVendor(false); }}>Ya, Hapus</button>
                 <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setConfirmHapusVendor(false)}>Batal</button>
@@ -239,9 +239,9 @@ export default function VendorDetail({
       </div>
 
       {showEditProfil && (
-        <div className="card bg-white shadow border border-blue-300" data-html2canvas-ignore="true">
+        <div className="card bg-white shadow border border-stone-300" data-html2canvas-ignore="true">
           <div className="card-body p-4">
-            <h3 className="text-sm font-bold text-blue-700 mb-3 flex items-center gap-1"><Pencil size={16}/> Edit Profil Vendor</h3>
+            <h3 className="text-sm font-bold text-stone-700 mb-3 flex items-center gap-1"><Pencil size={16}/> Edit Profil Vendor</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">Nama Vendor</label>
@@ -333,7 +333,7 @@ export default function VendorDetail({
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><List size={16}/> Pertanyaan Awal Vendor ({pertanyaanAwal.length})</h3>
             <div className="flex gap-1" data-html2canvas-ignore="true">
               {!showEditPertanyaanAwal ? (
-                <button className="btn btn-ghost btn-xs text-blue-600" onClick={() => { setDraftPertanyaanAwal(pertanyaanAwal.map((q) => ({ ...q }))); setShowEditPertanyaanAwal(true); }}>
+                <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => { setDraftPertanyaanAwal(pertanyaanAwal.map((q) => ({ ...q }))); setShowEditPertanyaanAwal(true); }}>
                   <Pencil size={14} className="mr-1"/> Edit Jawaban
                 </button>
               ) : (
@@ -356,7 +356,7 @@ export default function VendorDetail({
                   <p className="text-xs font-semibold text-gray-700">{q.pertanyaan}</p>
                   <p className="text-xs mt-1">
                     {q.tipe === "checkbox" ? (
-                      <span className={`px-2 py-0.5 rounded border ${q.jawaban === true ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
+                      <span className={`px-2 py-0.5 rounded border ${q.jawaban === true ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-error border-red-300"}`}>
                         {q.jawaban === true ? "Ya" : "Tidak"}
                       </span>
                     ) : (
@@ -375,7 +375,7 @@ export default function VendorDetail({
                       <option value="checkbox">Checkbox</option><option value="short">Pendek</option><option value="long">Panjang</option>
                     </select>
                     <input type="text" className="input input-bordered input-xs flex-1 text-gray-800 bg-white" value={q.pertanyaan} onChange={(e) => handleUbahPertanyaanDraft(idx, { pertanyaan: e.target.value })} />
-                    <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setDraftPertanyaanAwal((draftPertanyaanAwal || []).filter((_, i) => i !== idx))} title="Hapus pertanyaan dari vendor ini"><Trash2 size={14}/></button>
+                    <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setDraftPertanyaanAwal((draftPertanyaanAwal || []).filter((_, i) => i !== idx))} title="Hapus pertanyaan dari vendor ini"><Trash2 size={14}/></button>
                   </div>
                   {q.tipe === "checkbox" ? (
                     <div className="flex gap-1">
@@ -389,7 +389,7 @@ export default function VendorDetail({
                   )}
                 </div>
               ))}
-              <button className="btn btn-ghost btn-xs text-blue-600" onClick={() => setDraftPertanyaanAwal([...(draftPertanyaanAwal || []), { id: generateId("q"), pertanyaan: "", tipe: "checkbox", jawaban: false }])}>
+              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => setDraftPertanyaanAwal([...(draftPertanyaanAwal || []), { id: generateId("q"), pertanyaan: "", tipe: "checkbox", jawaban: false }])}>
                 <Plus size={14} className="mr-1"/> Tambah Pertanyaan (khusus vendor ini)
               </button>
             </div>
@@ -403,7 +403,7 @@ export default function VendorDetail({
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><BarChart3 size={16}/> Evaluasi Kinerja Vendor</h3>
             <div className="flex gap-1" data-html2canvas-ignore="true">
               <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowEvalSection(!showEvalSection)}>{showEvalSection ? <><EyeOff size={14} className="mr-1"/> Sembunyikan</> : <><Eye size={14} className="mr-1"/> Tampilkan</>}</button>
-              {!isEditingEval && evalTersimpan && <button className="btn btn-outline btn-xs text-blue-600 border-blue-600" onClick={() => setIsEditingEval(true)}><Pencil size={14} className="mr-1"/> Edit Evaluasi</button>}
+              {!isEditingEval && evalTersimpan && <button className="btn btn-outline btn-xs text-stone-800 border-stone-800" onClick={() => setIsEditingEval(true)}><Pencil size={14} className="mr-1"/> Edit Evaluasi</button>}
             </div>
           </div>
 
@@ -485,7 +485,7 @@ export default function VendorDetail({
                           <details key={ev.key} className="border border-gray-200 rounded p-2 bg-white">
                             <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex justify-between items-center">
                               <span className="flex items-center gap-1"><Calendar size={14}/> {ev.label || ev.key}</span>
-                              <button onClick={(e) => { e.preventDefault(); handleHapusHistoryEval(ev.key); }} className="btn btn-ghost btn-xs text-red-500" title="Hapus History Periode Ini" data-html2canvas-ignore="true"><Trash2 size={14} /></button>
+                              <button onClick={(e) => { e.preventDefault(); handleHapusHistoryEval(ev.key); }} className="btn btn-ghost btn-xs text-stone-400 hover:text-error" title="Hapus History Periode Ini" data-html2canvas-ignore="true"><Trash2 size={14} /></button>
                             </summary>
                             <div className="mt-2 space-y-2">
                               {fieldEvaluasiVendorList.map((f) => {
@@ -524,8 +524,8 @@ export default function VendorDetail({
           </div>
 
           {showFormKunjungan && (
-            <div className="bg-blue-50 rounded p-3 mb-3 space-y-3 border border-blue-200" data-html2canvas-ignore="true">
-              <p className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Pencil size={14}/> {editingKunjunganId ? "Edit Kunjungan" : "Tambah Kunjungan"}</p>
+            <div className="bg-stone-100 rounded p-3 mb-3 space-y-3 border border-stone-200" data-html2canvas-ignore="true">
+              <p className="text-xs font-semibold text-stone-700 flex items-center gap-1"><Pencil size={14}/> {editingKunjunganId ? "Edit Kunjungan" : "Tambah Kunjungan"}</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
@@ -604,7 +604,7 @@ export default function VendorDetail({
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-gray-800 flex items-center gap-1"><Calendar size={14}/> {formatTanggal(log.tanggal, "pendek")}</p>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="text-xs px-2 py-0.5 rounded border bg-blue-100 text-blue-700 border-blue-300 flex items-center gap-1"><Target size={12}/> {cleanText(tujuanData?.label || log.tujuanLabel || log.tujuanId)}</span>
+                          <span className="text-xs px-2 py-0.5 rounded border bg-stone-200 text-stone-700 border-stone-300 flex items-center gap-1"><Target size={12}/> {cleanText(tujuanData?.label || log.tujuanLabel || log.tujuanId)}</span>
                           <span className="text-xs px-2 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1"><Monitor size={12}/> {cleanText(getLabelMetode(log.metode))}</span>
                           <span className={`text-xs px-2 py-0.5 rounded border flex items-center gap-1 ${getBadgeClass(getWarnaStatusKunjungan(statusLog))}`}><CheckCircle2 size={12}/> {cleanText(log.statusLabel || getLabelStatusKunjungan(statusLog))}</span>
                           {progressLog && (
@@ -617,7 +617,7 @@ export default function VendorDetail({
                       </div>
                       <div className="flex gap-1" data-html2canvas-ignore="true">
                         <button className="btn btn-ghost btn-xs" onClick={() => handleEditKunjungan(log)} title="Edit"><Pencil size={14} /></button>
-                        <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKunjungan(log.id)} title="Hapus"><Trash2 size={14} /></button>
+                        <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusKunjungan(log.id)} title="Hapus"><Trash2 size={14} /></button>
                       </div>
                     </div>
                     {log.catatan && <p className="text-xs text-gray-700 whitespace-pre-wrap bg-white p-2 rounded border border-gray-200 mt-2 flex items-start gap-1"><MessageSquare size={12} className="mt-0.5 shrink-0"/> {log.catatan}</p>}

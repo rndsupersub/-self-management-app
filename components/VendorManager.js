@@ -197,7 +197,7 @@ export default function VendorManager({
   const badgeStatus = (vendor) => (
     <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getWarnaStatus(vendor.status))}`}>{getLabelStatus(vendor.status)}</span>
   );
-  const tombolHapus = (vendor, kelas = "btn btn-ghost btn-xs text-red-500") => (
+  const tombolHapus = (vendor, kelas = "btn btn-ghost btn-xs text-stone-400 hover:text-error") => (
     <button className={kelas} onClick={(e) => { e.stopPropagation(); if (confirm("Hapus vendor ini?")) onDeleteVendor(vendor.id); }} title="Hapus vendor"><Trash2 size={14} /></button>
   );
 
@@ -213,7 +213,7 @@ export default function VendorManager({
               <p className="text-xs font-semibold text-gray-800 truncate" title={vendor.nama}>{vendor.nama}</p>
               <p className="text-[10px] text-gray-500 truncate">{getLabelStatus(vendor.status)} · {vendor.logKunjungan?.length || 0} kunjungan</p>
             </div>
-            <span className="shrink-0" data-html2canvas-ignore="true">{tombolHapus(vendor, "btn btn-ghost btn-xs text-red-400")}</span>
+            <span className="shrink-0" data-html2canvas-ignore="true">{tombolHapus(vendor, "btn btn-ghost btn-xs text-error")}</span>
           </div>
         </div>
       );
@@ -293,7 +293,7 @@ export default function VendorManager({
             {filteredVendor.map((vendor, i) => {
               const kategoriData = kategoriVendorList.find((k) => k.id === vendor.kategoriId);
               return (
-                <tr key={vendor.id} className="hover:bg-blue-50/40 cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
+                <tr key={vendor.id} className="hover:bg-stone-100/40 cursor-pointer" onClick={() => onClickVendor(vendor.id)}>
                   <td className="text-gray-400">{i + 1}</td>
                   <td className="font-semibold">{vendor.nama}</td>
                   <td>{kategoriData ? kategoriData.label : "-"}</td>
@@ -305,7 +305,7 @@ export default function VendorManager({
                   <td className="text-center">{vendor.logKunjungan?.length || 0}</td>
                   <td className="text-right" data-html2canvas-ignore="true">
                     <div className="flex justify-end gap-1">
-                      <button className="btn btn-ghost btn-xs text-blue-600" onClick={(e) => { e.stopPropagation(); onClickVendor(vendor.id); }} title="Buka"><ChevronRight size={14} /></button>
+                      <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={(e) => { e.stopPropagation(); onClickVendor(vendor.id); }} title="Buka"><ChevronRight size={14} /></button>
                       {tombolHapus(vendor)}
                     </div>
                   </td>
@@ -376,7 +376,7 @@ export default function VendorManager({
       </div>
 
       {showForm && (
-        <div className="card bg-white shadow border border-blue-300">
+        <div className="card bg-white shadow border border-stone-300">
           <div className="card-body p-4">
             <h3 className="text-base font-bold text-gray-800 mb-3 flex items-center gap-2"><Pencil size={16} /> Tambah Vendor Baru</h3>
             <div className="space-y-3">
@@ -460,7 +460,7 @@ export default function VendorManager({
                         <option value="checkbox">Checkbox</option><option value="short">Pendek</option><option value="long">Panjang</option>
                       </select>
                       <input type="text" className="input input-bordered input-xs flex-1 text-gray-800 bg-white" placeholder="Tulis pertanyaan..." value={q.pertanyaan} onChange={(e) => handleUpdatePertanyaanText(idx, e.target.value)} />
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusPertanyaanInline(idx)} title="Hapus pertanyaan"><Trash2 size={14} /></button>
+                      <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusPertanyaanInline(idx)} title="Hapus pertanyaan"><Trash2 size={14} /></button>
                     </div>
                     {q.tipe === "checkbox" && (
                       <div className="flex gap-1">
@@ -513,7 +513,7 @@ export default function VendorManager({
                     <span className="text-sm text-gray-700">{k.label}</span>
                     <div className="flex gap-1">
                       <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditKategori(k)} title="Edit Kategori"><Pencil size={14}/></button>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKategori(k.id)} title="Hapus Kategori"><Trash2 size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusKategori(k.id)} title="Hapus Kategori"><Trash2 size={14}/></button>
                     </div>
                   </div>
                 ))}
@@ -559,7 +559,7 @@ export default function VendorManager({
                     </div>
                     <div className="flex gap-1">
                       <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditPertanyaan(q)} title="Edit Pertanyaan"><Pencil size={14}/></button>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusPertanyaan(q.id)} title="Hapus Pertanyaan"><Trash2 size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusPertanyaan(q.id)} title="Hapus Pertanyaan"><Trash2 size={14}/></button>
                     </div>
                   </div>
                 ))}
@@ -608,7 +608,7 @@ export default function VendorManager({
                     <span className="text-sm text-gray-700 flex-1">{t.label}</span>
                     <div className="flex gap-1">
                       <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditTujuan(t)} title="Edit Tujuan"><Pencil size={14}/></button>
-                      <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusTujuan(t.id)} title="Hapus Tujuan"><Trash2 size={14}/></button>
+                      <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusTujuan(t.id)} title="Hapus Tujuan"><Trash2 size={14}/></button>
                     </div>
                   </div>
                 ))}

@@ -95,10 +95,10 @@ export default function BedahBukuPage() {
 
       {/* FORM TAMBAH BUKU */}
       {showForm && (
-        <div className="card bg-white shadow border border-blue-300 mb-4" data-html2canvas-ignore="true">
+        <div className="card bg-white shadow border border-stone-300 mb-4" data-html2canvas-ignore="true">
           <div className="card-body p-4 space-y-3">
             <div className="flex justify-between items-center mb-2">
-              <p className="text-sm font-bold text-blue-700">Tambah Buku Baru</p>
+              <p className="text-sm font-bold text-stone-700">Tambah Buku Baru</p>
               <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => setShowForm(false)}><X size={16} /></button>
             </div>
             
@@ -144,8 +144,8 @@ export default function BedahBukuPage() {
       )}
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}><Calendar size={16} className="mr-2" /> Kalender</button>
-        <button className={`tab ${activeTab === "daftar" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("daftar")}><Library size={16} className="mr-2" /> Daftar Buku</button>
+        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}><Calendar size={16} className="mr-2" /> Kalender</button>
+        <button className={`tab ${activeTab === "daftar" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("daftar")}><Library size={16} className="mr-2" /> Daftar Buku</button>
       </div>
 
       {activeTab === "kalender" && <KalenderBedahBuku bukuList={bedahBuku.buku} onUpdateBuku={(id, u) => simpanBedahBuku({ ...bedahBuku, buku: bedahBuku.buku.map((b) => b.id === id ? u : b) })} />}
@@ -172,11 +172,11 @@ export default function BedahBukuPage() {
                           <div className="card-body p-4">
                             <div className="flex justify-between items-start mb-2 gap-2">
                               <div className="flex-1">
-                                <h3 className="text-base font-bold text-gray-800 leading-tight flex items-start gap-1"><BookOpen size={16} className="text-blue-500 shrink-0 mt-0.5" /> {buku.judul}</h3>
+                                <h3 className="text-base font-bold text-gray-800 leading-tight flex items-start gap-1"><BookOpen size={16} className="text-stone-600 shrink-0 mt-0.5" /> {buku.judul}</h3>
                                 <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><User size={12} /> {buku.penulis}</p>
                               </div>
                               <div className="flex gap-1 shrink-0" data-html2canvas-ignore="true">
-                                <button className="btn btn-ghost btn-xs text-red-500" onClick={(e) => handleHapusBuku(buku.id, e)} title="Hapus buku"><Trash2 size={14} /></button>
+                                <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={(e) => handleHapusBuku(buku.id, e)} title="Hapus buku"><Trash2 size={14} /></button>
                               </div>
                             </div>
                             <div className="mt-2">

@@ -158,8 +158,8 @@ export default function KalenderYouTube({
 
               let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
               if (isToday && !isSelected && !isHolidayDate) boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
-              if (isHolidayDate && !isSelected) boxClass = "bg-red-600 text-white border-red-700 font-bold";
-              if (isSelected) boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-1 ring-blue-300";
+              if (isHolidayDate && !isSelected) boxClass = "bg-error text-white border-error font-bold";
+              if (isSelected) boxClass = "bg-stone-200 text-stone-900 border-2 border-stone-800 font-bold ring-1 ring-stone-300";
 
               return (
                 <button key={item.date} className={`aspect-square rounded border ${boxClass} relative transition text-sm p-1 flex flex-col`} onClick={() => handleDateClick(item.date)} title={holiday || ""}>
@@ -182,10 +182,10 @@ export default function KalenderYouTube({
           </div>
 
           <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-red-600 border border-red-700" /><span>Libur Nasional</span></div>
+            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-error border border-error" /><span>Libur Nasional</span></div>
             <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300" /><span>Hari Ini</span></div>
-            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-600" /><span>Tanggal Dipilih</span></div>
-            <div className="flex items-center gap-1"><span className="w-4 h-2 rounded bg-blue-500" /><span>Bar = konten (warna per status)</span></div>
+            <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-stone-200 border-2 border-stone-800" /><span>Tanggal Dipilih</span></div>
+            <div className="flex items-center gap-1"><span className="w-4 h-2 rounded bg-stone-600" /><span>Bar = konten (warna per status)</span></div>
           </div>
         </div>
       </div>
@@ -202,8 +202,8 @@ export default function KalenderYouTube({
             </div>
 
             {showForm && (
-              <div className="bg-blue-50 rounded p-3 space-y-3 border border-blue-200 mb-3" data-html2canvas-ignore="true">
-                <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">{editingLogId ? <><Pencil size={14}/> Edit Konten</> : <><Plus size={14}/> Tambah Konten</>}</p>
+              <div className="bg-stone-100 rounded p-3 space-y-3 border border-stone-200 mb-3" data-html2canvas-ignore="true">
+                <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingLogId ? <><Pencil size={14}/> Edit Konten</> : <><Plus size={14}/> Tambah Konten</>}</p>
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">Judul Konten</label>
                   <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" value={formData.judul} onChange={(e) => setFormData({ ...formData, judul: e.target.value })} placeholder="Judul / ide konten..." />
@@ -273,7 +273,7 @@ export default function KalenderYouTube({
                         </div>
                         <div className="flex gap-1" data-html2canvas-ignore="true">
                           <button className="btn btn-ghost btn-xs" onClick={() => handleEdit(log)} title="Edit"><Pencil size={14} /></button>
-                          <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapus(log)} title="Hapus"><Trash2 size={14} /></button>
+                          <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapus(log)} title="Hapus"><Trash2 size={14} /></button>
                         </div>
                       </div>
                     </div>

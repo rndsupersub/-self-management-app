@@ -145,7 +145,7 @@ export default function KalenderPekerjaan({
   const getSumberData = (sumberId) => sumberList.find((s) => s.id === sumberId);
 
   const getBadgeClass = (warna) => {
-    const map = { red: "bg-red-100 text-red-700 border-red-300", yellow: "bg-yellow-100 text-yellow-700 border-yellow-300", blue: "bg-blue-100 text-blue-700 border-blue-300", gray: "bg-gray-100 text-gray-700 border-gray-300", orange: "bg-orange-100 text-orange-700 border-orange-300", purple: "bg-purple-100 text-purple-700 border-purple-300", green: "bg-green-100 text-green-700 border-green-300", brown: "bg-amber-100 text-amber-700 border-amber-300", pink: "bg-pink-100 text-pink-700 border-pink-300", teal: "bg-teal-100 text-teal-700 border-teal-300", indigo: "bg-indigo-100 text-indigo-700 border-indigo-300" };
+    const map = { red: "bg-red-100 text-error border-red-300", yellow: "bg-yellow-100 text-yellow-700 border-yellow-300", blue: "bg-stone-200 text-stone-700 border-stone-300", gray: "bg-gray-100 text-gray-700 border-gray-300", orange: "bg-orange-100 text-orange-700 border-orange-300", purple: "bg-purple-100 text-purple-700 border-purple-300", green: "bg-green-100 text-green-700 border-green-300", brown: "bg-amber-100 text-amber-700 border-amber-300", pink: "bg-pink-100 text-pink-700 border-pink-300", teal: "bg-teal-100 text-teal-700 border-teal-300", indigo: "bg-indigo-100 text-indigo-700 border-indigo-300" };
     return map[warna] || map.gray;
   };
 
@@ -375,8 +375,8 @@ export default function KalenderPekerjaan({
 
                   let boxClass = "bg-white text-gray-800 border-gray-200 hover:bg-gray-100";
                   if (isToday && !isSelected && !isHolidayDate) boxClass = "bg-yellow-50 text-gray-900 border-yellow-300 font-bold";
-                  if (isHolidayDate && !isSelected) boxClass = "bg-red-600 text-white border-red-700 font-bold";
-                  if (isSelected) boxClass = "bg-blue-100 text-blue-900 border-2 border-blue-600 font-bold ring-1 ring-blue-300";
+                  if (isHolidayDate && !isSelected) boxClass = "bg-error text-white border-error font-bold";
+                  if (isSelected) boxClass = "bg-stone-200 text-stone-900 border-2 border-stone-800 font-bold ring-1 ring-stone-300";
 
                   return (
                     <button key={item.date} className={`rounded border ${boxClass} relative transition text-left p-1 min-h-[100px] flex flex-col`} onClick={() => handleDateClick(item.date)} title={holiday || ""}>
@@ -404,9 +404,9 @@ export default function KalenderPekerjaan({
               </div>
 
               <div className="flex flex-wrap gap-3 mt-4 text-xs text-gray-600">
-                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-red-600 border border-red-700" /><span>Libur Nasional</span></div>
+                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-error border border-error" /><span>Libur Nasional</span></div>
                 <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-yellow-50 border border-yellow-300" /><span>Hari Ini</span></div>
-                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-blue-100 border-2 border-blue-600" /><span>Tanggal Dipilih</span></div>
+                <div className="flex items-center gap-1"><span className="w-4 h-4 rounded bg-stone-200 border-2 border-stone-800" /><span>Tanggal Dipilih</span></div>
                 {kategoriList.map((k) => {
                   const style = getKategoriStyle(k);
                   return (<div key={k.id} className="flex items-center gap-1"><span className={`w-4 h-4 rounded ${style.isCustom ? "" : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} /><span>{k.label}</span></div>);
@@ -464,10 +464,10 @@ export default function KalenderPekerjaan({
                               >
                                 {k.status === "selesai" ? <CheckCircle2 size={12} /> : <Circle size={12} />}
                               </button>
-                              <button className="btn btn-ghost btn-xs text-blue-500 px-1 py-0 h-auto" onClick={() => onEditKegiatan(k)} title="Edit">
+                              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800 px-1 py-0 h-auto" onClick={() => onEditKegiatan(k)} title="Edit">
                                 <Pencil size={12} />
                               </button>
-                              <button className="btn btn-ghost btn-xs text-red-500 px-1 py-0 h-auto" onClick={() => onDeleteKegiatan(k.id)} title="Hapus">
+                              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error px-1 py-0 h-auto" onClick={() => onDeleteKegiatan(k.id)} title="Hapus">
                                 <Trash2 size={12} />
                               </button>
                             </div>
@@ -544,14 +544,14 @@ export default function KalenderPekerjaan({
       </div>
 
       {showForm && selectStart && (
-        <div className="card bg-white shadow border border-blue-300" data-html2canvas-ignore="true">
+        <div className="card bg-white shadow border border-stone-300" data-html2canvas-ignore="true">
           <div className="card-body p-4">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-2"><Pencil size={16} /> Tambah Kegiatan</h3>
               <button className="btn btn-ghost btn-xs text-gray-500" onClick={handleBatalSelect}><X size={16} /></button>
             </div>
-            <div className="bg-blue-50 rounded p-2 mb-3 border border-blue-200">
-              <p className="text-xs text-blue-700 font-semibold flex items-center gap-1"><Calendar size={14} /> {formatTanggalRange(selectStart, selectEnd || selectStart)}</p>
+            <div className="bg-stone-100 rounded p-2 mb-3 border border-stone-200">
+              <p className="text-xs text-stone-700 font-semibold flex items-center gap-1"><Calendar size={14} /> {formatTanggalRange(selectStart, selectEnd || selectStart)}</p>
             </div>
             <div className="space-y-3">
               <div>
@@ -623,10 +623,10 @@ export default function KalenderPekerjaan({
                     
                     {/* Tombol Aksi di List */}
                     <div className="flex gap-1 shrink-0">
-                      <button className="btn btn-ghost btn-sm text-blue-500" onClick={() => onEditKegiatan(keg)} title="Edit Kegiatan">
+                      <button className="btn btn-ghost btn-sm text-stone-500 hover:text-stone-800" onClick={() => onEditKegiatan(keg)} title="Edit Kegiatan">
                         <Pencil size={16} />
                       </button>
-                      <button className="btn btn-ghost btn-sm text-red-500" onClick={() => onDeleteKegiatan(keg.id)} title="Hapus Kegiatan">
+                      <button className="btn btn-ghost btn-sm text-stone-400 hover:text-error" onClick={() => onDeleteKegiatan(keg.id)} title="Hapus Kegiatan">
                         <Trash2 size={16} />
                       </button>
                       <button className="btn btn-ghost btn-sm text-gray-400 hover:text-primary" onClick={() => onClickKegiatan(keg.id)} title="Buka Detail">
@@ -661,7 +661,7 @@ export default function KalenderPekerjaan({
                       </div>
                       <div className="flex gap-1">
                         <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditKategori(k)} title="Edit"><Pencil size={14} /></button>
-                        <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusKategori(k.id)} title="Hapus"><Trash2 size={14} /></button>
+                        <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusKategori(k.id)} title="Hapus"><Trash2 size={14} /></button>
                       </div>
                     </div>
                   );

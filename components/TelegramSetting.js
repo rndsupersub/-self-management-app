@@ -133,9 +133,9 @@ export default function TelegramSetting({ user }) {
                       </>
                     ) : (
                       <>
-                        <div className="bg-blue-50 border border-blue-300 rounded p-3 text-center">
-                          <p className="text-xs text-blue-700 mb-1">Kode lo:</p>
-                          <p className="text-3xl font-mono font-bold text-blue-900 tracking-widest">{code}</p>
+                        <div className="bg-stone-100 border border-stone-300 rounded p-3 text-center">
+                          <p className="text-xs text-stone-700 mb-1">Kode lo:</p>
+                          <p className="text-3xl font-mono font-bold text-stone-900 tracking-widest">{code}</p>
                         </div>
                         <div className="bg-base-200 p-3 rounded text-xs space-y-2">
                           <p className="font-semibold">📖 Cara pakai:</p>
@@ -160,14 +160,14 @@ export default function TelegramSetting({ user }) {
                           ? "bg-green-50 text-green-700 border-green-200"
                           : webhook.terdaftar
                           ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                          : "bg-red-50 text-red-700 border-red-200"
+                          : "bg-red-50 text-error border-red-200"
                       }`}>
                         {webhook.terdaftar && webhook.cocok ? "Aktif" : webhook.terdaftar ? "URL Beda" : "Belum Aktif"}
                       </span>
                     )}
                   </div>
 
-                  {webhook?.error && <p className="text-xs text-red-600">{webhook.error}</p>}
+                  {webhook?.error && <p className="text-xs text-error">{webhook.error}</p>}
 
                   {webhook && !webhook.error && (
                     <div className="bg-base-200 p-2 rounded text-[11px] space-y-1">
@@ -176,7 +176,7 @@ export default function TelegramSetting({ user }) {
                         <p className="break-all text-yellow-700"><b>Harusnya:</b> {webhook.expectedUrl}</p>
                       )}
                       {webhook.lastErrorMessage && (
-                        <p className="text-red-600 break-all"><b>Error terakhir:</b> {webhook.lastErrorMessage}</p>
+                        <p className="text-error break-all"><b>Error terakhir:</b> {webhook.lastErrorMessage}</p>
                       )}
                       <p><b>Pending update:</b> {webhook.pendingUpdateCount ?? 0}</p>
                     </div>
@@ -186,7 +186,7 @@ export default function TelegramSetting({ user }) {
                     {webhookBusy ? <span className="loading loading-spinner loading-xs" /> : <RefreshCw size={12} />} Aktifkan / Perbaiki Webhook
                   </button>
                   <p className="text-[10px] text-gray-500 mt-1">Klik ini kalau bot nggak merespon. Webhook didaftarin ulang + secret token biar aman.</p>
-                  {webhookMsg && <p className={`text-[11px] mt-1 ${webhookMsg.type === "success" ? "text-green-700" : "text-red-600"}`}>{webhookMsg.msg}</p>}
+                  {webhookMsg && <p className={`text-[11px] mt-1 ${webhookMsg.type === "success" ? "text-green-700" : "text-error"}`}>{webhookMsg.msg}</p>}
                 </div>
               </div>
             </div>

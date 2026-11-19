@@ -163,15 +163,15 @@ export default function BisnisBrandPage() {
         ) : (
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><Tag className="text-primary" size={24} /> {brand.nama}</h1>
-            <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => { setEditNamaDraft(null); setEditMode(true); }}><Pencil size={16} /></button>
-            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapusBrand(true)}><Trash2 size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => { setEditNamaDraft(null); setEditMode(true); }}><Pencil size={16} /></button>
+            <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setConfirmHapusBrand(true)}><Trash2 size={16} /></button>
           </div>
         )}
       </div>
 
       {confirmHapusBrand && (
         <div className="bg-red-50 border border-red-200 rounded p-3 mb-4" data-html2canvas-ignore="true">
-          <p className="text-sm text-red-700 mb-2">Yakin mau hapus <strong>{brand.nama}</strong>?</p>
+          <p className="text-sm text-error mb-2">Yakin mau hapus <strong>{brand.nama}</strong>?</p>
           <div className="flex gap-2">
             <button className="btn btn-error btn-sm" onClick={handleHapusBrand}>Ya, Hapus</button>
             <button className="btn btn-ghost btn-sm text-gray-700" onClick={() => setConfirmHapusBrand(false)}>Batal</button>
@@ -180,11 +180,11 @@ export default function BisnisBrandPage() {
       )}
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("kalender"); setSelectedVendorId(null); }}><Calendar size={16} className="mr-2" /> Kalender</button>
-        <button className={`tab ${activeTab === "vendor" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("vendor")}><Factory size={16} className="mr-2" /> Vendor ({vendorList.length})</button>
-        <button className={`tab ${activeTab === "laporan" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("laporan")}><FileText size={16} className="mr-2" /> Laporan</button>
-        <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}><BarChart3 size={16} className="mr-2" /> Evaluasi</button>
-        <button className={`tab ${activeTab === "ide" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("ide"); setSelectedVendorId(null); }}><Lightbulb size={16} className="mr-2" /> Dump Ideas ({(brand.dumpIdeas || []).length})</button>
+        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("kalender"); setSelectedVendorId(null); }}><Calendar size={16} className="mr-2" /> Kalender</button>
+        <button className={`tab ${activeTab === "vendor" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("vendor")}><Factory size={16} className="mr-2" /> Vendor ({vendorList.length})</button>
+        <button className={`tab ${activeTab === "laporan" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("laporan")}><FileText size={16} className="mr-2" /> Laporan</button>
+        <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}><BarChart3 size={16} className="mr-2" /> Evaluasi</button>
+        <button className={`tab ${activeTab === "ide" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("ide"); setSelectedVendorId(null); }}><Lightbulb size={16} className="mr-2" /> Dump Ideas ({(brand.dumpIdeas || []).length})</button>
       </div>
 
       <div id="export-area">

@@ -318,7 +318,7 @@ export default function EvaluasiPekerjaan({
       {/* HEADER TAB FREKUENSI */}
       <div className="flex flex-wrap justify-between items-center gap-2" data-html2canvas-ignore="true">
         <div className="tabs tabs-boxed bg-white shadow border border-gray-200 p-1 w-fit">
-          {periodeEvaluasiList.map((freq) => (<button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActivePeriode(freq.id); setEditingIndex(null); }}>{freq.label}</button>))}
+          {periodeEvaluasiList.map((freq) => (<button key={freq.id} className={`tab ${activePeriode === freq.id ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActivePeriode(freq.id); setEditingIndex(null); }}>{freq.label}</button>))}
         </div>
         <button className="btn btn-ghost btn-xs text-gray-600 flex items-center gap-1" onClick={() => setShowKelolaFrekuensi(true)}><Settings size={14}/> Kelola Frekuensi</button>
       </div>
@@ -407,9 +407,9 @@ export default function EvaluasiPekerjaan({
                           <div className="flex gap-1">
                             <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => toggleKotak(index)} title={kotakTertutup[index] ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"}>{kotakTertutup[index] ? <Eye size={16}/> : <EyeOff size={16}/>}</button>
                             {!isEditing && (
-                              <button className="btn btn-ghost btn-xs text-blue-500" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
+                              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => setEditingIndex(index)} title="Edit Data"><Pencil size={16}/></button>
                             )}
-                            <button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
+                            <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleDeleteReport(index)} title="Hapus Kotak"><Trash2 size={16}/></button>
                           </div>
                         </div>
 
@@ -493,8 +493,8 @@ export default function EvaluasiPekerjaan({
                       <summary className="text-sm font-semibold text-gray-800 cursor-pointer flex justify-between items-center">
                         <span className="flex items-center gap-1"><Calendar size={14}/> {ev.label || ev.key}</span>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button type="button" onClick={() => handleEditHistory(ev)} className="btn btn-ghost btn-xs text-blue-500" title="Edit History"><Pencil size={14}/></button>
-                          <button type="button" onClick={() => handleHapusHistoryPekerjaan(ev.key)} className="btn btn-ghost btn-xs text-red-500" title="Hapus History"><Trash2 size={14}/></button>
+                          <button type="button" onClick={() => handleEditHistory(ev)} className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" title="Edit History"><Pencil size={14}/></button>
+                          <button type="button" onClick={() => handleHapusHistoryPekerjaan(ev.key)} className="btn btn-ghost btn-xs text-stone-400 hover:text-error" title="Hapus History"><Trash2 size={14}/></button>
                         </div>
                       </summary>
                       <div className="mt-2 space-y-2">
@@ -650,12 +650,12 @@ export default function EvaluasiPekerjaan({
                 {periodeEvaluasiList.map((freq) => (
                   <div key={freq.id} className="flex justify-between items-center bg-gray-50 rounded px-2 py-1 border border-gray-200">
                     <div className="flex-1"><p className="text-sm text-gray-700">{freq.label}</p><span className="text-[10px] text-gray-500">Tipe: {freq.tipe}{freq.tipe === "custom" && ` (${freq.customStart} s/d ${freq.customEnd})`}</span></div>
-                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditFrekuensi(freq)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-red-500" onClick={() => handleHapusFrekuensi(freq.id)}><Trash2 size={14}/></button></div>
+                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-600" onClick={() => handleBukaEditFrekuensi(freq)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusFrekuensi(freq.id)}><Trash2 size={14}/></button></div>
                   </div>
                 ))}
               </div>
-              <div className="bg-blue-50 rounded p-3 border border-blue-200 space-y-2">
-                <p className="text-xs font-semibold text-blue-700 flex items-center gap-1">{editingFrekuensiId ? <><Pencil size={14}/> Edit Frekuensi</> : <><Plus size={14}/> Tambah Frekuensi Baru</>}</p>
+              <div className="bg-stone-100 rounded p-3 border border-stone-200 space-y-2">
+                <p className="text-xs font-semibold text-stone-700 flex items-center gap-1">{editingFrekuensiId ? <><Pencil size={14}/> Edit Frekuensi</> : <><Plus size={14}/> Tambah Frekuensi Baru</>}</p>
                 <input type="text" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="Nama frekuensi" value={frekuensiForm.label} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, label: e.target.value })} />
                 <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={frekuensiForm.tipe} onChange={(e) => setFrekuensiForm({ ...frekuensiForm, tipe: e.target.value })}>
                   <option value="bulanan">Bulanan (1 bulan)</option><option value="triwulan">Triwulan (3 bulan)</option><option value="semester">Semester (6 bulan)</option><option value="tahunan">Tahunan (12 bulan)</option><option value="custom">Custom (tanggal manual)</option>

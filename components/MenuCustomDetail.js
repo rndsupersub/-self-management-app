@@ -195,14 +195,14 @@ export default function MenuCustomDetail({
                   <h2 className="card-title text-base text-gray-800 flex-1">{sub.nama}</h2>
                   <div className="flex gap-1 shrink-0">
                     <button
-                      className="btn btn-ghost btn-xs text-blue-500"
+                      className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800"
                       onClick={(e) => handleRename(sub.id, sub.nama, e)}
                       title="Rename"
                     >
                       ✏️
                     </button>
                     <button
-                      className="btn btn-ghost btn-xs text-red-500"
+                      className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                       onClick={(e) => handleHapus(sub.id, e)}
                       title="Hapus"
                     >
@@ -226,7 +226,7 @@ export default function MenuCustomDetail({
       {tabs.map((t) => (
         <button
           key={t.id}
-          className={`tab ${activeTab === t.id ? "tab-active bg-blue-600 text-white" : ""}`}
+          className={`tab ${activeTab === t.id ? "tab-active bg-stone-800 text-white" : ""}`}
           onClick={() => setActiveTab(t.id)}
         >
           {t.label}
@@ -340,9 +340,9 @@ export default function MenuCustomDetail({
                 </button>
               </div>
               {showColorPicker && (
-                <div className="card bg-white shadow border border-blue-300 mb-4">
+                <div className="card bg-white shadow border border-stone-300 mb-4">
                   <div className="card-body p-4">
-                    <p className="text-xs font-semibold text-blue-700 mb-2">
+                    <p className="text-xs font-semibold text-stone-700 mb-2">
                       🎨 Pilih Warna untuk Tool &quot;{item.nama}&quot;
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -484,7 +484,7 @@ export default function MenuCustomDetail({
       {showForm && (
         <div className="card bg-white shadow border border-gray-200 mb-4">
           <div className="card-body p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-2">✏️ Tambah item baru</p>
+            <p className="text-xs font-semibold text-stone-700 mb-2">✏️ Tambah item baru</p>
             <input
               type="text"
               className="input input-bordered w-full text-gray-800 bg-white"

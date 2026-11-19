@@ -52,7 +52,7 @@ function MindmapKanvas({ root, pilih, onPilih }) {
             <span className="block text-xs leading-snug line-clamp-2">{n.teks || "(tanpa teks)"}</span>
           );
           const kelas = n.depth === 0
-            ? "bg-blue-600 text-white border-blue-700 font-semibold"
+            ? "bg-stone-800 text-white border-stone-700 font-semibold"
             : n.depth === 1
             ? "bg-white text-gray-800 border-gray-300 font-medium"
             : "bg-white text-gray-700 border-gray-200";
@@ -69,7 +69,7 @@ function MindmapKanvas({ root, pilih, onPilih }) {
             <button
               key={n.id}
               onClick={() => onPilih(n.id)}
-              className={`absolute text-left px-3 py-2 rounded-lg border shadow-sm transition ${kelas} ${pilih === n.id ? "ring-2 ring-blue-400" : ""}`}
+              className={`absolute text-left px-3 py-2 rounded-lg border shadow-sm transition ${kelas} ${pilih === n.id ? "ring-2 ring-stone-400" : ""}`}
               style={gaya}
               title={n.teks}
             >
@@ -107,8 +107,8 @@ function MindmapEditor({ value, onChange }) {
   return (
     <div className="space-y-3">
       <MindmapKanvas root={value.root} pilih={pilih} onPilih={setPilih} />
-      <div className="bg-blue-50 border border-blue-200 rounded p-3 space-y-2">
-        <p className="text-xs font-semibold text-blue-800 flex items-center gap-1">
+      <div className="bg-stone-100 border border-stone-200 rounded p-3 space-y-2">
+        <p className="text-xs font-semibold text-stone-800 flex items-center gap-1">
           <Network size={14} /> Cabang terpilih: <span className="font-normal">{node.teks || "(tanpa teks)"}</span>
         </p>
         <input
@@ -131,7 +131,7 @@ function MindmapEditor({ value, onChange }) {
         </div>
         {value.root.id !== pilih && (
           <button
-            className="btn btn-ghost btn-xs text-red-500"
+            className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
             onClick={() => {
               if (!confirm("Hapus cabang ini beserta anak-anaknya?")) return;
               onChange({ root: hapusNode(JSON.parse(JSON.stringify(value.root)), pilih) });
@@ -381,7 +381,7 @@ function PapanGambar({ value, onChange }) {
         </label>
 
         <button className="btn btn-ghost btn-xs text-gray-700" onClick={undo}><Undo2 size={12} /> Undo</button>
-        <button className="btn btn-ghost btn-xs text-red-500" onClick={bersihkan}><Trash2 size={12} /> Kosongkan</button>
+        <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={bersihkan}><Trash2 size={12} /> Kosongkan</button>
       </div>
 
       <div className="relative">
@@ -397,7 +397,7 @@ function PapanGambar({ value, onChange }) {
         />
         {inputTeks && (
           <div
-            className="absolute z-10 bg-white border border-blue-300 rounded shadow-lg p-2 w-52"
+            className="absolute z-10 bg-white border border-stone-300 rounded shadow-lg p-2 w-52"
             style={{
               left: `min(${(inputTeks.x / LEBAR_PAPAN) * 100}%, calc(100% - 13rem))`,
               top: `min(${(inputTeks.y / TINGGI_PAPAN) * 100}%, calc(100% - 7rem))`,
@@ -530,7 +530,7 @@ function PapanCatatan({ value, onChange }) {
                 <div className="flex items-center gap-0.5">
                   <button className="btn btn-ghost btn-xs px-1" onClick={() => ubah(c.id, { ukuran: Math.max(10, (c.ukuran || 14) - 2) })} title="Perkecil huruf"><Minus size={10} /></button>
                   <button className="btn btn-ghost btn-xs px-1" onClick={() => ubah(c.id, { ukuran: Math.min(28, (c.ukuran || 14) + 2) })} title="Perbesar huruf"><Plus size={10} /></button>
-                  <button className="btn btn-ghost btn-xs px-1 text-red-500" onClick={() => hapus(c.id)} title="Hapus catatan"><Trash2 size={11} /></button>
+                  <button className="btn btn-ghost btn-xs px-1 text-error" onClick={() => hapus(c.id)} title="Hapus catatan"><Trash2 size={11} /></button>
                 </div>
               </div>
               <textarea
@@ -706,7 +706,7 @@ function SlideMini({ slide, nomor, aktif, onClick }) {
     <button
       onClick={onClick}
       title={slide.judul || "(tanpa judul)"}
-      className={`shrink-0 w-44 rounded-lg border overflow-hidden text-left transition ${aktif ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-blue-300"}`}
+      className={`shrink-0 w-44 rounded-lg border overflow-hidden text-left transition ${aktif ? "border-stone-600 ring-2 ring-stone-200" : "border-gray-200 hover:border-stone-300"}`}
     >
       <div className="relative h-24 overflow-hidden p-2" style={{ backgroundColor: slide.latar || "#ffffff" }}>
         {bentuk === "kotak" && <span className="absolute right-0 top-0 w-8 h-8 rounded-bl-lg opacity-80" style={{ backgroundColor: warnaBentuk }} />}
@@ -761,7 +761,7 @@ function SlideEditor({ value, onChange }) {
             {modePratinjau ? <><Pencil size={12} /> Tampilkan Editor</> : <><EyeOff size={12} /> Sembunyikan Editor</>}
           </button>
           <button className="btn btn-outline btn-xs text-gray-700" onClick={tambahSlide}><Plus size={12} /> Slide</button>
-          <button className="btn btn-ghost btn-xs text-red-500" onClick={hapusSlide}><Trash2 size={12} /></button>
+          <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={hapusSlide}><Trash2 size={12} /></button>
         </div>
       </div>
 
@@ -874,7 +874,7 @@ function LihatIde({ ide, onKembali, onEdit, onSembunyikan, onHapus }) {
             {ide.disembunyikan ? <><Eye size={14} /> Tampilkan</> : <><EyeOff size={14} /> Sembunyikan</>}
           </button>
           <button className="btn btn-outline btn-sm text-gray-700" onClick={onEdit}><Pencil size={14} /> Edit</button>
-          <button className="btn btn-ghost btn-sm text-red-500" onClick={onHapus}><Trash2 size={14} /> Hapus</button>
+          <button className="btn btn-ghost btn-sm text-stone-400 hover:text-error" onClick={onHapus}><Trash2 size={14} /> Hapus</button>
         </div>
       </div>
 
@@ -999,8 +999,8 @@ function KartuIde({ ide, onBuka, onEdit, onSembunyikan, onHapus }) {
           <button className="btn btn-ghost btn-xs text-gray-500" onClick={onSembunyikan} title={ide.disembunyikan ? "Tampilkan" : "Sembunyikan"}>
             {ide.disembunyikan ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
-          <button className="btn btn-ghost btn-xs text-blue-500" onClick={onEdit} title="Edit"><Pencil size={14} /></button>
-          <button className="btn btn-ghost btn-xs text-red-500" onClick={onHapus} title="Hapus"><Trash2 size={14} /></button>
+          <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={onEdit} title="Edit"><Pencil size={14} /></button>
+          <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={onHapus} title="Hapus"><Trash2 size={14} /></button>
         </div>
       </div>
     </div>

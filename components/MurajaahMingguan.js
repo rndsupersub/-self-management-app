@@ -292,15 +292,15 @@ export default function MurajaahMingguan({
             📊 Statistik Minggu Ini
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="bg-blue-50 rounded p-2 border border-blue-200">
+            <div className="bg-stone-100 rounded p-2 border border-stone-200">
               <p className="text-xs text-gray-500">Total Halaman</p>
-              <p className="text-lg font-bold text-blue-700">
+              <p className="text-lg font-bold text-stone-700">
                 {statistikMinggu.totalHalaman}
               </p>
             </div>
             <div className="bg-red-50 rounded p-2 border border-red-200">
               <p className="text-xs text-gray-500">Total Kesalahan</p>
-              <p className="text-lg font-bold text-red-700">
+              <p className="text-lg font-bold text-error">
                 {statistikMinggu.totalKesalahan}
               </p>
             </div>
@@ -335,7 +335,7 @@ export default function MurajaahMingguan({
                     return (
                       <span
                         key={key}
-                        className="text-xs px-2 py-0.5 rounded border bg-red-50 text-red-700 border-red-200"
+                        className="text-xs px-2 py-0.5 rounded border bg-red-50 text-error border-red-200"
                       >
                         {jk?.label || key}: {val}x
                       </span>
@@ -357,7 +357,7 @@ export default function MurajaahMingguan({
 
       {/* FORM */}
       {showForm && (
-        <div className="card bg-white shadow border border-blue-300">
+        <div className="card bg-white shadow border border-stone-300">
           <div className="card-body p-4 space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-gray-800">
@@ -588,7 +588,7 @@ export default function MurajaahMingguan({
                         {entry.halamanMulai}--{entry.halamanSelesai}
                       </p>
                       {getTotalKesalahan(entry.kesalahan) > 0 && (
-                        <p className="text-xs text-red-600 mt-1">
+                        <p className="text-xs text-error mt-1">
                           ⚠️ {formatKesalahan(entry.kesalahan)}
                         </p>
                       )}
@@ -617,7 +617,7 @@ export default function MurajaahMingguan({
                         ✏️
                       </button>
                       <button
-                        className="btn btn-ghost btn-xs text-red-500"
+                        className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                         onClick={() => handleHapus(entry.tanggal)}
                         title="Hapus"
                       >
@@ -674,7 +674,7 @@ export default function MurajaahMingguan({
                               {e.halamanSelesai})
                             </p>
                             {getTotalKesalahan(e.kesalahan) > 0 && (
-                              <p className="text-red-600">
+                              <p className="text-error">
                                 ⚠️ {formatKesalahan(e.kesalahan)}
                               </p>
                             )}

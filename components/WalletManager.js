@@ -18,12 +18,12 @@ const PERIODE_OPTIONS = [
 ];
 
 const WARNA_OPTIONS = [
-  { id: "red", label: "Merah", bg: "bg-red-500" },
+  { id: "red", label: "Merah", bg: "bg-error" },
   { id: "orange", label: "Orange", bg: "bg-orange-500" },
   { id: "yellow", label: "Kuning", bg: "bg-yellow-500" },
   { id: "green", label: "Hijau", bg: "bg-green-500" },
   { id: "teal", label: "Teal", bg: "bg-teal-500" },
-  { id: "blue", label: "Biru", bg: "bg-blue-500" },
+  { id: "blue", label: "Biru", bg: "bg-stone-600" },
   { id: "indigo", label: "Indigo", bg: "bg-indigo-500" },
   { id: "purple", label: "Ungu", bg: "bg-purple-500" },
   { id: "pink", label: "Pink", bg: "bg-pink-500" },
@@ -83,7 +83,7 @@ export default function WalletManager({ dompetList = DEFAULT_DOMPET, onUpdateDom
       </div>
 
       {showForm && (
-        <div className="card bg-white shadow border border-blue-300">
+        <div className="card bg-white shadow border border-stone-300">
           <div className="card-body p-4 space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-gray-800 flex items-center gap-1">{editingId ? <><Pencil size={16}/> Edit Dompet</> : <><Plus size={16}/> Tambah Dompet Baru</>}</h3>
@@ -147,7 +147,7 @@ export default function WalletManager({ dompetList = DEFAULT_DOMPET, onUpdateDom
                 <div className="card-body p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${getWarnaClass(d.warna)}`} /><h4 className="text-sm font-bold text-gray-800">{d.nama}</h4></div>
-                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-500" onClick={() => handleBukaEdit(d)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapus(d.id)}><Trash2 size={14}/></button></div>
+                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-500" onClick={() => handleBukaEdit(d)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setConfirmHapus(d.id)}><Trash2 size={14}/></button></div>
                   </div>
                   <p className="text-xs text-gray-500 mb-1">{getTipeLabel(d.tipe)} • {getPeriodeLabel(d.periode)}</p>
                   <p className="text-sm text-gray-700">Budget: <strong>{formatRupiah(d.budget || 0)}</strong></p>
@@ -167,7 +167,7 @@ export default function WalletManager({ dompetList = DEFAULT_DOMPET, onUpdateDom
                 <div className="card-body p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2"><span className={`w-3 h-3 rounded-full ${getWarnaClass(d.warna)}`} /><h4 className="text-sm font-bold text-gray-800">{d.nama}</h4></div>
-                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-500" onClick={() => handleBukaEdit(d)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-red-500" onClick={() => setConfirmHapus(d.id)}><Trash2 size={14}/></button></div>
+                    <div className="flex gap-1"><button className="btn btn-ghost btn-xs text-gray-500" onClick={() => handleBukaEdit(d)}><Pencil size={14}/></button><button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setConfirmHapus(d.id)}><Trash2 size={14}/></button></div>
                   </div>
                   <p className="text-xs text-gray-500 mb-1">{getTipeLabel(d.tipe)} • All-time</p>
                   <p className="text-sm text-gray-700">Target: <strong>{formatRupiah(d.budget || 0)}</strong></p>

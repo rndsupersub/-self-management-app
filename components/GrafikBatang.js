@@ -12,7 +12,7 @@ export default function GrafikBatang({
   labelA = "Masuk",
   labelB = "Keluar",
   warnaA = "bg-green-500",
-  warnaB = "bg-red-500",
+  warnaB = "bg-error",
   tinggi = 180,
 }) {
   if (!data.length) return null;

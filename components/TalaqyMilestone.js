@@ -161,7 +161,7 @@ export default function TalaqyMilestone({
               key={m.id}
               className={`card shadow border ${
                 m.tercapai
-                  ? "bg-gradient-to-br from-green-50 to-blue-50 border-green-300"
+                  ? "bg-gradient-to-br from-green-50 to-stone-100 border-green-300"
                   : "bg-white border-gray-200"
               }`}
             >
@@ -186,7 +186,7 @@ export default function TalaqyMilestone({
                       📅 {formatTanggalPendek(talaqyEntry.tanggal)}
                     </p>
                     {talaqyEntry.totalKesalahan > 0 && (
-                      <p className="text-xs text-red-600">
+                      <p className="text-xs text-error">
                         ⚠️ Total: {talaqyEntry.totalKesalahan} kesalahan
                       </p>
                     )}
@@ -208,7 +208,7 @@ export default function TalaqyMilestone({
                         ✏️ Edit
                       </button>
                       <button
-                        className="btn btn-ghost btn-xs text-red-500"
+                        className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                         onClick={() => handleHapus(m.id)}
                       >
                         🗑️
@@ -237,7 +237,7 @@ export default function TalaqyMilestone({
 
       {/* FORM TALAQY */}
       {showForm && activeMilestone && (
-        <div className="card bg-white shadow border border-blue-300">
+        <div className="card bg-white shadow border border-stone-300">
           <div className="card-body p-4 space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-gray-800">
@@ -314,7 +314,7 @@ export default function TalaqyMilestone({
                 ))}
               </div>
               {getTotalKesalahan(formData.kesalahan) > 0 && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-error mt-1">
                   Total: {getTotalKesalahan(formData.kesalahan)} kesalahan
                 </p>
               )}
@@ -387,7 +387,7 @@ export default function TalaqyMilestone({
                         📅 {formatTanggal(entry.tanggal)}
                       </p>
                       {entry.totalKesalahan > 0 && (
-                        <p className="text-xs text-red-600 mt-1">
+                        <p className="text-xs text-error mt-1">
                           ⚠️ {entry.totalKesalahan} kesalahan —{" "}
                           {formatKesalahan(entry.kesalahan)}
                         </p>

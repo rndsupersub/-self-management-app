@@ -360,7 +360,7 @@ export default function DetailKegiatan({
               </div>
 
               {error && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                <p className="text-xs text-error bg-red-50 border border-red-200 rounded px-2 py-1">
                   {error}
                 </p>
               )}
@@ -474,13 +474,13 @@ export default function DetailKegiatan({
                 </button>
                 <div className="flex gap-2">
                   <button
-                    className="btn btn-ghost btn-sm text-blue-600"
+                    className="btn btn-ghost btn-sm text-stone-500 hover:text-stone-800"
                     onClick={mulaiEdit}
                   >
                     <Pencil size={14} className="mr-1" /> Edit
                   </button>
                   <button
-                    className="btn btn-ghost btn-sm text-red-600"
+                    className="btn btn-ghost btn-sm text-stone-400 hover:text-error"
                     onClick={() => setConfirmHapus(true)}
                   >
                     <Trash2 size={14} className="mr-1" /> Hapus
@@ -493,7 +493,7 @@ export default function DetailKegiatan({
           {/* Konfirmasi Hapus */}
           {confirmHapus && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded p-3">
-              <p className="text-sm text-red-700 mb-2">
+              <p className="text-sm text-error mb-2">
                 Yakin mau hapus kegiatan ini? Data akan masuk history.
               </p>
               <div className="flex gap-2">
@@ -626,7 +626,7 @@ export default function DetailKegiatan({
                             </div>
                             <div className="flex gap-1 shrink-0">
                               <button
-                                className="btn btn-ghost btn-xs text-blue-600"
+                                className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800"
                                 title="Edit catatan"
                                 onClick={() =>
                                   setEditCatatan({
@@ -639,7 +639,7 @@ export default function DetailKegiatan({
                                 <Pencil size={12} />
                               </button>
                               <button
-                                className="btn btn-ghost btn-xs text-red-500"
+                                className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
                                 title="Hapus catatan"
                                 onClick={() =>
                                   handleHapusCatatan(section.id, cat.id)
@@ -723,7 +723,7 @@ export default function DetailKegiatan({
                         }
                       />
                       <button
-                        className="btn btn-ghost btn-sm text-red-500"
+                        className="btn btn-ghost btn-sm text-stone-400 hover:text-error"
                         onClick={() => hapusDraftSection(s.id)}
                         title="Hapus section"
                       >
@@ -751,7 +751,7 @@ export default function DetailKegiatan({
               </button>
 
               {errorSection && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mt-2">
+                <p className="text-xs text-error bg-red-50 border border-red-200 rounded px-2 py-1 mt-2">
                   {errorSection}
                 </p>
               )}

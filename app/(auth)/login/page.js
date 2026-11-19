@@ -262,7 +262,7 @@ export default function Login() {
                   ← Batal
                 </button>
                 <button
-                  className="btn btn-ghost btn-xs text-blue-600 hover:bg-blue-50"
+                  className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800 hover:bg-stone-100"
                   onClick={() => { setStep("reset"); setError(""); }}
                   disabled={loading}
                 >

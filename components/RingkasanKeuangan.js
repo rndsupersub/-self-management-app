@@ -27,7 +27,7 @@ export default function RingkasanKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
         <div className={`card shadow border ${cash < 0 ? "bg-red-50 border-red-300" : cash < 300000 ? "bg-yellow-50 border-yellow-300" : "bg-white border-gray-200"}`}>
           <div className="card-body p-4">
             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Wallet size={14}/> Cash Tersedia</p>
-            <p className={`text-2xl font-bold ${cash < 0 ? "text-red-700" : cash < 300000 ? "text-yellow-700" : "text-gray-800"}`}>{formatRupiah(cash)}</p>
+            <p className={`text-2xl font-bold ${cash < 0 ? "text-error" : cash < 300000 ? "text-yellow-700" : "text-gray-800"}`}>{formatRupiah(cash)}</p>
             {cash < 300000 && <p className="text-xs text-yellow-700 mt-1 flex items-center gap-1"><AlertTriangle size={12}/> Cash tipis</p>}
           </div>
         </div>
@@ -46,11 +46,11 @@ export default function RingkasanKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
           <div className="card-body p-4">
             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Activity size={14}/> Financial Health Score</p>
             <div className="flex items-baseline gap-2">
-              <p className={`text-2xl font-bold ${healthScore.warna === "green" ? "text-green-700" : healthScore.warna === "orange" ? "text-orange-700" : "text-red-700"}`}>{healthScore.total}</p>
+              <p className={`text-2xl font-bold ${healthScore.warna === "green" ? "text-green-700" : healthScore.warna === "orange" ? "text-orange-700" : "text-error"}`}>{healthScore.total}</p>
               <span className="text-xs text-gray-500">/ 100</span>
             </div>
             <p className="text-xs mt-1 flex items-center gap-1">
-              {healthScore.warna === "green" ? <CheckCircle2 size={12} className="text-green-600"/> : healthScore.warna === "orange" ? <AlertTriangle size={12} className="text-orange-600"/> : <AlertTriangle size={12} className="text-red-600"/>} {healthScore.kategori}
+              {healthScore.warna === "green" ? <CheckCircle2 size={12} className="text-green-600"/> : healthScore.warna === "orange" ? <AlertTriangle size={12} className="text-orange-600"/> : <AlertTriangle size={12} className="text-error"/>} {healthScore.kategori}
             </p>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function RingkasanKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
             {/* TOMBOL EXPAND/COLLAPSE */}
             {goalsList.length > 5 && (
               <button 
-                className="btn btn-ghost btn-xs w-full mt-3 text-blue-600 flex items-center justify-center gap-1"
+                className="btn btn-ghost btn-xs w-full mt-3 text-stone-800 flex items-center justify-center gap-1"
                 onClick={() => setShowAllGoals(!showAllGoals)}
               >
                 {showAllGoals ? <><ChevronUp size={14}/> Sembunyikan</> : <><ChevronDown size={14}/> Lihat Semua ({goalsList.length - 5} lagi)</>}
@@ -93,7 +93,7 @@ export default function RingkasanKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><Bell size={16}/> Smart Alert</h3>
             <div className="space-y-2">
               {alerts.slice(0, 3).map((alert, idx) => (
-                <div key={idx} className={`rounded p-2 border text-xs flex items-start gap-1 ${alert.tipe === "danger" ? "bg-red-50 border-red-200 text-red-800" : alert.tipe === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" : "bg-blue-50 border-blue-200 text-blue-800"}`}>
+                <div key={idx} className={`rounded p-2 border text-xs flex items-start gap-1 ${alert.tipe === "danger" ? "bg-red-50 border-red-200 text-red-800" : alert.tipe === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" : "bg-stone-100 border-stone-200 text-stone-800"}`}>
                   {alert.tipe === "danger" ? <AlertTriangle size={14} className="mt-0.5 shrink-0"/> : alert.tipe === "warning" ? <AlertTriangle size={14} className="mt-0.5 shrink-0"/> : <Info size={14} className="mt-0.5 shrink-0"/>} {alert.pesan}
                 </div>
               ))}

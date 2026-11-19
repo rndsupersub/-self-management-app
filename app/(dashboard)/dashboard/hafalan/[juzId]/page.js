@@ -101,9 +101,9 @@ export default function HafalanJuzPage() {
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "surat" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("surat")}><List size={16} className="mr-2" /> Surat ({suratList.length})</button>
-        <button className={`tab ${activeTab === "murajaah" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("murajaah")}><RefreshCw size={16} className="mr-2" /> Murajaah</button>
-        <button className={`tab ${activeTab === "talaqy" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("talaqy")}><Target size={16} className="mr-2" /> Talaqy</button>
+        <button className={`tab ${activeTab === "surat" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("surat")}><List size={16} className="mr-2" /> Surat ({suratList.length})</button>
+        <button className={`tab ${activeTab === "murajaah" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("murajaah")}><RefreshCw size={16} className="mr-2" /> Murajaah</button>
+        <button className={`tab ${activeTab === "talaqy" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("talaqy")}><Target size={16} className="mr-2" /> Talaqy</button>
       </div>
 
       {activeTab === "surat" && (

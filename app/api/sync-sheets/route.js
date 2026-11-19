@@ -46,6 +46,21 @@ export async function POST(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Gagal karena env kurang itu penyebab paling sering "sudah diklik sync
+    // tapi spreadsheet nggak berubah". Sebutkan nama variabelnya, bukan isinya.
+    const ENV_WAJIB = ["GOOGLE_SHEETS_ID", "GOOGLE_CLIENT_EMAIL", "GOOGLE_PRIVATE_KEY"];
+    const envKurang = ENV_WAJIB.filter((kunci) => !process.env[kunci]);
+    if (envKurang.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Konfigurasi server belum lengkap: ${envKurang.join(
+            ", "
+          )}. Tambahkan di Environment Variables lalu redeploy.`,
+        },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const uid = body.uid || decoded.uid;
     if (uid !== decoded.uid) {
@@ -60,9 +75,29 @@ export async function POST(req) {
 
     const { results, spreadsheetUrl } = await syncUserToSheets(userSnap.data());
     const gagal = results.filter((r) => r.status === "error");
+    const berhasil = results.filter((r) => r.status === "ok");
+
+    // Sebelumnya respons tetap 200 walau semua tab gagal, jadi tombol sempat
+    // bilang "Sync berhasil — 0 baris". Sekarang kegagalan dilaporkan jujur.
+    if (berhasil.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Sync gagal di semua tab. ${gagal[0]?.error || "Penyebab tidak diketahui."}`,
+          timestamp: new Date().toISOString(),
+          results,
+          spreadsheetUrl,
+        },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: gagal.length === 0,
+      error:
+        gagal.length > 0
+          ? `Gagal di tab ${gagal.map((r) => r.sheet).join(", ")}: ${gagal[0].error}`
+          : undefined,
       timestamp: new Date().toISOString(),
       results,
       spreadsheetUrl,

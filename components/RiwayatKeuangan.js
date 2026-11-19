@@ -27,7 +27,7 @@ const GAYA_INSIGHT = {
   danger: "bg-red-50 border-red-200 text-red-800",
   warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
   success: "bg-green-50 border-green-200 text-green-800",
-  info: "bg-blue-50 border-blue-200 text-blue-800",
+  info: "bg-stone-100 border-stone-200 text-stone-800",
 };
 
 const IKON_INSIGHT = {
@@ -46,8 +46,8 @@ const LABEL_JENIS = {
 
 const WARNA_JENIS = {
   masuk: "text-green-700 bg-green-50 border-green-200",
-  keluar: "text-red-700 bg-red-50 border-red-200",
-  tabungan: "text-blue-700 bg-blue-50 border-blue-200",
+  keluar: "text-error bg-red-50 border-red-200",
+  tabungan: "text-stone-700 bg-stone-100 border-stone-200",
   sedekah: "text-orange-700 bg-orange-50 border-orange-200",
 };
 
@@ -64,7 +64,7 @@ function Selisih({ nilai, naikBagus = false }) {
   return (
     <span
       className={`text-[11px] inline-flex items-center gap-1 ${
-        bagus ? "text-green-600" : "text-red-600"
+        bagus ? "text-green-600" : "text-error"
       }`}
     >
       <Icon size={12} /> {Math.abs(nilai.persen)}% vs periode lalu
@@ -151,7 +151,7 @@ export default function RiwayatKeuangan({
                   key={p.kunci}
                   className={`tab tab-xs ${
                     kunci === p.kunci
-                      ? "tab-active bg-blue-600 text-white font-semibold"
+                      ? "tab-active bg-stone-800 text-white font-semibold"
                       : "text-gray-600"
                   }`}
                   onClick={() => setKunci(p.kunci)}
@@ -203,7 +203,7 @@ export default function RiwayatKeuangan({
           nominal={keluarTotal}
           ikon={<ArrowUpRight size={14} />}
           selisih={banding.keluar}
-          warna={keluarTotal > 0 ? "text-red-700" : "text-gray-800"}
+          warna={keluarTotal > 0 ? "text-error" : "text-gray-800"}
           catatan={
             sekarang.total.sedekah > 0
               ? `termasuk sedekah ${formatRupiah(sekarang.total.sedekah)}`
@@ -214,7 +214,7 @@ export default function RiwayatKeuangan({
           judul="Tabungan"
           nominal={sekarang.total.tabungan}
           ikon={<Landmark size={14} />}
-          warna="text-blue-700"
+          warna="text-stone-700"
         />
         <Kartu
           judul="Cash Flow Bersih"
@@ -222,7 +222,7 @@ export default function RiwayatKeuangan({
           ikon={<HeartHandshake size={14} />}
           selisih={banding.net}
           naikBagus
-          warna={sekarang.net < 0 ? "text-red-700" : "text-gray-800"}
+          warna={sekarang.net < 0 ? "text-error" : "text-gray-800"}
           catatan="masuk − keluar − tabungan − sedekah"
         />
       </div>
@@ -282,7 +282,7 @@ export default function RiwayatKeuangan({
                       {idx + 1}. {item.kategori}
                       <span className="text-xs text-gray-400"> ({item.jumlah}x)</span>
                     </span>
-                    <span className="font-semibold text-red-600">{formatRupiah(item.total)}</span>
+                    <span className="font-semibold text-error">{formatRupiah(item.total)}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <progress

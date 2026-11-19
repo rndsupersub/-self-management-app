@@ -97,8 +97,8 @@ export default function HafalanPage() {
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "membaca" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("membaca")}><Calendar size={16} className="mr-2" /> Kalender Membaca</button>
-        <button className={`tab ${activeTab === "murajaah" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("murajaah")}><RefreshCw size={16} className="mr-2" /> Murajaah Mingguan</button>
+        <button className={`tab ${activeTab === "membaca" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("membaca")}><Calendar size={16} className="mr-2" /> Kalender Membaca</button>
+        <button className={`tab ${activeTab === "murajaah" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("murajaah")}><RefreshCw size={16} className="mr-2" /> Murajaah Mingguan</button>
       </div>
 
       {activeTab === "membaca" && <KalenderMembaca hafalanMembaca={hafalanMembaca} targetHarian={targetHarian} juzAktif={juzAktif} onUpdateMembaca={(u) => { setHafalanMembaca(u); simpanSettings({ hafalanMembaca: u }); }} />}
@@ -114,7 +114,7 @@ export default function HafalanPage() {
             const isAktif = juz.id === juzAktif;
 
             return (
-              <div key={juz.id} className={`card bg-white shadow border hover:shadow-lg transition cursor-pointer ${isAktif ? "border-2 border-blue-600" : "border-gray-200"}`} onClick={() => { setJuzAktif(juz.id); simpanSettings({ hafalanJuzAktif: juz.id }); router.push(`/dashboard/hafalan/${juz.id}`); }}>
+              <div key={juz.id} className={`card bg-white shadow border hover:shadow-lg transition cursor-pointer ${isAktif ? "border-2 border-stone-800" : "border-gray-200"}`} onClick={() => { setJuzAktif(juz.id); simpanSettings({ hafalanJuzAktif: juz.id }); router.push(`/dashboard/hafalan/${juz.id}`); }}>
                 <div className="card-body p-4">
                   <div className="flex justify-between items-start mb-1">
                     <h3 className="card-title text-base text-gray-800">{juz.label}</h3>

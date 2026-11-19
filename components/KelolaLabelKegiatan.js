@@ -33,7 +33,7 @@ function BarisLabel({ item, onChange, onDelete, placeholder }) {
         ))}
       </select>
       <button
-        className="btn btn-ghost btn-sm text-red-500"
+        className="btn btn-ghost btn-sm text-stone-400 hover:text-error"
         onClick={onDelete}
         title="Hapus"
       >
@@ -188,7 +188,7 @@ export default function KelolaLabelKegiatan({
               </button>
 
               {error && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1 mt-2">
+                <p className="text-xs text-error bg-red-50 border border-red-200 rounded px-2 py-1 mt-2">
                   {error}
                 </p>
               )}

@@ -23,7 +23,7 @@ function Baris({ label, sekarang, lalu, labelSekarang, labelLalu, naikBagus }) {
         <span className="font-semibold text-gray-700">{label}</span>
         <span
           className={`inline-flex items-center gap-0.5 ${
-            bagus === null ? "text-gray-400" : bagus ? "text-green-600" : "text-red-600"
+            bagus === null ? "text-gray-400" : bagus ? "text-green-600" : "text-error"
           }`}
         >
           {bagus === null ? <Minus size={12} /> : naik ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -39,7 +39,7 @@ function Baris({ label, sekarang, lalu, labelSekarang, labelLalu, naikBagus }) {
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-gray-500 w-24 truncate">{labelSekarang}</span>
           <div className="flex-1 h-2 bg-gray-200 rounded">
-            <div className="h-2 rounded bg-blue-500" style={{ width: `${lebarSekarang}%` }} />
+            <div className="h-2 rounded bg-stone-600" style={{ width: `${lebarSekarang}%` }} />
           </div>
           <span className="text-[11px] font-semibold text-gray-700 w-20 text-right">
             {formatRupiah(sekarang)}

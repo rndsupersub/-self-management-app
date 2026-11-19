@@ -69,15 +69,15 @@ export default function YouTubeDetailPage() {
       
       <div className="mb-6 flex justify-between items-center" data-html2canvas-ignore="true">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-          <Video className="text-red-500" size={24} /> {currentChannel.nama}
+          <Video className="text-error" size={24} /> {currentChannel.nama}
         </h1>
       </div>
 
       <div className="tabs tabs-boxed bg-white shadow border border-gray-200 mb-4 p-1 w-fit" data-html2canvas-ignore="true">
-        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}>
+        <button className={`tab ${activeTab === "kalender" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("kalender")}>
           <Calendar size={16} className="mr-2" /> Kalender
         </button>
-        <button className={`tab ${activeTab === "daftar" ? "tab-active bg-blue-600 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("daftar")}>
+        <button className={`tab ${activeTab === "daftar" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("daftar")}>
           <List size={16} className="mr-2" /> Daftar Konten
         </button>
       </div>

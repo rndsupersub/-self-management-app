@@ -85,7 +85,7 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
         <div className={`card shadow border ${cash < 0 ? "bg-red-50 border-red-300" : cash < 300000 ? "bg-yellow-50 border-yellow-300" : "bg-white border-gray-200"}`}>
           <div className="card-body p-4">
             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Wallet size={14}/> Cash Tersedia</p>
-            <p className={`text-xl font-bold ${cash < 0 ? "text-red-700" : cash < 300000 ? "text-yellow-700" : "text-gray-800"}`}>{formatRupiah(cash)}</p>
+            <p className={`text-xl font-bold ${cash < 0 ? "text-error" : cash < 300000 ? "text-yellow-700" : "text-gray-800"}`}>{formatRupiah(cash)}</p>
           </div>
         </div>
 
@@ -107,11 +107,11 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
           <div className="card-body p-4">
             <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Activity size={14}/> Health Score</p>
             <div className="flex items-baseline gap-2">
-              <p className={`text-2xl font-bold ${healthScore.warna === "green" ? "text-green-700" : healthScore.warna === "orange" ? "text-orange-700" : "text-red-700"}`}>{healthScore.total}</p>
+              <p className={`text-2xl font-bold ${healthScore.warna === "green" ? "text-green-700" : healthScore.warna === "orange" ? "text-orange-700" : "text-error"}`}>{healthScore.total}</p>
               <span className="text-xs text-gray-500">/ 100</span>
             </div>
             <p className="text-xs mt-1 flex items-center gap-1">
-              {healthScore.warna === "green" ? <CheckCircle2 size={12} className="text-green-600"/> : healthScore.warna === "orange" ? <AlertTriangle size={12} className="text-orange-600"/> : <AlertTriangle size={12} className="text-red-600"/>} {healthScore.kategori}
+              {healthScore.warna === "green" ? <CheckCircle2 size={12} className="text-green-600"/> : healthScore.warna === "orange" ? <AlertTriangle size={12} className="text-orange-600"/> : <AlertTriangle size={12} className="text-error"/>} {healthScore.kategori}
             </p>
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
         <div className="card-body p-4">
           <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><HeartPulse size={16}/> Rincian Health Score</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div className="bg-blue-50 rounded p-2 border border-blue-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Wallet size={12}/> Budget</p><p className="text-base font-bold text-blue-700">{healthScore.breakdown.budgetScore} / 40</p></div>
+            <div className="bg-stone-100 rounded p-2 border border-stone-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Wallet size={12}/> Budget</p><p className="text-base font-bold text-stone-700">{healthScore.breakdown.budgetScore} / 40</p></div>
             <div className="bg-stone-100 rounded p-2 border border-stone-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Target size={12}/> Goals</p><p className="text-base font-bold text-stone-800">{healthScore.breakdown.goalsScore} / 30</p></div>
             <div className="bg-green-50 rounded p-2 border border-green-200"><p className="text-xs text-gray-600 flex items-center gap-1"><Landmark size={12}/> Tabungan</p><p className="text-base font-bold text-green-700">{healthScore.breakdown.tabunganScore} / 20</p></div>
             <div className="bg-orange-50 rounded p-2 border border-orange-200"><p className="text-xs text-gray-600 flex items-center gap-1"><MessageSquare size={12}/> Konsistensi</p><p className="text-base font-bold text-orange-700">{healthScore.breakdown.konsistensiScore} / 10</p></div>
@@ -140,7 +140,7 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm font-semibold text-gray-800">{d.nama}</span>
                   <span className="text-xs flex items-center gap-1">
-                    {d.status.warna === "red" ? <AlertTriangle size={12} className="text-red-500"/> : d.status.warna === "yellow" ? <AlertTriangle size={12} className="text-yellow-500"/> : <CheckCircle2 size={12} className="text-green-500"/>} {d.status.label}
+                    {d.status.warna === "red" ? <AlertTriangle size={12} className="text-error"/> : d.status.warna === "yellow" ? <AlertTriangle size={12} className="text-yellow-500"/> : <CheckCircle2 size={12} className="text-green-500"/>} {d.status.label}
                   </span>
                 </div>
                 <progress className={`progress w-full h-2 ${d.status.warna === "red" ? "progress-error" : d.status.warna === "yellow" ? "progress-warning" : "progress-success"}`} value={Math.min(d.persen, 100)} max="100" />
@@ -175,7 +175,7 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><TrendingUp size={16}/> Top 5 Pengeluaran (Bulan Ini)</h3>
             <div className="space-y-2">
               {topPengeluaran.map((item, idx) => (
-                <div key={item.kategori} className="flex justify-between items-center p-2 rounded border border-gray-200 bg-gray-50"><span className="text-sm text-gray-700">{idx + 1}. {item.kategori}</span><span className="text-sm font-semibold text-red-600">{formatRupiah(item.total)}</span></div>
+                <div key={item.kategori} className="flex justify-between items-center p-2 rounded border border-gray-200 bg-gray-50"><span className="text-sm text-gray-700">{idx + 1}. {item.kategori}</span><span className="text-sm font-semibold text-error">{formatRupiah(item.total)}</span></div>
               ))}
             </div>
           </div>
@@ -205,7 +205,7 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1"><Bell size={16}/> Smart Alert ({alerts.length})</h3>
             <div className="space-y-2">
               {alerts.map((alert, idx) => (
-                <div key={idx} className={`rounded p-2 border text-xs flex items-start gap-1 ${alert.tipe === "danger" ? "bg-red-50 border-red-200 text-red-800" : alert.tipe === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" : alert.tipe === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-blue-50 border-blue-200 text-blue-800"}`}>
+                <div key={idx} className={`rounded p-2 border text-xs flex items-start gap-1 ${alert.tipe === "danger" ? "bg-red-50 border-red-200 text-red-800" : alert.tipe === "warning" ? "bg-yellow-50 border-yellow-200 text-yellow-800" : alert.tipe === "success" ? "bg-green-50 border-green-200 text-green-800" : "bg-stone-100 border-stone-200 text-stone-800"}`}>
                   {alert.tipe === "danger" ? <AlertTriangle size={14} className="mt-0.5 shrink-0"/> : alert.tipe === "warning" ? <AlertTriangle size={14} className="mt-0.5 shrink-0"/> : alert.tipe === "success" ? <CheckCircle2 size={14} className="mt-0.5 shrink-0"/> : <Info size={14} className="mt-0.5 shrink-0"/>} {alert.pesan}
                 </div>
               ))}
