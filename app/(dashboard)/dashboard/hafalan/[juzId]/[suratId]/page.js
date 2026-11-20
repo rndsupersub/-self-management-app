@@ -100,7 +100,11 @@ export default function HafalanSuratPage() {
     if (playingId === vn.id) { setPlayingId(null); return; }
     setLoadingFileId(vn.id);
     try {
-      const res = await fetch(`/api/telegram/get-file-url?fileId=${encodeURIComponent(vn.fileId)}`);
+      // Endpoint ini sekarang wajib login; token bot tidak lagi dikirim ke browser.
+      const idToken = (await auth.currentUser?.getIdToken()) || "";
+      const res = await fetch(`/api/telegram/get-file-url?fileId=${encodeURIComponent(vn.fileId)}`, {
+        headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+      });
       const data = await res.json();
       if (data.ok && data.fileUrl) {
         setPlayingId(vn.id);
