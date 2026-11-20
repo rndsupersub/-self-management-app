@@ -52,6 +52,17 @@ function jeda(ms) {
 
 export async function GET(req) {
   try {
+    if (!process.env.FIREBASE_PROJECT_ID) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "FIREBASE_PROJECT_ID belum diset di server. Set variabel itu di Vercel, lalu deploy ulang.",
+        },
+        { status: 500 }
+      );
+    }
+
     const header = req.headers.get("authorization") || "";
     const idToken = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
     const decoded = await verifyFirebaseIdToken(idToken);
