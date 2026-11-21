@@ -58,6 +58,7 @@ import {
   vendorDariDaftarMitra,
 } from "@/lib/direktoriData";
 import PanduanCari from "@/components/PanduanCari";
+import TambahDariMaps from "@/components/TambahDariMaps";
 
 const IKON_JENIS = { vendor: Factory, agency: Sparkles, jasa: Briefcase };
 
@@ -714,6 +715,14 @@ export default function DirektoriMitra({
     );
   };
 
+  // Isi form dari tautan Google Maps (dibaca components/TambahDariMaps.js).
+  const isiDariMaps = (mitra, pesanAwal) => {
+    setEditId(null);
+    setForm(buatMitraKosong(mitra));
+    setShowForm(true);
+    setInfoSimpan(pesanAwal || "");
+  };
+
   const ubah = (patch) => setForm((f) => ({ ...f, ...patch }));
   const ubahKontak = (patch) => setForm((f) => ({ ...f, kontak: { ...f.kontak, ...patch } }));
 
@@ -1034,11 +1043,18 @@ export default function DirektoriMitra({
             </div>
           </div>
 
+          <TambahDariMaps onSiap={isiDariMaps} />
+
           {showForm && (
             <div className="card bg-white shadow border border-stone-300">
               <div className="card-body p-4">
                 <h3 className="text-base font-bold text-stone-800 mb-3 flex items-center gap-2">
-                  <Pencil size={16} /> {editId ? "Edit Entri" : "Tambah Entri Manual"}
+                  <Pencil size={16} />{" "}
+                    {editId
+                      ? "Edit Entri"
+                      : form.sumber === "google-maps"
+                        ? "Lengkapi Data dari Google Maps"
+                        : "Tambah Entri Manual"}
                 </h3>
 
                 <div className="space-y-3">

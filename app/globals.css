@@ -156,3 +156,46 @@ progress {
     border-radius: 1.25rem;
   }
 }
+
+/* ===== Mode tangkap PDF (dipakai lib/exportPdf.js) =====
+   Saat export, semua pembatas tinggi dibuka supaya isi panjang ikut
+   tertangkap utuh, bukan cuma bagian yang kelihatan di layar. */
+.pdf-ekspor,
+.pdf-ekspor body {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+.pdf-ekspor .pdf-ekspor-induk {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  min-height: 0 !important;
+}
+
+.pdf-ekspor .pdf-ekspor-area {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  flex: none !important;
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.pdf-ekspor .truncate {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+/* Kotak ber-scroll di dalam area export dibuka juga, supaya tabel lebar
+   tidak terpotong ke samping saat ditangkap. */
+.pdf-ekspor .pdf-ekspor-area .overflow-x-auto,
+.pdf-ekspor .pdf-ekspor-area .overflow-y-auto,
+.pdf-ekspor .pdf-ekspor-area .overflow-hidden,
+.pdf-ekspor .pdf-ekspor-area .overflow-auto {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}

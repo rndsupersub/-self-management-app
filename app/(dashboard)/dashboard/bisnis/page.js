@@ -96,9 +96,9 @@ export default function BisnisPage() {
         </div>
       )}
 
-      <div id="export-area">
+      <div id="export-area-konten">
         <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-          <ExportPDFButton targetId="export-area" fileName={`Daftar_Bisnis_${today}.pdf`} title="Daftar Bisnis" />
+          <ExportPDFButton targetId="export-area-konten" fileName={`Daftar_Bisnis_${today}.pdf`} title="Daftar Bisnis" />
         </div>
 
         <div className="flex flex-wrap justify-between items-center mb-6 gap-2" data-html2canvas-ignore="true">

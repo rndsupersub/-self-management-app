@@ -15,14 +15,28 @@
     background-color: white !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  /* Area konten jadi lebar penuh */
+  /* Area konten jadi lebar penuh dan tidak dibatasi tinggi layar */
   main, #export-area {
     width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* Semua kotak ber-scroll dibuka supaya isinya ikut tercetak */
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-auto {
     overflow: visible !important;
+    max-height: none !important;
   }
 
   /* KUNCI ANTI-KEPOTONG: Cegah kotak/card terbelah di tengah halaman */
@@ -35,9 +49,6 @@
   }
 
   /* Tabel (mis. daftar vendor) harus utuh, tidak terpotong scroll horizontal */
-  .overflow-x-auto {
-    overflow: visible !important;
-  }
   table.table {
     width: 100% !important;
     font-size: 9pt !important;
@@ -55,9 +66,10 @@
     print-color-adjust: exact !important;
   }
 
-  /* Set ukuran kertas A4 */
+  /* Jangan paksa portrait: browser bebas memilih, jadi konten lebar tidak
+     terpotong saat user memakai Ctrl+P. */
   @page {
-    size: A4 portrait;
-    margin: 15mm;
+    size: auto;
+    margin: 12mm;
   }
 }

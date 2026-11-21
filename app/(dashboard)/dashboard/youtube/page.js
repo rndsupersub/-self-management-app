@@ -103,9 +103,9 @@ export default function YouTubePage() {
         </div>
       )}
 
-      <div id="export-area">
+      <div id="export-area-konten">
         <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-          <ExportPDFButton targetId="export-area" fileName={`YouTube_Channels_${today}.pdf`} title="Daftar Channel YouTube" />
+          <ExportPDFButton targetId="export-area-konten" fileName={`YouTube_Channels_${today}.pdf`} title="Daftar Channel YouTube" />
         </div>
 
         {channels.length === 0 ? (

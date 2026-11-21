@@ -129,9 +129,9 @@ export default function KeuanganPage() {
         <button className={`tab ${activeTab === "setting" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("setting")}><Settings size={14} className="mr-1"/> Setting</button>
       </div>
 
-      <div id="export-area">
+      <div id="export-area-konten">
         <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-          <ExportPDFButton targetId="export-area" fileName={`Keuangan_${activeTab}_${today}.pdf`} title={`Keuangan - ${activeTab}`} />
+          <ExportPDFButton targetId="export-area-konten" fileName={`Keuangan_${activeTab}_${today}.pdf`} title={`Keuangan - ${activeTab}`} />
         </div>
 
         {activeTab === "dashboard" && <DashboardKeuangan dompetList={dompetList} goalsList={goalsList} keuanganTransaksi={keuanganTransaksi} setting={setting} kategoriList={kategoriList} />}

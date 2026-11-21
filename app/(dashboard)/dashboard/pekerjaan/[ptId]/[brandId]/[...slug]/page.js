@@ -256,11 +256,11 @@ export default function DetailKegiatanPage() {
       </div>
 
       {/* ========== AREA EXPORT ========== */}
-      <div id="export-area">
+      <div id="export-area-konten">
         {/* Tombol Export - IGNORE */}
         <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
           <ExportPDFButton 
-            targetId="export-area" 
+            targetId="export-area-konten" 
             fileName={`Kegiatan_${kegiatan.judul}.pdf`} 
             title={kegiatan.judul} 
           />

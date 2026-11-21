@@ -271,9 +271,9 @@ export default function BrandPage() {
         </button>
       </div>
 
-      <div id="export-area">
+      <div id="export-area-konten">
         <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-          <ExportPDFButton targetId="export-area" fileName={`${brand.nama}_${activeTab}.pdf`} title={`${brand.nama} - ${activeTab}`} />
+          <ExportPDFButton targetId="export-area-konten" fileName={`${brand.nama}_${activeTab}.pdf`} title={`${brand.nama} - ${activeTab}`} />
         </div>
 
         {activeTab === "kalender" && (

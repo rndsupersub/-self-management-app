@@ -208,9 +208,9 @@ export default function BisnisBrandPage() {
         <button className={`tab ${activeTab === "direktori" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("direktori"); setSelectedVendorId(null); }}><Search size={16} className="mr-2" /> Direktori ({direktoriMitra.length})</button>
       </div>
 
-      <div id="export-area">
+      <div id="export-area-konten">
         <div className="flex justify-end mb-4" data-html2canvas-ignore="true">
-          <ExportPDFButton targetId="export-area" fileName={`Bisnis_${brand.nama}_${activeTab}.pdf`} title={`Bisnis - ${brand.nama}`} />
+          <ExportPDFButton targetId="export-area-konten" fileName={`Bisnis_${brand.nama}_${activeTab}.pdf`} title={`Bisnis - ${brand.nama}`} />
         </div>
 
         {activeTab === "kalender" && (
