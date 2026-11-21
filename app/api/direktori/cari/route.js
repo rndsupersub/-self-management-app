@@ -14,6 +14,10 @@ import { NextResponse } from "next/server";
 import { verifyFirebaseIdToken } from "@/lib/firebaseIdToken";
 import { cariUsaha } from "@/lib/direktoriCari";
 
+// Pencarian bisa mencoba beberapa variasi kata kunci. Beri ruang cukup supaya
+// tidak terpotong di tengah jalan pada hosting serverless.
+export const maxDuration = 60;
+
 const JENIS_VALID = new Set(["semua", "vendor", "agency", "jasa"]);
 const WILAYAH_VALID = new Set([
   "semua",
@@ -110,10 +114,20 @@ export async function GET(req) {
     if (selisih < JEDA_MINIMAL_MS) await jeda(JEDA_MINIMAL_MS - selisih);
     terakhirPanggil = Date.now();
 
-    const { hasil, catatan } = await cariUsaha({ q, wilayah, jenis });
+    const { hasil, catatan, variasi, dicoba } = await cariUsaha({ q, wilayah, jenis });
 
     return NextResponse.json(
-      { ok: true, q, wilayah, jenis, jumlah: hasil.length, hasil, catatan },
+      {
+        ok: true,
+        q,
+        wilayah,
+        jenis,
+        jumlah: hasil.length,
+        hasil,
+        catatan,
+        variasi: variasi || [],
+        dicoba: dicoba || [],
+      },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {

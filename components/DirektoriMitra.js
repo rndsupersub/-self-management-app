@@ -13,8 +13,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { auth } from "@/lib/firebase";
 import {
+  BookOpen,
   Briefcase,
   Check,
+  Crosshair,
   ExternalLink,
   Factory,
   Globe,
@@ -44,15 +46,18 @@ import {
   generateId,
   getWilayah,
   imporDariVendorBrand,
+  kunciMitra,
   labelJenis,
   mitraDariHasilCari,
-  normalisasiTeks,
   tautanAman,
   tautanEmail,
+  tautanKoordinat,
   tautanMaps,
   tautanTelepon,
   tautanWhatsApp,
+  vendorDariDaftarMitra,
 } from "@/lib/direktoriData";
+import PanduanCari from "@/components/PanduanCari";
 
 const IKON_JENIS = { vendor: Factory, agency: Sparkles, jasa: Briefcase };
 
@@ -88,6 +93,16 @@ function ChipKontak({ href, ikon: Ikon, label, judul, luar = false }) {
   );
 }
 
+function namaDomain(url) {
+  const teks = tautanAman(url);
+  if (!teks) return "";
+  try {
+    return new URL(teks).hostname.replace(/^www\./, "");
+  } catch {
+    return "Website";
+  }
+}
+
 function BarisKontak({ mitra }) {
   const kontak = mitra.kontak || {};
   return (
@@ -95,21 +110,21 @@ function BarisKontak({ mitra }) {
       <ChipKontak
         href={tautanWhatsApp(kontak.wa)}
         ikon={MessageCircle}
-        label={kontak.wa ? "WhatsApp" : "WA belum ada"}
-        judul={kontak.wa}
+        label={kontak.wa || "WA belum ada"}
+        judul={kontak.wa || "Nomor WhatsApp belum tercatat"}
         luar
       />
       <ChipKontak
         href={tautanTelepon(kontak.telepon)}
         ikon={Phone}
         label={kontak.telepon || "Telp belum ada"}
-        judul={kontak.telepon}
+        judul={kontak.telepon || "Nomor telepon belum tercatat"}
       />
       <ChipKontak
         href={tautanEmail(kontak.email)}
         ikon={Mail}
-        label={kontak.email ? "Email" : "Email belum ada"}
-        judul={kontak.email}
+        label={kontak.email || "Email belum ada"}
+        judul={kontak.email || "Email belum tercatat"}
       />
       {kontak.fax && (
         <span className="btn btn-xs bg-white border border-stone-200 text-stone-500 cursor-default" title="Nomor fax">
@@ -120,7 +135,7 @@ function BarisKontak({ mitra }) {
         <ChipKontak
           href={tautanAman(mitra.website)}
           ikon={Globe}
-          label="Website"
+          label={namaDomain(mitra.website)}
           judul={mitra.website}
           luar
         />
@@ -133,12 +148,32 @@ function AlamatMitra({ mitra }) {
   const teks = [mitra.alamat, mitra.kota, mitra.provinsi, mitra.negara]
     .filter(Boolean)
     .join(", ");
-  if (!teks) return null;
+  const lat = Number(mitra.koordinat?.lat);
+  const lon = Number(mitra.koordinat?.lon);
+  const adaKoordinat =
+    Number.isFinite(lat) && Number.isFinite(lon) && lat !== 0 && lon !== 0;
+
+  if (!teks && !adaKoordinat) return null;
+
   return (
-    <p className="text-xs text-stone-600 flex items-start gap-1">
-      <MapPin size={12} className="mt-0.5 shrink-0 text-stone-400" />
-      <span>{teks}</span>
-    </p>
+    <div className="space-y-0.5">
+      {teks ? (
+        <p className="text-xs text-stone-600 flex items-start gap-1">
+          <MapPin size={12} className="mt-0.5 shrink-0 text-stone-400" />
+          <span>{teks}</span>
+        </p>
+      ) : (
+        <p className="text-xs text-stone-500 flex items-start gap-1">
+          <MapPin size={12} className="mt-0.5 shrink-0 text-stone-400" />
+          <span>Alamat belum tercatat di data peta. Titik koordinatnya sudah benar.</span>
+        </p>
+      )}
+      {adaKoordinat && (
+        <p className="text-[10px] text-stone-400 pl-4">
+          Titik peta: {lat.toFixed(5)}, {lon.toFixed(5)}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -202,14 +237,26 @@ function KartuCari({ hasil, onSimpan, tersimpan }) {
               <X size={10} className="mr-1" /> Tutup usaha
             </span>
           ) : (
-            <span className="badge badge-sm bg-green-50 text-green-700 border-green-200">
-              <Check size={10} className="mr-1" /> Aktif
+            <span className="badge badge-sm bg-stone-50 text-stone-500 border-stone-200">
+              Status belum dicek
+            </span>
+          )}
+          {hasil.terkait && (
+            <span className="badge badge-sm bg-amber-50 text-amber-800 border-amber-200">
+              Hasil terkait
             </span>
           )}
         </div>
 
         <AlamatMitra mitra={hasil} />
         <BarisKontak mitra={hasil} />
+
+        {!hasil.kontak?.telepon && !hasil.kontak?.wa && !hasil.website && (
+          <p className="text-[11px] text-stone-500">
+            Telepon/website belum tercatat di data peta. Tombol Google Maps membuka kartu tempat
+            itu — biasanya nomor dan websitenya ada di sana.
+          </p>
+        )}
 
         {(hasil.jamBuka || hasil.kontak?.narahubung) && (
           <p className="text-[11px] text-stone-500">
@@ -230,10 +277,21 @@ function KartuCari({ hasil, onSimpan, tersimpan }) {
                 href={hasil.mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                title="Buka titik ini di Google Maps"
+                title={`Buka ${hasil.nama} di Google Maps (kartu tempat)`}
               >
                 <MapPin size={12} className="mr-1" /> Google Maps
                 <ExternalLink size={10} className="ml-1" />
+              </a>
+            )}
+            {hasil.mapsKoordinat && hasil.mapsKoordinat !== hasil.mapsUrl && (
+              <a
+                className="btn btn-xs bg-white border border-stone-300 text-stone-700 hover:border-stone-500"
+                href={hasil.mapsKoordinat}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Buka titik koordinat presisi di Google Maps"
+              >
+                <Crosshair size={12} className="mr-1" /> Titik peta
               </a>
             )}
             {hasil.tautanOsm && (
@@ -256,10 +314,11 @@ function KartuCari({ hasil, onSimpan, tersimpan }) {
 }
 
 // Kartu entri milik user (tab Tersimpan).
-function KartuMitra({ mitra, onEdit, onHapus, onTutup }) {
+function KartuMitra({ mitra, onEdit, onHapus, onTutup, onExport }) {
   const Ikon = IKON_JENIS[mitra.jenis] || Factory;
   const tutup = (mitra.status || "aktif") === "tutup";
   const maps = tautanMaps(mitra);
+  const titik = tautanKoordinat(mitra);
   const website = tautanAman(mitra.website);
 
   return (
@@ -350,9 +409,29 @@ function KartuMitra({ mitra, onEdit, onHapus, onTutup }) {
                 rel="noopener noreferrer"
                 title={mitra.website}
               >
-                <Globe size={12} className="mr-1" /> Website
+                <Globe size={12} className="mr-1" /> {namaDomain(mitra.website)}
               </a>
             )}
+            {titik && titik !== maps && (
+              <a
+                className="btn btn-xs btn-ghost text-stone-500 hover:text-stone-800"
+                href={titik}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Buka titik koordinat presisi"
+              >
+                <Crosshair size={12} className="mr-1" /> Titik peta
+              </a>
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs text-stone-600 hover:text-stone-900"
+              onClick={() => onExport(mitra)}
+              title="Ekspor entri ini ke tab Vendor"
+              data-html2canvas-ignore="true"
+            >
+              <Factory size={12} className="mr-1" /> Ke Vendor
+            </button>
             <button
               type="button"
               className="btn btn-ghost btn-xs text-stone-500 hover:text-stone-800"
@@ -381,7 +460,14 @@ function KartuMitra({ mitra, onEdit, onHapus, onTutup }) {
   );
 }
 
-export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", vendorBrand = [] }) {
+export default function DirektoriMitra({
+  daftar = [],
+  onUpdate,
+  brandNama = "",
+  vendorBrand = [],
+  onExportVendor,
+  kategoriVendor = [],
+}) {
   const daftarAman = Array.isArray(daftar) ? daftar : [];
 
   const [mode, setMode] = useState("cari");
@@ -409,8 +495,10 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
     [daftarAman, qTersimpan, jenisTersimpan, statusTersimpan]
   );
 
-  const namaTersimpan = useMemo(
-    () => new Set(daftarAman.map((m) => normalisasiTeks(m.nama))),
+  // Kunci entri memakai nama + koordinat, jadi dua cabang dengan nama sama
+  // tetap bisa disimpan sebagai dua entri.
+  const tersimpanSet = useMemo(
+    () => new Set(daftarAman.map((m) => kunciMitra(m))),
     [daftarAman]
   );
 
@@ -488,7 +576,7 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
       updatedAt: new Date().toISOString(),
     };
     if (!baru.nama.trim()) return;
-    if (namaTersimpan.has(normalisasiTeks(baru.nama))) {
+    if (tersimpanSet.has(kunciMitra(baru))) {
       setInfoSimpan(`"${baru.nama}" sudah ada di direktori saya.`);
       return;
     }
@@ -573,7 +661,7 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
     const baru = imporDariVendorBrand(vendorBrand, brandNama);
     if (baru.length === 0) return;
     const tambahan = baru
-      .filter((m) => !namaTersimpan.has(normalisasiTeks(m.nama)))
+      .filter((m) => !tersimpanSet.has(kunciMitra(m)))
       .map((m) => ({
         ...m,
         id: generateId("mitra"),
@@ -581,11 +669,36 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
         updatedAt: new Date().toISOString(),
       }));
     if (tambahan.length === 0) {
-      alert("Semua vendor brand ini sudah ada di direktori saya.");
+      setInfoSimpan("Semua vendor brand ini sudah ada di direktori saya.");
       return;
     }
     onUpdate([...daftarAman, ...tambahan]);
-    alert(`${tambahan.length} vendor diimpor ke direktori saya. Lengkapi WhatsApp, wilayah, dan statusnya.`);
+    setInfoSimpan(
+      `${tambahan.length} vendor diimpor ke direktori saya. Lengkapi WhatsApp, wilayah, dan statusnya.`
+    );
+  };
+
+  // Ekspor entri direktori ke tab Vendor. Data langsung terisi dari entri
+  // yang sudah didapat: nama, kontak, alamat, layanan, dan tautan peta.
+  const eksporKeVendor = (satuAtauBanyak) => {
+    if (typeof onExportVendor !== "function") {
+      setInfoSimpan("Ekspor ke Vendor belum tersedia di halaman ini.");
+      return;
+    }
+    const list = Array.isArray(satuAtauBanyak) ? satuAtauBanyak : [satuAtauBanyak];
+    const baru = vendorDariDaftarMitra(list, vendorBrand, kategoriVendor);
+    if (baru.length === 0) {
+      setInfoSimpan(
+        list.length === 1
+          ? `"${list[0]?.nama || "Entri"}" sudah ada di daftar Vendor brand ini.`
+          : "Semua entri sudah ada di daftar Vendor brand ini."
+      );
+      return;
+    }
+    onExportVendor(baru);
+    setInfoSimpan(
+      `${baru.length} entri diekspor ke tab Vendor. Datanya sudah terisi — cek dan lengkapi di sana.`
+    );
   };
 
   const ubah = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -600,30 +713,31 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
           </h2>
           <p className="text-xs text-stone-500">
             Mesin pencari usaha di peta publik (OpenStreetMap) — gratis, tanpa langganan. Setiap
-            hasil bisa dibuka langsung di Google Maps, lalu disimpan kalau berguna.
+            hasil bisa dibuka langsung di Google Maps, disimpan, atau diekspor ke tab Vendor.
           </p>
         </div>
-        <div className="flex gap-1" data-html2canvas-ignore="true">
-          <button
-            className={`btn btn-xs rounded-full border ${
-              mode === "cari"
-                ? "bg-stone-800 text-white border-stone-800"
-                : "bg-white text-stone-600 border-stone-300"
-            }`}
-            onClick={() => setMode("cari")}
-          >
-            <Search size={12} className="mr-1" /> Cari usaha
-          </button>
-          <button
-            className={`btn btn-xs rounded-full border ${
-              mode === "tersimpan"
-                ? "bg-stone-800 text-white border-stone-800"
-                : "bg-white text-stone-600 border-stone-300"
-            }`}
-            onClick={() => setMode("tersimpan")}
-          >
-            <Save size={12} className="mr-1" /> Tersimpan ({daftarAman.length})
-          </button>
+        <div className="flex flex-wrap gap-1" data-html2canvas-ignore="true">
+          {[
+            { id: "cari", label: "Cari usaha", ikon: Search },
+            { id: "tersimpan", label: `Tersimpan (${daftarAman.length})`, ikon: Save },
+            { id: "panduan", label: "Panduan", ikon: BookOpen },
+          ].map((tab) => {
+            const Ikon = tab.ikon;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`btn btn-xs rounded-full border ${
+                  mode === tab.id
+                    ? "bg-stone-800 text-white border-stone-800"
+                    : "bg-white text-stone-600 border-stone-300"
+                }`}
+                onClick={() => setMode(tab.id)}
+              >
+                <Ikon size={12} className="mr-1" /> {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -802,7 +916,7 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
                     key={item.id}
                     hasil={item}
                     onSimpan={simpanHasil}
-                    tersimpan={namaTersimpan.has(normalisasiTeks(item.nama))}
+                    tersimpan={tersimpanSet.has(kunciMitra(item))}
                   />
                 ))}
               </div>
@@ -883,6 +997,15 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
                 <button className="btn btn-primary btn-xs" onClick={bukaTambah}>
                   <Plus size={14} className="mr-1" /> Tambah manual
                 </button>
+                {daftarAman.length > 0 && (
+                  <button
+                    className="btn btn-xs bg-stone-800 text-white border-stone-800 hover:bg-stone-700"
+                    onClick={() => eksporKeVendor(daftarAman)}
+                    title="Isi tab Vendor otomatis dari semua entri tersimpan"
+                  >
+                    <Factory size={14} className="mr-1" /> Ekspor ke Vendor ({daftarAman.length})
+                  </button>
+                )}
                 {vendorBrand.length > 0 && (
                   <button className="btn btn-ghost btn-xs text-stone-600" onClick={impor}>
                     <Plus size={14} className="mr-1" /> Impor vendor brand ini ({vendorBrand.length})
@@ -1162,6 +1285,7 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
                   onEdit={bukaEdit}
                   onHapus={hapus}
                   onTutup={toggleStatus}
+                  onExport={eksporKeVendor}
                 />
               ))}
             </div>
@@ -1176,6 +1300,8 @@ export default function DirektoriMitra({ daftar = [], onUpdate, brandNama = "", 
           )}
         </>
       )}
+
+      {mode === "panduan" && <PanduanCari />}
     </div>
   );
 }

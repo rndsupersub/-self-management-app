@@ -106,7 +106,7 @@ export default function BrandPage() {
   // Edit kegiatan sekarang cuma punya satu pintu: halaman detail (?edit=1).
 
   const handleToggleStatusKegiatan = async (kegId) => {
-    const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: b.kegiatan.map((k) => k.id === kegId ? { ...k, status: k.status === "selesai" ? "belum" : "selesai", updatedAt: new Date().toISOString() } : k) } : b) } : p);
+    const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: (b.kegiatan || []).map((k) => k.id === kegId ? { ...k, status: k.status === "selesai" ? "belum" : "selesai", updatedAt: new Date().toISOString() } : k) } : b) } : p);
     await simpanKeFirestore(updated);
   };
 
@@ -124,7 +124,7 @@ export default function BrandPage() {
       await setDoc(docRef, { pekerjaanHistory: history }, { merge: true });
     }
 
-    const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: b.kegiatan.filter((k) => k.id !== kegId) } : b) } : p);
+    const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, kegiatan: (b.kegiatan || []).filter((k) => k.id !== kegId) } : b) } : p);
     await simpanKeFirestore(updated);
   };
 
@@ -145,6 +145,27 @@ export default function BrandPage() {
   const handleAddVendor = async (newVendor) => {
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, vendorList: [...(b.vendorList || []), newVendor] } : b) } : p);
     await simpanKeFirestore(updated);
+  };
+
+  // Ekspor entri Direktori ke daftar Vendor brand ini. Data sudah terisi dari
+  // hasil pencarian/simpanan, jadi user tinggal cek di tab Vendor.
+  const handleExportDirektoriKeVendor = async (vendorBaru) => {
+    if (!Array.isArray(vendorBaru) || vendorBaru.length === 0) return;
+    const updated = pekerjaan.map((p) =>
+      p.id === ptId
+        ? {
+            ...p,
+            brands: p.brands.map((b) =>
+              b.id === brandId
+                ? { ...b, vendorList: [...(b.vendorList || []), ...vendorBaru] }
+                : b
+            ),
+          }
+        : p
+    );
+    await simpanKeFirestore(updated);
+    setSelectedVendorId(null);
+    setActiveTab("vendor");
   };
 
   const handleUpdateVendor = async (updatedVendor) => {
@@ -304,6 +325,8 @@ export default function BrandPage() {
             onUpdate={simpanDirektori}
             brandNama={brand.nama}
             vendorBrand={vendorList}
+            onExportVendor={handleExportDirektoriKeVendor}
+            kategoriVendor={vendorKategoriList}
           />
         )}
 

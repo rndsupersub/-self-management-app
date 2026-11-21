@@ -119,16 +119,16 @@ export default function BisnisBrandPage() {
       await setDoc(docRef, { bisnisHistory: history }, { merge: true });
     }
 
-    await updateBrandData({ kegiatan: brand.kegiatan.filter((k) => k.id !== kegId) });
+    await updateBrandData({ kegiatan: (brand.kegiatan || []).filter((k) => k.id !== kegId) });
   };
 
   // ========== TAMBAHAN BARU: FUNGSI TOGGLE STATUS ==========
   const handleToggleStatusKegiatan = async (kegId) => {
-    const keg = brand.kegiatan.find((k) => k.id === kegId);
+    const keg = (brand.kegiatan || []).find((k) => k.id === kegId);
     if (!keg) return;
     const newStatus = keg.status === "selesai" ? "belum" : "selesai";
     await updateBrandData({
-      kegiatan: brand.kegiatan.map((k) =>
+      kegiatan: (brand.kegiatan || []).map((k) =>
         k.id === kegId ? { ...k, status: newStatus, updatedAt: new Date().toISOString() } : k
       )
     });
@@ -145,6 +145,16 @@ export default function BisnisBrandPage() {
     await simpanBrands(brands.filter((b) => b.id !== brandId));
     setConfirmHapusBrand(false);
     router.push("/dashboard/bisnis");
+  };
+
+  // Ekspor entri Direktori ke daftar Vendor brand ini (data langsung terisi).
+  const handleExportDirektoriKeVendor = async (vendorBaru) => {
+    if (!Array.isArray(vendorBaru) || vendorBaru.length === 0) return;
+    await updateBrandData({
+      vendorList: [...(brand.vendorList || []), ...vendorBaru],
+    });
+    setSelectedVendorId(null);
+    setActiveTab("vendor");
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -253,6 +263,8 @@ export default function BisnisBrandPage() {
             onUpdate={simpanDirektori}
             brandNama={brand.nama}
             vendorBrand={vendorList}
+            onExportVendor={handleExportDirektoriKeVendor}
+            kategoriVendor={vendorKategoriList}
           />
         )}
 
