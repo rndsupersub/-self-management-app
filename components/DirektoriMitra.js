@@ -232,6 +232,19 @@ function KartuCari({ hasil, onSimpan, tersimpan }) {
             {labelJenis(hasil.jenis)}
           </span>
           <BadgeWilayah mitra={hasil} />
+          {typeof hasil.jarakKm === "number" && (
+            <span
+              className="badge badge-sm bg-stone-50 text-stone-600 border-stone-200"
+              title={`Jarak dari pusat ${hasil.jarakDari || "wilayah"}`}
+            >
+              <Crosshair size={10} className="mr-1" /> ± {hasil.jarakKm} km
+            </span>
+          )}
+          {hasil.diLuarWilayah && (
+            <span className="badge badge-sm bg-amber-50 text-amber-800 border-amber-200">
+              Di luar wilayah
+            </span>
+          )}
           {tutup ? (
             <span className="badge badge-sm bg-red-50 text-error border-red-200">
               <X size={10} className="mr-1" /> Tutup usaha
@@ -541,7 +554,7 @@ export default function DirektoriMitra({
         setHasil(list);
         if (list.length === 0) {
           setPesan(
-            "Belum ada usaha yang cocok di wilayah ini. Coba kata kunci lain (mis. \"bengkel\", \"printing\", \"konveksi\") atau ganti wilayah. Data peta publik belum selengkap Google, jadi usaha kecil bisa saja belum terdaftar."
+            "Belum ada usaha yang cocok. Coba kata kunci lain (mis. \"plastik\", \"bengkel\", \"percetakan\") atau ganti wilayah. Data peta publik (OpenStreetMap) memang belum selengkap Google Maps, jadi usaha kecil bisa saja belum terdaftar. Tombol \"Cari di Google Maps\" di atas membuka daftar Google untuk kata kunci yang sama."
           );
         } else if (data.catatan) {
           setPesan(data.catatan);
