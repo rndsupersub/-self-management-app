@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Bot, Link2, Unlink, X, RefreshCw } from "lucide-react";
+import ModalPortal from "@/components/ModalPortal";
 import { auth } from "@/lib/firebase";
 
 export default function TelegramSetting({ user }) {
@@ -94,12 +95,16 @@ export default function TelegramSetting({ user }) {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="card bg-base-100 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto">
+        <ModalPortal onClose={() => setIsOpen(false)}>
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/50 p-3 sm:p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsOpen(false); }}
+        >
+          <div className="card bg-base-100 my-auto w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Telegram Bot">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="card-title flex items-center gap-2"><Bot size={20} /> Telegram Bot</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)}><X size={18} /></button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)} aria-label="Tutup telegram"><X size={18} /></button>
               </div>
 
               <div className="space-y-3">
@@ -192,9 +197,14 @@ export default function TelegramSetting({ user }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
-      {toast && <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded shadow-lg text-sm ${toast.type === "success" ? "bg-success text-success-content" : "bg-error text-error-content"}`}>{toast.msg}</div>}
+      {toast && (
+        <ModalPortal lockScroll={false}>
+          <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded shadow-lg text-sm ${toast.type === "success" ? "bg-success text-success-content" : "bg-error text-error-content"}`} role="status">{toast.msg}</div>
+        </ModalPortal>
+      )}
     </>
   );
 }

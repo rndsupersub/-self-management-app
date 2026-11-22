@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
 import { Eye, Trash2, X } from "lucide-react";
+import ModalPortal from "@/components/ModalPortal";
 
 export default function ViewerManager({ user }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,12 +49,16 @@ export default function ViewerManager({ user }) {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="card bg-base-100 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto">
+        <ModalPortal onClose={() => setIsOpen(false)}>
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/50 p-3 sm:p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsOpen(false); }}
+        >
+          <div className="card bg-base-100 my-auto w-full max-w-lg max-h-[calc(100dvh-1.5rem)] overflow-y-auto" role="dialog" aria-modal="true" aria-label="Viewer Access">
             <div className="card-body p-4">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="card-title flex items-center gap-2"><Eye size={20} /> Viewer Access</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)}><X size={18} /></button>
+                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)} aria-label="Tutup viewer"><X size={18} /></button>
               </div>
 
               <div className="alert alert-info py-2 mb-3"><span className="text-xs">Viewer yang punya akses ke Pekerjaan lo.</span></div>
@@ -80,9 +85,14 @@ export default function ViewerManager({ user }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
-      {toast && <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded shadow-lg text-sm ${toast.type === "success" ? "bg-success text-success-content" : "bg-error text-error-content"}`}>{toast.msg}</div>}
+      {toast && (
+        <ModalPortal lockScroll={false}>
+          <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-[90] px-4 py-2 rounded shadow-lg text-sm ${toast.type === "success" ? "bg-success text-success-content" : "bg-error text-error-content"}`} role="status">{toast.msg}</div>
+        </ModalPortal>
+      )}
     </>
   );
 }

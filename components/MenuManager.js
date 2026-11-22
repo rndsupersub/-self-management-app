@@ -6,6 +6,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { WARNA_OPTIONS } from "@/lib/belajarData";
 import { Settings, List, Eye, Archive, RotateCcw, GripVertical, Lock, Pencil, Trash2, Undo2, Plus, X } from "lucide-react";
+import ModalPortal from "@/components/ModalPortal";
 
 function SortableRow({ menu, onRename, onHide, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: menu.id });
@@ -161,22 +162,31 @@ export default function MenuManager({ menus = [], activities = [], menusCustom =
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="card bg-base-100 w-full max-w-2xl max-h-[85vh] mx-4 flex flex-col">
-            <div className="card-body p-4 flex flex-col h-full overflow-hidden">
-              <div className="flex justify-between items-center mb-2">
-                <h2 className="card-title flex items-center gap-2"><Settings size={20} /> Kelola Menu</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)}><X size={18} /></button>
-              </div>
+        <ModalPortal onClose={() => setIsOpen(false)}>
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-black/50 p-3 sm:p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setIsOpen(false); }}
+          >
+            <div
+              className="card bg-base-100 my-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Kelola Menu"
+            >
+              <div className="card-body flex min-h-0 flex-col p-4">
+                <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+                  <h2 className="card-title flex items-center gap-2"><Settings size={20} /> Kelola Menu</h2>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setIsOpen(false)} aria-label="Tutup kelola menu"><X size={18} /></button>
+                </div>
 
-              <div className="tabs tabs-boxed mb-3 w-fit flex-wrap">
+              <div className="tabs tabs-boxed mb-3 w-fit max-w-full flex-wrap shrink-0">
                 <button className={`tab ${tab === "aktif" ? "tab-active" : ""}`} onClick={() => setTab("aktif")}><List size={14} className="mr-1"/> Aktif ({aktifMenus.length})</button>
                 <button className={`tab ${tab === "hidden" ? "tab-active" : ""}`} onClick={() => setTab("hidden")}><Eye size={14} className="mr-1"/> Disembunyikan ({hiddenMenus.length})</button>
                 <button className={`tab ${tab === "arsip" ? "tab-active" : ""}`} onClick={() => setTab("arsip")}><Archive size={14} className="mr-1"/> Arsip ({arsip.length})</button>
                 <button className={`tab ${tab === "reset" ? "tab-active" : ""}`} onClick={() => setTab("reset")}><RotateCcw size={14} className="mr-1"/> Reset</button>
               </div>
 
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              <div className="min-h-0 flex-1 overflow-y-auto space-y-2 pr-1">
                 {tab === "aktif" && (
                   <>
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -233,7 +243,24 @@ export default function MenuManager({ menus = [], activities = [], menusCustom =
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {toast && (
+        <ModalPortal lockScroll={false}>
+          <div className="fixed bottom-4 left-1/2 z-[90] flex -translate-x-1/2 items-center gap-3 rounded-xl bg-stone-900 px-4 py-2 text-xs text-white shadow-lg" role="status">
+            <span>{toast.msg}</span>
+            {toast.undoFn && (
+              <button
+                className="rounded-lg bg-white/15 px-2 py-1 font-semibold hover:bg-white/25"
+                onClick={() => { toast.undoFn?.(); setToast(null); }}
+              >
+                Urungkan
+              </button>
+            )}
+          </div>
+        </ModalPortal>
       )}
     </>
   );

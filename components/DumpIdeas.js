@@ -521,7 +521,7 @@ function PapanCatatan({ value, onChange }) {
             >
               <div className="flex items-center justify-between mb-1 cursor-move">
                 <select
-                  className="select select-xs bg-transparent border-0 text-[10px] text-gray-600 p-0 h-5"
+                  className="select select-xs select-polos bg-transparent border-0 text-[10px] text-gray-600 p-0 h-5"
                   value={c.warna}
                   onChange={(e) => ubah(c.id, { warna: e.target.value })}
                   title="Warna catatan"
