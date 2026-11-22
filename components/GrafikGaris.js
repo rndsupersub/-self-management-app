@@ -65,6 +65,12 @@ export default function GrafikGaris({
     const x = (i) => padKiri + (data.length > 1 ? i * langkah : dalam / 2);
     const y = (v) => padAtas + isiTinggi - (Math.max(0, v) / maks) * isiTinggi;
 
+    // Grafik satu periode (mis. tren 6 bulan di dashboard) tidak punya
+    // pembanding: garis periode lalu jangan digambar sebagai nol semua.
+    const adaLalu = data.some(
+      (d) => d.laluMasuk !== null && d.laluMasuk !== undefined || d.laluKeluar !== null && d.laluKeluar !== undefined
+    );
+
     const seri = [
       {
         kunci: "sekarangMasuk",
@@ -90,17 +96,23 @@ export default function GrafikGaris({
         putus: true,
         nama: `Keluar · ${labelLalu}`,
       },
-    ].map((s) => ({
-      ...s,
-      titik: data.map((d, i) => ({ x: x(i), y: y(Number(d[s.kunci]) || 0), nilai: Number(d[s.kunci]) || 0 })),
-    }));
+    ]
+      .filter((s) => adaLalu || !s.putus)
+      .map((s) => ({
+        ...s,
+        titik: data.map((d, i) => ({
+          x: x(i),
+          y: y(Number(d[s.kunci]) || 0),
+          nilai: Number(d[s.kunci]) || 0,
+        })),
+      }));
 
-    return { maks, x, y, seri, dalam, isiTinggi };
+    return { maks, x, y, seri, dalam, isiTinggi, adaLalu };
   }, [data, labelSekarang, labelLalu, tinggi]);
 
   if (!grafik) return null;
 
-  const { maks, x, y, seri, isiTinggi } = grafik;
+  const { maks, x, seri, isiTinggi, adaLalu } = grafik;
   const garis = [0, 0.25, 0.5, 0.75, 1];
   const titikAktif = aktif === null ? null : data[aktif];
   const langkahLabel = Math.max(1, Math.ceil(data.length / 10));
@@ -198,38 +210,42 @@ export default function GrafikGaris({
           <span className="inline-block w-5 h-0.5 rounded" style={{ background: WARNA.masuk }} />
           Masuk · {labelSekarang}
         </span>
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block w-5 h-0.5 rounded opacity-50"
-            style={{ background: WARNA.masuk, backgroundImage: "repeating-linear-gradient(90deg,#16a34a 0 4px,transparent 4px 7px)" }}
-          />
-          Masuk · {labelLalu}
-        </span>
+        {adaLalu && (
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block w-5 h-0.5 rounded opacity-50"
+              style={{ background: WARNA.masuk, backgroundImage: "repeating-linear-gradient(90deg,#16a34a 0 4px,transparent 4px 7px)" }}
+            />
+            Masuk · {labelLalu}
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <span className="inline-block w-5 h-0.5 rounded" style={{ background: WARNA.keluar }} />
           Keluar + sedekah · {labelSekarang}
         </span>
-        <span className="flex items-center gap-1">
-          <span
-            className="inline-block w-5 h-0.5 rounded opacity-50"
-            style={{ background: WARNA.keluar, backgroundImage: "repeating-linear-gradient(90deg,#dc2626 0 4px,transparent 4px 7px)" }}
-          />
-          Keluar + sedekah · {labelLalu}
-        </span>
+        {adaLalu && (
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block w-5 h-0.5 rounded opacity-50"
+              style={{ background: WARNA.keluar, backgroundImage: "repeating-linear-gradient(90deg,#dc2626 0 4px,transparent 4px 7px)" }}
+            />
+            Keluar + sedekah · {labelLalu}
+          </span>
+        )}
       </div>
 
       <div className="mt-2 min-h-[34px] rounded border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] text-stone-600">
         {titikAktif ? (
           <span>
             <strong>{titikAktif.label}</strong> · masuk {formatRupiah(titikAktif.sekarangMasuk || 0)}{" "}
-            (lalu {formatRupiah(titikAktif.laluMasuk || 0)}) · keluar{" "}
-            {formatRupiah(titikAktif.sekarangKeluar || 0)} (lalu{" "}
-            {formatRupiah(titikAktif.laluKeluar || 0)})
+            {adaLalu && `(lalu ${formatRupiah(titikAktif.laluMasuk || 0)}) `}· keluar{" "}
+            {formatRupiah(titikAktif.sekarangKeluar || 0)}
+            {adaLalu && ` (lalu ${formatRupiah(titikAktif.laluKeluar || 0)})`}
           </span>
         ) : (
           <span className="text-stone-400">
-            Arahkan kursor ke grafik untuk melihat angka tiap titik. Garis pudar/putus-putus = periode
-            sebelumnya.
+            Arahkan kursor ke grafik untuk melihat angka tiap titik.
+            {adaLalu ? " Garis pudar/putus-putus = periode sebelumnya." : ""}
           </span>
         )}
       </div>

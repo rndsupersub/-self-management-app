@@ -4,7 +4,7 @@
 import { useMemo, useState } from "react";
 import { DEFAULT_DOMPET, DEFAULT_GOALS, DEFAULT_SETTING, DEFAULT_KATEGORI, formatRupiah, hitungCash, hitungPengeluaranBulanIni, hitungPengeluaranMingguIni, hitungHealthScore, hitungProgressWallet, getWalletStatus, hitungProgressGoal, generateSmartAlert, flattenTransaksi, getBulanRange, getTanggalHariIni, namaKategoriTransaksi } from "@/lib/keuanganData";
 import { Wallet, ArrowUpRight, Calendar, Activity, HeartPulse, Target, Landmark, MessageSquare, TrendingUp, BarChart3, Bell, CheckCircle2, AlertTriangle, Info } from "lucide-react";
-import GrafikBatang from "@/components/GrafikBatang";
+import GrafikGaris from "@/components/GrafikGaris";
 import { segmenPeriode } from "@/lib/riwayatKeuangan";
 import { formatTanggalLokal, parseTanggalLokal } from "@/lib/tanggalLokal";
 
@@ -51,11 +51,14 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
   const tren = useMemo(() => {
     const hariIni = getTanggalHariIni();
     const sekarang = parseTanggalLokal(hariIni) || new Date();
+    // Grafik garis: satu titik per minggu/bulan, tanpa pembanding (garis
+    // periode lalu hanya dipakai di tab Riwayat).
     const bentuk = (s) => ({
       label: s.label,
-      a: s.masuk,
-      b: s.keluar + s.sedekah,
-      keterangan: `Net ${formatRupiah(s.net)}`,
+      sekarangMasuk: s.masuk,
+      sekarangKeluar: s.keluar + s.sedekah,
+      laluMasuk: null,
+      laluKeluar: null,
     });
 
     if (timeRange === "1-bulan") {
@@ -188,13 +191,25 @@ export default function DashboardKeuangan({ dompetList = DEFAULT_DOMPET, goalsLi
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><BarChart3 size={16}/> Tren Keuangan</h3>
             <select className="select select-bordered select-xs text-gray-800 bg-white" value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
-              <option value="1-bulan">Bulan ini (per minggu)</option>
-              <option value="3-bulan">Triwulan (3 Bulan)</option>
-              <option value="6-bulan">Semester (6 Bulan)</option>
-              <option value="1-tahun">Tahunan (1 Tahun)</option>
+              <option value="1-bulan">Bulanan (per minggu)</option>
+              <option value="3-bulan">Triwulan (3 bulan)</option>
+              <option value="6-bulan">Semester (6 bulan)</option>
+              <option value="1-tahun">Tahunan (12 bulan)</option>
             </select>
           </div>
-          <GrafikBatang data={tren} labelB="Keluar + Sedekah" />
+          <GrafikGaris
+            data={tren}
+            labelSekarang={
+              timeRange === "1-bulan"
+                ? "Bulan ini"
+                : timeRange === "3-bulan"
+                  ? "3 bulan terakhir"
+                  : timeRange === "6-bulan"
+                    ? "6 bulan terakhir"
+                    : "12 bulan terakhir"
+            }
+            labelLalu="Periode sebelumnya"
+          />
         </div>
       </div>
 

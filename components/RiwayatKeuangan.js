@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { DEFAULT_KATEGORI, DEFAULT_DOMPET, formatRupiah } from "@/lib/keuanganData";
 import { PERIODE_RIWAYAT, analisisRiwayat } from "@/lib/riwayatKeuangan";
-import { parseTanggalLokal } from "@/lib/tanggalLokal";
+import { getTanggalHariIniLokal, parseTanggalLokal } from "@/lib/tanggalLokal";
 import GrafikGaris from "@/components/GrafikGaris";
 import PerbandinganPeriode from "@/components/PerbandinganPeriode";
 
@@ -121,20 +121,22 @@ function Penjelasan({ data, labelSekarang, labelLalu }) {
 
         <p className="text-sm text-gray-700 leading-relaxed">{data.ringkas}</p>
 
-        {data.pemicu.length > 0 && (
+        {(data.penyebab || []).length > 0 && (
           <div>
             <p className="text-xs font-semibold text-gray-700 mb-1.5">
-              Pos yang paling berpengaruh
+              Penyebab over budget — item &amp; pos
             </p>
             <div className="space-y-1.5">
-              {data.pemicu.map((item) => (
+              {(data.penyebab || []).map((item) => (
                 <div
                   key={item.kategori}
                   className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5"
                 >
                   <span className="text-xs text-gray-700 min-w-0">
-                    {item.kategori}
-                    <span className="text-[10px] text-gray-400"> · {item.porsi}% pengeluaran</span>
+                    {item.label}
+                    <span className="text-[10px] text-gray-400">
+                      {" "}· {item.porsi}% pengeluaran · {item.jumlah}x
+                    </span>
                   </span>
                   <span className="flex items-center gap-2 text-xs">
                     <span className="font-semibold text-error">{formatRupiah(item.total)}</span>
@@ -155,6 +157,8 @@ function Penjelasan({ data, labelSekarang, labelLalu }) {
             </div>
             <p className="text-[10px] text-gray-400 mt-1">
               Dibandingkan dengan {labelLalu}.
+              {(data.hematTotal || 0) > 0 &&
+                ` Total yang bisa dihemat dari langkah di bawah: ${formatRupiah(data.hematTotal)}.`}
             </p>
           </div>
         )}
@@ -220,10 +224,14 @@ export default function RiwayatKeuangan({
   dompetList = DEFAULT_DOMPET,
 }) {
   const [kunci, setKunci] = useState("bulan");
+  const hariIni = getTanggalHariIniLokal();
+  const [mulai, setMulai] = useState(() => `${hariIni.slice(0, 7)}-01`);
+  const [selesai, setSelesai] = useState(hariIni);
 
   const analisis = useMemo(
-    () => analisisRiwayat(keuanganTransaksi, kunci, { kategoriList, dompetList }),
-    [keuanganTransaksi, kunci, kategoriList, dompetList]
+    () =>
+      analisisRiwayat(keuanganTransaksi, kunci, { kategoriList, dompetList, mulai, selesai }),
+    [keuanganTransaksi, kunci, kategoriList, dompetList, mulai, selesai]
   );
 
   const { sekarang, banding, segmen, segmenLalu, labelPeriode, labelPembanding, insight, penjelasan } =
@@ -295,6 +303,43 @@ export default function RiwayatKeuangan({
               ))}
             </div>
           </div>
+          {kunci === "custom" && (
+            <div className="flex flex-wrap items-end gap-2 mt-2">
+              <label className="text-[11px] text-gray-600">
+                Dari tanggal
+                <input
+                  type="date"
+                  className="input input-bordered input-xs block mt-0.5 text-gray-800 bg-white"
+                  value={mulai}
+                  max={selesai || undefined}
+                  onChange={(e) => setMulai(e.target.value)}
+                />
+              </label>
+              <label className="text-[11px] text-gray-600">
+                Sampai tanggal
+                <input
+                  type="date"
+                  className="input input-bordered input-xs block mt-0.5 text-gray-800 bg-white"
+                  value={selesai}
+                  min={mulai || undefined}
+                  onChange={(e) => setSelesai(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs text-gray-600"
+                onClick={() => {
+                  setMulai(`${hariIni.slice(0, 7)}-01`);
+                  setSelesai(hariIni);
+                }}
+              >
+                Bulan ini
+              </button>
+              <span className="text-[10px] text-gray-400 pb-1">
+                Pembanding otomatis: rentang sama panjang tepat sebelumnya.
+              </span>
+            </div>
+          )}
           <p className="text-xs text-gray-500 mt-2">
             <span className="font-semibold text-gray-700">{labelPeriode}</span>
             {" · "}dibanding {labelPembanding}

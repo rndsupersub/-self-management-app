@@ -13,7 +13,8 @@ import {
   TIPE_IDE, normalisasiIde, mindmapKosong, slideKosong, susunMindmap,
   tambahAnak, ubahTeksNode, hapusNode, labelTipe, ringkasIde, idBaru,
   bersihkanHtml, isiSlideKeHtml, catatanBaru, WARNA_CATATAN,
-  LATAR_SLIDE, BENTUK_SLIDE, WARNA_BENTUK, TEMPLATE_SLIDE, BENTUK_TAMBAHAN,
+  BENTUK_SLIDE, WARNA_BENTUK, TEMPLATE_SLIDE, BENTUK_TAMBAHAN,
+  PALET_WARNA, PALET_GRADIEN,
 } from "@/lib/dumpIdeas";
 
 const IKON_TIPE = { mindmap: Network, gambar: PenLine, catatan: StickyNote, slide: Presentation };
@@ -657,36 +658,57 @@ const UKURAN_TEKS_BACA = { kecil: "text-sm md:text-base", sedang: "text-base md:
 const KELAS_TEKS_BACA =
   "text-gray-800 leading-relaxed [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-xl [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-3";
 const PERATAAN = { kiri: "text-left", tengah: "text-center", kanan: "text-right" };
-const WARNA_JUDUL = [
-  { id: "gelap", label: "Gelap", nilai: "#1f2937" },
-  { id: "biru", label: "Biru", nilai: "#1d4ed8" },
-  { id: "putih", label: "Putih", nilai: "#ffffff" },
-  { id: "merah", label: "Merah", nilai: "#b91c1c" },
-];
 
-// Bentuk/ornamen bebas: posisi, ukuran, warna, putaran, dan transparansi
-// diatur sendiri oleh user — bukan pilihan bawaan yang cuma di pojok.
-function BentukBebas({ bentuk }) {
+
+// Bentuk/ornamen bebas: posisi, ukuran, warna, gradasi, putaran, dan
+// transparansi diatur sendiri oleh user. Di editor, bentuk bisa langsung
+// digeser pakai mouse/jari — tidak perlu mengubah angka X/Y.
+function BentukBebas({ bentuk, interaktif = false, terpilih = false, onMulaiSeret, onPilih }) {
   if (!bentuk) return null;
   const tinggi = bentuk.jenis === "garis" ? Math.max(0.6, Number(bentuk.h) || 1) : Number(bentuk.h) || 10;
   return (
     <span
-      aria-hidden="true"
-      className={`absolute pointer-events-none ${bentuk.jenis === "bulat" ? "rounded-full" : "rounded-sm"}`}
+      aria-hidden={!interaktif}
+      onPointerDown={
+        interaktif
+          ? (e) => {
+              onPilih?.(bentuk.id);
+              onMulaiSeret?.(e, bentuk);
+            }
+          : undefined
+      }
+      className={`absolute ${bentuk.jenis === "bulat" ? "rounded-full" : "rounded-sm"} ${
+        interaktif
+          ? `z-20 cursor-move ${terpilih ? "outline outline-2 outline-offset-2 outline-stone-500" : "hover:outline hover:outline-1 hover:outline-stone-400"}`
+          : "pointer-events-none"
+      }`}
       style={{
         left: `${bentuk.x ?? 60}%`,
         top: `${bentuk.y ?? 8}%`,
         width: `${bentuk.w ?? 28}%`,
         height: `${tinggi}%`,
         backgroundColor: bentuk.warna || "#2563eb",
+        backgroundImage: bentuk.gradien || undefined,
         opacity: bentuk.opasitas ?? 0.18,
         transform: `rotate(${bentuk.putar || 0}deg)`,
+        touchAction: interaktif ? "none" : undefined,
       }}
     />
   );
 }
 
-function SlideBlok({ slide, label, tampilan = "normal" }) {
+const batasiPersen = (nilai, min, max) => Math.max(min, Math.min(max, nilai));
+
+function SlideBlok({
+  slide,
+  label,
+  tampilan = "normal",
+  interaktif = false,
+  onPosisi,
+  onBentuk,
+  bentukAktif,
+  onPilihBentuk,
+}) {
   const baca = tampilan === "baca";
   const bentuk = slide.bentuk || "tidak";
   const warnaBentuk = slide.warnaBentuk || "#2563eb";
@@ -695,6 +717,48 @@ function SlideBlok({ slide, label, tampilan = "normal" }) {
   const posI = slide.posisiIsi;
   const manual = Boolean(posJ || posI);
   const daftarBentuk = Array.isArray(slide.bentukList) ? slide.bentukList : [];
+
+  // Geser langsung di pratinjau. Posisi dihitung dalam persen dari ukuran
+  // kanvas, jadi hasilnya sama di layar kecil, layar besar, dan saat dicetak.
+  const mulaiSeret = (e, jenis, bentukItem = null) => {
+    if (!interaktif) return;
+    const kanvas = e.currentTarget.closest("[data-slide-kanvas]");
+    if (!kanvas) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onPilihBentuk?.(jenis === "bentuk" ? bentukItem.id : null);
+
+    const kotak = kanvas.getBoundingClientRect();
+    const dasar =
+      jenis === "judul" || jenis === "semua"
+        ? { x: 8, y: 10, w: 84, ...(posJ || {}) }
+        : jenis === "isi"
+          ? { x: 8, y: 34, w: 84, ...(posI || {}) }
+          : { x: bentukItem.x ?? 60, y: bentukItem.y ?? 8 };
+    const awalX = e.clientX;
+    const awalY = e.clientY;
+
+    const gerak = (ev) => {
+      const dx = ((ev.clientX - awalX) / Math.max(1, kotak.width)) * 100;
+      const dy = ((ev.clientY - awalY) / Math.max(1, kotak.height)) * 100;
+      const x = Math.round(batasiPersen(dasar.x + dx, -20, 100) * 10) / 10;
+      const y = Math.round(batasiPersen(dasar.y + dy, -20, 100) * 10) / 10;
+      if (jenis === "bentuk") onBentuk?.(bentukItem.id, { x, y });
+      else onPosisi?.(jenis, { ...dasar, x, y });
+      // jenis "semua" dipakai slide lama (susunan otomatis): judul & isi
+      // ikut bergeser bersama, bukan cuma judulnya.
+    };
+    const selesai = () => {
+      window.removeEventListener("pointermove", gerak);
+      window.removeEventListener("pointerup", selesai);
+    };
+    window.addEventListener("pointermove", gerak);
+    window.addEventListener("pointerup", selesai);
+  };
+
+  const gayaSeret = interaktif
+    ? "cursor-move rounded outline-offset-2 hover:outline hover:outline-1 hover:outline-stone-300"
+    : "";
   const kelasJudul = baca
     ? (UKURAN_JUDUL_BACA[slide.ukuranJudul] || UKURAN_JUDUL_BACA.besar)
     : (UKURAN_JUDUL[slide.ukuranJudul] || UKURAN_JUDUL.besar);
@@ -713,13 +777,23 @@ function SlideBlok({ slide, label, tampilan = "normal" }) {
             ? "p-8 md:p-10 min-h-[260px] md:min-h-[320px]"
             : "p-5 min-h-[180px]"
       }`}
-      style={{ backgroundColor: slide.latar || "#ffffff" }}
+      data-slide-kanvas="slide"
+      style={{ backgroundColor: slide.latar || "#ffffff", backgroundImage: slide.gradien || undefined }}
     >
       {bentuk === "kotak" && <div className="absolute right-0 top-0 w-24 h-24 rounded-bl-3xl opacity-80" style={{ backgroundColor: warnaBentuk }} />}
       {bentuk === "bulat" && <div className="absolute -right-10 -bottom-12 w-40 h-40 rounded-full opacity-30" style={{ backgroundColor: warnaBentuk }} />}
       {bentuk === "garis" && <div className="absolute left-0 right-0 bottom-0 h-2" style={{ backgroundColor: warnaBentuk }} />}
       {bentuk === "miring" && <div className="absolute right-0 top-0 bottom-0 w-20 opacity-20" style={{ backgroundColor: warnaBentuk, transform: "skewX(-14deg)" }} />}
-      {daftarBentuk.map((b) => <BentukBebas key={b.id} bentuk={b} />)}
+      {daftarBentuk.map((b) => (
+        <BentukBebas
+          key={b.id}
+          bentuk={b}
+          interaktif={interaktif}
+          terpilih={bentukAktif === b.id}
+          onPilih={onPilihBentuk}
+          onMulaiSeret={(e, item) => mulaiSeret(e, "bentuk", item)}
+        />
+      ))}
 
       {label && (
         <p className={`absolute left-3 top-2 text-[10px] font-semibold text-gray-400 ${manual ? "z-10" : "relative mb-1"}`}>
@@ -730,29 +804,37 @@ function SlideBlok({ slide, label, tampilan = "normal" }) {
       {manual ? (
         <>
           <div
-            className={`absolute z-10 ${perataan}`}
+            className={`absolute z-10 ${perataan} ${gayaSeret}`}
             style={{
               left: `${posJ?.x ?? 8}%`,
               top: `${posJ?.y ?? 8}%`,
               width: `${posJ?.w ?? 84}%`,
+              touchAction: interaktif ? "none" : undefined,
             }}
+            onPointerDown={interaktif ? (e) => mulaiSeret(e, "judul") : undefined}
           >
             <h4 className={`font-bold ${kelasJudul}`} style={{ color: slide.warnaJudul || "#1f2937" }}>
               {slide.judul || "(tanpa judul)"}
             </h4>
           </div>
           <div
-            className={`absolute z-10 overflow-hidden ${perataan} ${kelasIsi}`}
+            className={`absolute z-10 overflow-hidden ${perataan} ${kelasIsi} ${gayaSeret}`}
             style={{
               left: `${posI?.x ?? 8}%`,
               top: `${posI?.y ?? 30}%`,
               width: `${posI?.w ?? 84}%`,
+              touchAction: interaktif ? "none" : undefined,
             }}
+            onPointerDown={interaktif ? (e) => mulaiSeret(e, "isi") : undefined}
             dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }}
           />
         </>
       ) : (
-        <div className={`relative ${perataan}`}>
+        <div
+          className={`relative ${perataan} ${gayaSeret}`}
+          onPointerDown={interaktif ? (e) => mulaiSeret(e, "semua") : undefined}
+          style={{ touchAction: interaktif ? "none" : undefined }}
+        >
           <h4 className={`font-bold mb-4 ${kelasJudul}`} style={{ color: slide.warnaJudul || "#1f2937" }}>
             {slide.judul || "(tanpa judul)"}
           </h4>
@@ -775,7 +857,13 @@ function SlideMini({ slide, nomor, aktif, onClick }) {
       title={slide.judul || "(tanpa judul)"}
       className={`shrink-0 w-44 rounded-lg border overflow-hidden text-left transition ${aktif ? "border-stone-600 ring-2 ring-stone-200" : "border-gray-200 hover:border-stone-300"}`}
     >
-      <div className="relative h-24 overflow-hidden p-2" style={{ backgroundColor: slide.latar || "#ffffff" }}>
+      <div
+        className="relative h-24 overflow-hidden p-2"
+        style={{
+          backgroundColor: slide.latar || "#ffffff",
+          backgroundImage: slide.gradien || undefined,
+        }}
+      >
         {bentuk === "kotak" && <span className="absolute right-0 top-0 w-8 h-8 rounded-bl-lg opacity-80" style={{ backgroundColor: warnaBentuk }} />}
         {bentuk === "bulat" && <span className="absolute -right-3 -bottom-4 w-12 h-12 rounded-full opacity-30" style={{ backgroundColor: warnaBentuk }} />}
         {bentuk === "garis" && <span className="absolute left-0 right-0 bottom-0 h-1.5" style={{ backgroundColor: warnaBentuk }} />}
@@ -820,12 +908,37 @@ function KontrolPosisi({ label, nilai, bawaan, onChange }) {
 function SlideEditor({ value, onChange }) {
   const [aktif, setAktif] = useState(0);
   const [modePratinjau, setModePratinjau] = useState(false);
+  const [bentukAktif, setBentukAktif] = useState(null);
   const slides = value.slides || [];
   const index = Math.min(aktif, slides.length - 1);
   const slide = slides[index] || { id: idBaru("slide"), judul: "", isi: "" };
 
   const ubah = (patch) => onChange({ slides: slides.map((s, i) => (i === index ? { ...s, ...patch } : s)) });
   const bentukList = Array.isArray(slide.bentukList) ? slide.bentukList : [];
+
+  // Geser langsung di pratinjau: judul, isi, atau satu bentuk.
+  const ubahPosisi = (jenis, pos) => {
+    if (jenis === "semua") {
+      const pJ = { x: 8, y: 10, w: 84, ...(slide.posisiJudul || {}) };
+      const pI = { x: 8, y: 34, w: 84, ...(slide.posisiIsi || {}) };
+      const dx = pos.x - pJ.x;
+      const dy = pos.y - pJ.y;
+      ubah({
+        posisiJudul: {
+          ...pJ,
+          x: batasiPersen(pJ.x + dx, -20, 100),
+          y: batasiPersen(pJ.y + dy, -20, 100),
+        },
+        posisiIsi: {
+          ...pI,
+          x: batasiPersen(pI.x + dx, -20, 100),
+          y: batasiPersen(pI.y + dy, -20, 100),
+        },
+      });
+      return;
+    }
+    ubah({ [jenis === "judul" ? "posisiJudul" : "posisiIsi"]: pos });
+  };
 
   const terapkanTemplate = (id) => {
     const template = TEMPLATE_SLIDE.find((t) => t.id === id);
@@ -897,7 +1010,18 @@ function SlideEditor({ value, onChange }) {
       {/* Pratinjau langsung: bentuk slide kelihatan sambil diedit. */}
       <div className="rounded-lg border border-gray-200 bg-gray-100 p-2">
         <p className="text-[11px] font-semibold text-gray-500 mb-1 flex items-center gap-1"><Eye size={12} /> Pratinjau slide {index + 1} — tampil persis seperti hasilnya</p>
-        <SlideBlok slide={slide} />
+        <SlideBlok
+          slide={slide}
+          interaktif
+          onPosisi={ubahPosisi}
+          onBentuk={ubahBentuk}
+          bentukAktif={bentukAktif}
+          onPilihBentuk={setBentukAktif}
+        />
+        <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+          <Move size={11} /> Geser judul, isi, atau bentuk langsung di pratinjau ini. Angka X/Y di bawah ikut
+          berubah otomatis.
+        </p>
       </div>
 
       <input
@@ -908,18 +1032,66 @@ function SlideEditor({ value, onChange }) {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 bg-gray-50 border border-gray-200 rounded p-2" data-html2canvas-ignore="true">
-        <label className="text-[11px] text-gray-600">
+        <div className="text-[11px] text-gray-600 md:col-span-2">
           Latar slide
-          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.latar || "#ffffff"} onChange={(e) => ubah({ latar: e.target.value })}>
-            {LATAR_SLIDE.map((l) => <option key={l.id} value={l.nilai}>{l.label}</option>)}
-          </select>
-        </label>
-        <label className="text-[11px] text-gray-600">
+          <div className="flex flex-wrap items-center gap-1 mt-1">
+            {PALET_WARNA.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                title={`Latar ${w.label}`}
+                aria-label={`Latar ${w.label}`}
+                onClick={() => ubah({ latar: w.nilai, gradien: "" })}
+                className={`w-6 h-6 rounded-full border ${
+                  (slide.latar || "#ffffff") === w.nilai && !slide.gradien
+                    ? "border-stone-800 ring-2 ring-stone-300"
+                    : "border-stone-300"
+                }`}
+                style={{ backgroundColor: w.nilai }}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1 mt-1.5">
+            <span className="text-[10px] text-gray-400 mr-0.5">Gradasi</span>
+            {PALET_GRADIEN.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                title={g.label}
+                aria-label={`Gradasi ${g.label}`}
+                onClick={() => ubah({ gradien: g.nilai })}
+                className={`h-6 w-10 rounded border text-[9px] text-stone-600 ${
+                  (slide.gradien || "") === g.nilai
+                    ? "border-stone-800 ring-2 ring-stone-300"
+                    : "border-stone-300"
+                }`}
+                style={{ backgroundImage: g.nilai || "none" }}
+              >
+                {g.nilai ? "" : "–"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="text-[11px] text-gray-600 md:col-span-2">
           Warna judul
-          <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.warnaJudul || "#1f2937"} onChange={(e) => ubah({ warnaJudul: e.target.value })}>
-            {WARNA_JUDUL.map((w) => <option key={w.id} value={w.nilai}>{w.label}</option>)}
-          </select>
-        </label>
+          <div className="flex flex-wrap items-center gap-1 mt-1">
+            {PALET_WARNA.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                title={`Judul ${w.label}`}
+                aria-label={`Warna judul ${w.label}`}
+                onClick={() => ubah({ warnaJudul: w.nilai })}
+                className={`w-6 h-6 rounded-full border ${
+                  (slide.warnaJudul || "#1f2937") === w.nilai
+                    ? "border-stone-800 ring-2 ring-stone-300"
+                    : "border-stone-300"
+                }`}
+                style={{ backgroundColor: w.nilai }}
+              />
+            ))}
+          </div>
+        </div>
         <label className="text-[11px] text-gray-600">
           Bentuk hiasan
           <select className="select select-bordered select-xs w-full mt-0.5 text-gray-800 bg-white" value={slide.bentuk || "tidak"} onChange={(e) => ubah({ bentuk: e.target.value })}>
@@ -1010,11 +1182,18 @@ function SlideEditor({ value, onChange }) {
         </div>
         {bentukList.length === 0 && (
           <p className="text-[11px] text-gray-400">
-            Belum ada ornamen. Tambah kotak/bulat/garis, lalu atur posisi, ukuran, warna, dan putarannya.
+            Belum ada ornamen. Klik &quot;Bentuk&quot;, lalu geser langsung di pratinjau (atau atur angkanya di
+            sini).
           </p>
         )}
         {bentukList.map((b) => (
-          <div key={b.id} className="flex flex-wrap items-center gap-1 border-b border-gray-100 pb-1 last:border-0">
+          <div
+            key={b.id}
+            onClick={() => setBentukAktif(b.id)}
+            className={`flex flex-wrap items-center gap-1 border-b border-gray-100 pb-1 last:border-0 ${
+              bentukAktif === b.id ? "bg-stone-50 rounded" : ""
+            }`}
+          >
             <select
               className="select select-bordered select-xs text-gray-800 bg-white"
               value={b.jenis}
@@ -1041,6 +1220,16 @@ function SlideEditor({ value, onChange }) {
               aria-label="Warna bentuk"
             >
               {WARNA_BENTUK.map((w) => <option key={w.id} value={w.nilai}>{w.label}</option>)}
+            </select>
+            <select
+              className="select select-bordered select-xs w-24 text-gray-800 bg-white"
+              value={b.gradien || ""}
+              onChange={(e) => ubahBentuk(b.id, { gradien: e.target.value })}
+              aria-label="Gradasi bentuk"
+            >
+              {PALET_GRADIEN.map((g) => (
+                <option key={g.id} value={g.nilai}>{g.label}</option>
+              ))}
             </select>
             <label className="text-[10px] text-gray-500 flex items-center gap-0.5">
               Putar
