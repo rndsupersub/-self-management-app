@@ -16,11 +16,15 @@ import {
   Info,
   Banknote,
   Scale,
+  Sparkles,
+  ShieldCheck,
+  Target,
+  Lightbulb,
 } from "lucide-react";
 import { DEFAULT_KATEGORI, DEFAULT_DOMPET, formatRupiah } from "@/lib/keuanganData";
 import { PERIODE_RIWAYAT, analisisRiwayat } from "@/lib/riwayatKeuangan";
 import { parseTanggalLokal } from "@/lib/tanggalLokal";
-import GrafikBatang from "@/components/GrafikBatang";
+import GrafikGaris from "@/components/GrafikGaris";
 import PerbandinganPeriode from "@/components/PerbandinganPeriode";
 
 const GAYA_INSIGHT = {
@@ -89,31 +93,158 @@ function Kartu({ judul, nominal, ikon, selisih, naikBagus, warna, catatan }) {
   );
 }
 
+// Penjelasan naratif: kenapa periodenya begini, apa yang harus dipangkas, dan
+// apa yang harus dijaga. Isinya dihitung dari transaksi (lib/keuanganNarasi.js).
+function Penjelasan({ data, labelSekarang, labelLalu }) {
+  if (!data) return null;
+  const defisit = data.status === "defisit";
+
+  return (
+    <div className="card bg-white shadow border border-gray-200">
+      <div className="card-body p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
+            <Sparkles size={16} /> {data.judul}
+          </h3>
+          <span
+            className={`badge badge-sm ${
+              data.status === "kosong"
+                ? "bg-stone-100 text-stone-600 border-stone-200"
+                : defisit
+                  ? "bg-red-50 text-error border-red-200"
+                  : "bg-green-50 text-green-700 border-green-200"
+            }`}
+          >
+            {data.status === "kosong" ? "Belum ada data" : defisit ? "Over budget" : "Surplus"}
+          </span>
+        </div>
+
+        <p className="text-sm text-gray-700 leading-relaxed">{data.ringkas}</p>
+
+        {data.pemicu.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-700 mb-1.5">
+              Pos yang paling berpengaruh
+            </p>
+            <div className="space-y-1.5">
+              {data.pemicu.map((item) => (
+                <div
+                  key={item.kategori}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1.5"
+                >
+                  <span className="text-xs text-gray-700 min-w-0">
+                    {item.kategori}
+                    <span className="text-[10px] text-gray-400"> · {item.porsi}% pengeluaran</span>
+                  </span>
+                  <span className="flex items-center gap-2 text-xs">
+                    <span className="font-semibold text-error">{formatRupiah(item.total)}</span>
+                    {item.delta > 0 ? (
+                      <span className="text-[10px] text-error inline-flex items-center gap-0.5">
+                        <TrendingUp size={10} /> +{formatRupiah(item.delta)}
+                      </span>
+                    ) : item.delta < 0 ? (
+                      <span className="text-[10px] text-green-600 inline-flex items-center gap-0.5">
+                        <TrendingDown size={10} /> {formatRupiah(Math.abs(item.delta))}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400">sama</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Dibandingkan dengan {labelLalu}.
+            </p>
+          </div>
+        )}
+
+        {data.saran.length > 0 && (
+          <div className="rounded border border-amber-200 bg-amber-50 p-2.5">
+            <p className="text-xs font-semibold text-amber-900 flex items-center gap-1 mb-1">
+              <Lightbulb size={13} /> Cara menghemat
+            </p>
+            <ul className="space-y-1">
+              {data.saran.map((teks, i) => (
+                <li key={i} className="text-xs text-amber-900 leading-relaxed flex gap-1.5">
+                  <span className="text-amber-500">•</span>
+                  <span>{teks}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {data.pertahankan.length > 0 && (
+          <div className="rounded border border-green-200 bg-green-50 p-2.5">
+            <p className="text-xs font-semibold text-green-800 flex items-center gap-1 mb-1">
+              <ShieldCheck size={13} /> Yang harus dipertahankan
+            </p>
+            <ul className="space-y-1">
+              {data.pertahankan.map((teks, i) => (
+                <li key={i} className="text-xs text-green-900 leading-relaxed flex gap-1.5">
+                  <span className="text-green-600">•</span>
+                  <span>{teks}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {data.target && (
+          <div className="rounded border border-stone-200 bg-stone-50 p-2.5">
+            <p className="text-xs font-semibold text-stone-800 flex items-center gap-1">
+              <Target size={13} /> Target tabungan
+            </p>
+            <p className="text-xs text-stone-700 mt-0.5">{data.target.pesan}</p>
+            <progress
+              className="progress progress-warning h-1.5 mt-1.5"
+              value={Math.min(100, data.target.ideal > 0 ? (data.target.sekarang / data.target.ideal) * 100 : 0)}
+              max="100"
+            />
+          </div>
+        )}
+
+        <p className="text-[10px] text-gray-400">
+          Penjelasan ini dihitung dari transaksi {labelSekarang}. Bukan nasihat keuangan profesional —
+          anggap sebagai pengingat supaya angkanya tidak cuma jadi daftar.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function RiwayatKeuangan({
   keuanganTransaksi = {},
   kategoriList = DEFAULT_KATEGORI,
   dompetList = DEFAULT_DOMPET,
 }) {
-  const [kunci, setKunci] = useState("bulan-lalu");
+  const [kunci, setKunci] = useState("bulan");
 
   const analisis = useMemo(
     () => analisisRiwayat(keuanganTransaksi, kunci, { kategoriList, dompetList }),
     [keuanganTransaksi, kunci, kategoriList, dompetList]
   );
 
-  const { sekarang, banding, segmen, top, insight } = analisis;
+  const { sekarang, banding, segmen, segmenLalu, labelPeriode, labelPembanding, insight, penjelasan } =
+    analisis;
   const keluarTotal = sekarang.total.keluar + sekarang.total.sedekah;
 
-  const dataGrafik = useMemo(
-    () =>
-      segmen.map((s) => ({
+  // Segmen periode ini dan periode lalu disejajarkan dari ujung terakhir, supaya
+  // "hari ke-1" bertemu "hari ke-1", bukan "hari ke-1" bertemu "hari ke-5".
+  const dataGrafik = useMemo(() => {
+    const selisihPanjang = segmenLalu.length - segmen.length;
+    return segmen.map((s, i) => {
+      const p = segmenLalu[selisihPanjang + i] || null;
+      return {
         label: s.label,
-        a: s.masuk,
-        b: s.keluar + s.sedekah,
-        keterangan: `Net ${formatRupiah(s.net)} · ${s.jumlahTrx} transaksi`,
-      })),
-    [segmen]
-  );
+        sekarangMasuk: s.masuk,
+        sekarangKeluar: s.keluar + s.sedekah,
+        laluMasuk: p?.masuk ?? null,
+        laluKeluar: p ? p.keluar + p.sedekah : null,
+      };
+    });
+  }, [segmen, segmenLalu]);
 
   const perTanggal = useMemo(() => {
     const map = new Map();
@@ -145,7 +276,10 @@ export default function RiwayatKeuangan({
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
               <History size={16} /> Riwayat Keuangan
             </h3>
-            <div className="tabs tabs-boxed bg-base-200 p-1 w-fit flex-wrap" data-html2canvas-ignore="true">
+            <div
+              className="tabs tabs-boxed bg-base-200 p-1 w-fit flex-wrap"
+              data-html2canvas-ignore="true"
+            >
               {PERIODE_RIWAYAT.map((p) => (
                 <button
                   key={p.kunci}
@@ -162,15 +296,18 @@ export default function RiwayatKeuangan({
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            <span className="font-semibold text-gray-700">{analisis.labelPeriode}</span>
-            {" · "}dibanding {analisis.labelPembanding}
+            <span className="font-semibold text-gray-700">{labelPeriode}</span>
+            {" · "}dibanding {labelPembanding}
             {sekarang.jumlahTrx > 0 &&
               ` · ${sekarang.jumlahTrx} transaksi di ${sekarang.hariAktif} hari`}
           </p>
         </div>
       </div>
 
-      {/* INSIGHT: MISNYA DI MANA */}
+      {/* PENJELASAN */}
+      <Penjelasan data={penjelasan} labelSekarang={labelPeriode} labelLalu={labelPembanding} />
+
+      {/* INSIGHT CEPAT */}
       <div className="space-y-2">
         {insight.map((item, idx) => {
           const Icon = IKON_INSIGHT[item.tipe] || Info;
@@ -227,7 +364,7 @@ export default function RiwayatKeuangan({
         />
       </div>
 
-      {/* TREN */}
+      {/* TREN: GARIS SEKARANG vs SEBELUMNYA */}
       {dataGrafik.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
@@ -241,10 +378,27 @@ export default function RiwayatKeuangan({
                     : "bulan"}
               </h3>
               <p className="text-[11px] text-gray-500">
-                Total masuk {formatRupiah(sekarang.total.masuk)} · keluar {formatRupiah(keluarTotal)}
+                {labelPeriode} (tebal) vs {labelPembanding} (pudar)
               </p>
             </div>
-            <GrafikBatang data={dataGrafik} labelB="Keluar + Sedekah" />
+            <GrafikGaris
+              data={dataGrafik}
+              labelSekarang={labelPeriode}
+              labelLalu={labelPembanding}
+            />
+            <p className="text-[11px] text-gray-500 mt-1">
+              Total masuk {formatRupiah(sekarang.total.masuk)} · keluar {formatRupiah(keluarTotal)}
+              {" · "}
+              <span
+                className={
+                  keluarTotal > sekarang.total.masuk ? "text-error font-semibold" : "text-green-700"
+                }
+              >
+                {keluarTotal > sekarang.total.masuk
+                  ? `defisit ${formatRupiah(keluarTotal - sekarang.total.masuk)}`
+                  : `surplus ${formatRupiah(sekarang.total.masuk - keluarTotal)}`}
+              </span>
+            </p>
           </div>
         </div>
       )}
@@ -256,26 +410,26 @@ export default function RiwayatKeuangan({
             <Scale size={16} /> Head to Head
           </h3>
           <p className="text-[11px] text-gray-500 mb-3">
-            {analisis.labelPeriode} vs {analisis.labelPembanding}
+            {labelPeriode} vs {labelPembanding}
           </p>
           <PerbandinganPeriode
             sekarang={sekarang}
             lalu={analisis.lalu}
-            labelSekarang={analisis.labelPeriode}
-            labelLalu={analisis.labelPembanding}
+            labelSekarang={labelPeriode}
+            labelLalu={labelPembanding}
           />
         </div>
       </div>
 
       {/* TOP KATEGORI */}
-      {top.length > 0 && (
+      {analisis.top.length > 0 && (
         <div className="card bg-white shadow border border-gray-200">
           <div className="card-body p-4">
             <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1">
               <TrendingUp size={16} /> Paling Banyak Keluar
             </h3>
             <div className="space-y-2">
-              {top.map((item, idx) => (
+              {analisis.top.map((item, idx) => (
                 <div key={item.kategori} className="p-2 rounded border border-gray-200 bg-gray-50">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-700">
@@ -299,7 +453,7 @@ export default function RiwayatKeuangan({
         </div>
       )}
 
-      {/* DAFTAR TRANSAKSI: GUA NGAPAIN AJA */}
+      {/* DAFTAR TRANSAKSI */}
       <div className="card bg-white shadow border border-gray-200">
         <div className="card-body p-4">
           <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-1">

@@ -13,10 +13,12 @@ import {
   Clock,
   ExternalLink,
   Eye,
+  ListChecks,
   MessageCircle,
   Music2,
   Play,
   Search,
+  Tag,
   Video,
 } from "lucide-react";
 
@@ -148,9 +150,9 @@ export default function PanduanCari() {
               <BookOpen size={20} /> Panduan &amp; Tutorial
             </h2>
             <p className="text-xs text-stone-500">
-              Cari cara membuat atau memasang sesuatu. Video diambil langsung dari YouTube, lalu
-              tautan panduan tertulis dan sosial media disiapkan supaya kamu bisa cek sumbernya
-              sendiri. Aplikasi tidak mengarang langkah.
+              Cari cara membuat atau memasang sesuatu. Hasilnya: ringkasan poin dari deskripsi video,
+              video YouTube asli, lalu tautan panduan tertulis dan sosial media. Langkah lengkap dan
+              paling akurat ada di video/sumber yang dibuka — aplikasi tidak mengarang langkah.
             </p>
           </div>
 
@@ -204,6 +206,88 @@ export default function PanduanCari() {
       {pesan && (
         <div className="rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
           {pesan}
+        </div>
+      )}
+
+      {/* RINGKASAN: diambil dari judul & deskripsi video yang ditemukan. */}
+      {!mencari && hasil?.ringkasan && (
+        <div className="card bg-white shadow border border-stone-200">
+          <div className="card-body p-4 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2">
+                <ListChecks size={16} /> Ringkasan panduan
+              </h3>
+              {hasil.ringkasan.subjek && (
+                <span className="badge badge-sm bg-stone-100 text-stone-700 border-stone-300">
+                  Topik: {hasil.ringkasan.subjek}
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Dari {hasil.ringkasan.jumlah} video untuk &quot;{hasil.ringkasan.topik}&quot;,
+              yang paling sering muncul di judulnya:{" "}
+              <span className="font-semibold text-stone-800">
+                {hasil.ringkasan.kataKunci.slice(0, 6).join(", ") || "belum ada kata kunci berulang"}
+              </span>
+              .
+            </p>
+
+            {hasil.ringkasan.poin.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold text-stone-700 mb-1">
+                  Poin yang dibahas tiap video
+                </p>
+                <ul className="space-y-1">
+                  {hasil.ringkasan.poin.map((p, i) => (
+                    <li key={i} className="text-xs text-stone-700 leading-relaxed flex gap-1.5">
+                      <span className="text-stone-400">{i + 1}.</span>
+                      <span>
+                        {p.teks}{" "}
+                        <a
+                          className="text-stone-500 underline decoration-stone-300 hover:text-stone-800"
+                          href={p.tautan}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Buka video sumber"
+                        >
+                          [sumber]
+                        </a>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-xs text-stone-500">
+                Deskripsi videonya tidak memuat ringkasan tertulis. Buka videonya untuk melihat
+                langkah lengkapnya — judul dan kanalnya sudah dicek cocok dengan kata kunci.
+              </p>
+            )}
+
+            {hasil.ringkasan.saranPersempit.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 pt-1">
+                <span className="text-[11px] text-stone-400 flex items-center gap-1 mr-1">
+                  <Tag size={11} /> Persempit:
+                </span>
+                {hasil.ringkasan.saranPersempit.map((kata) => (
+                  <button
+                    key={kata}
+                    type="button"
+                    className="btn btn-xs bg-white border border-stone-300 text-stone-700 hover:border-stone-500"
+                    onClick={() => contohKlik(kata)}
+                  >
+                    {kata}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="text-[10px] text-stone-400">
+              Ringkasan ini diambil dari judul dan deskripsi video aslinya, bukan langkah karangan.
+              Langkah paling akurat tetap ada di video/sumber yang dibuka.
+            </p>
+          </div>
         </div>
       )}
 

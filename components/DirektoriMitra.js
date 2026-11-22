@@ -59,6 +59,13 @@ import {
 } from "@/lib/direktoriData";
 import PanduanCari from "@/components/PanduanCari";
 import TambahDariMaps from "@/components/TambahDariMaps";
+import FilterWilayah from "@/components/FilterWilayah";
+import {
+  FILTER_WILAYAH_KOSONG,
+  adaFilterWilayah,
+  bangunPilihanWilayah,
+  cocokWilayah,
+} from "@/lib/wilayahPintar";
 
 const IKON_JENIS = { vendor: Factory, agency: Sparkles, jasa: Briefcase };
 
@@ -503,10 +510,34 @@ export default function DirektoriMitra({
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(buatMitraKosong());
+  const [filterHasil, setFilterHasil] = useState(FILTER_WILAYAH_KOSONG);
+  const [filterTersimpan, setFilterTersimpan] = useState(FILTER_WILAYAH_KOSONG);
 
   const tersimpan = useMemo(
     () => cariMitra(daftarAman, { q: qTersimpan, jenis: jenisTersimpan, status: statusTersimpan, urut: "wilayah" }),
     [daftarAman, qTersimpan, jenisTersimpan, statusTersimpan]
+  );
+
+  // Filter wilayah diterapkan setelah pencarian teks, dan pilihannya dibangun
+  // dari data yang ada (hasil pencarian + entri tersimpan).
+  const tersimpanTampil = useMemo(
+    () => (adaFilterWilayah(filterTersimpan) ? tersimpan.filter((m) => cocokWilayah(m, filterTersimpan)) : tersimpan),
+    [tersimpan, filterTersimpan]
+  );
+
+  const hasilTampil = useMemo(
+    () => (adaFilterWilayah(filterHasil) ? hasil.filter((m) => cocokWilayah(m, filterHasil)) : hasil),
+    [hasil, filterHasil]
+  );
+
+  const pilihanWilayahHasil = useMemo(
+    () => bangunPilihanWilayah([...hasil, ...daftarAman], filterHasil),
+    [hasil, daftarAman, filterHasil]
+  );
+
+  const pilihanWilayahTersimpan = useMemo(
+    () => bangunPilihanWilayah(daftarAman, filterTersimpan),
+    [daftarAman, filterTersimpan]
   );
 
   // Kunci entri memakai nama + koordinat, jadi dua cabang dengan nama sama
@@ -843,6 +874,13 @@ export default function DirektoriMitra({
                 })}
               </div>
 
+              <FilterWilayah
+                pilihan={pilihanWilayahHasil}
+                nilai={filterHasil}
+                onChange={setFilterHasil}
+                label="Saring hasil"
+              />
+
               <div className="flex flex-wrap gap-1 items-center">
                 <span className="text-xs text-stone-400 mr-1">Coba:</span>
                 {CONTOH_PENCARIAN.map((kata) => (
@@ -910,11 +948,18 @@ export default function DirektoriMitra({
             </div>
           )}
 
-          {!mencari && hasil.length > 0 && (
+          {!mencari && hasil.length > 0 && hasilTampil.length === 0 && (
+            <div className="rounded border border-stone-200 bg-white p-3 text-xs text-stone-600">
+              Tidak ada hasil yang cocok dengan filter wilayah. Hapus filter wilayah untuk melihat
+              semua {hasil.length} hasil.
+            </div>
+          )}
+
+          {!mencari && hasilTampil.length > 0 && (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-stone-500">
-                  {hasil.length} usaha ditemukan untuk &quot;{q.trim()}&quot; · urutan wilayah:
+                  {hasilTampil.length} usaha ditemukan untuk &quot;{q.trim()}&quot; · urutan wilayah:
                   Bandung → Jakarta → JABODETABEK → Jawa Tengah → Jawa Timur → provinsi lain →
                   China, Jepang, Korea, Asia lain → Amerika, Eropa.
                 </p>
@@ -933,7 +978,7 @@ export default function DirektoriMitra({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {hasil.map((item) => (
+                {hasilTampil.map((item) => (
                   <KartuCari
                     key={item.id}
                     hasil={item}
@@ -1012,8 +1057,17 @@ export default function DirektoriMitra({
                     </option>
                   ))}
                 </select>
-                <span className="text-xs text-stone-400">{tersimpan.length} entri</span>
+                <span className="text-xs text-stone-400">{tersimpanTampil.length} entri</span>
               </div>
+
+              <FilterWilayah
+                pilihan={pilihanWilayahTersimpan}
+                nilai={filterTersimpan}
+                onChange={setFilterTersimpan}
+                jumlah={tersimpanTampil.length}
+                jumlahTotal={daftarAman.length}
+                label="Saring wilayah"
+              />
 
               <div className="flex flex-wrap gap-1" data-html2canvas-ignore="true">
                 <button className="btn btn-primary btn-xs" onClick={bukaTambah}>
@@ -1288,7 +1342,7 @@ export default function DirektoriMitra({
             </div>
           )}
 
-          {tersimpan.length === 0 ? (
+          {tersimpanTampil.length === 0 ? (
             <div className="card bg-white shadow border border-stone-200">
               <div className="card-body p-8 text-center text-stone-400">
                 <Save size={40} className="mx-auto mb-2 opacity-50" />
@@ -1307,7 +1361,7 @@ export default function DirektoriMitra({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {tersimpan.map((mitra) => (
+              {tersimpanTampil.map((mitra) => (
                 <KartuMitra
                   key={mitra.id}
                   mitra={mitra}

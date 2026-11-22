@@ -1,9 +1,16 @@
 // components/VendorManager.js
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
-import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3 } from "lucide-react";
+import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, ChevronDown, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3, Filter } from "lucide-react";
+import FilterWilayah from "@/components/FilterWilayah";
+import {
+  bangunPilihanWilayah,
+  cocokWilayah,
+  adaFilterWilayah,
+  FILTER_WILAYAH_KOSONG,
+} from "@/lib/wilayahPintar";
 
 // Mode tampilan ala Windows: Besar / Sedang / Kecil / Daftar.
 // "Daftar" sengaja berbentuk tabel supaya hasil Export PDF tampil sebagai data.
@@ -35,6 +42,7 @@ export default function VendorManager({
 
   const [filterKategori, setFilterKategori] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterWilayah, setFilterWilayah] = useState(FILTER_WILAYAH_KOSONG);
   const [modeTampilan, setModeTampilan] = useState("besar");
 
   const [formData, setFormData] = useState({
@@ -56,9 +64,14 @@ export default function VendorManager({
   const [showSatuanBaru, setShowSatuanBaru] = useState(false);
   const [newSatuanInline, setNewSatuanInline] = useState("");
 
+  // Pilihan wilayah dibangun dari alamat vendor yang benar-benar ada, jadi
+  // kota/provinsi baru otomatis muncul tanpa perlu mengubah kode.
+  const pilihanWilayah = useMemo(() => bangunPilihanWilayah(vendorList, filterWilayah), [vendorList, filterWilayah]);
+
   const filteredVendor = vendorList.filter((v) => {
     if (filterKategori !== "all" && v.kategoriId !== filterKategori) return false;
     if (filterStatus !== "all" && v.status !== filterStatus) return false;
+    if (adaFilterWilayah(filterWilayah) && !cocokWilayah(v, filterWilayah)) return false;
     return true;
   });
 
@@ -327,29 +340,37 @@ export default function VendorManager({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-2">
-        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Factory size={20} /> Vendor ({vendorList.length})</h2>
-        <div className="flex flex-wrap gap-1" data-html2canvas-ignore="true">
-          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaKategori(true)} title="Kelola Kategori Vendor"><Settings size={14} className="mr-1"/> Kategori</button>
-          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaPertanyaan(true)} title="Kelola Pertanyaan Awal Vendor"><Settings size={14} className="mr-1"/> Pertanyaan</button>
-          <button className="btn btn-ghost btn-xs text-gray-600" onClick={() => setShowKelolaTujuan(true)} title="Kelola Tujuan Kunjungan"><Target size={14} className="mr-1"/> Tujuan</button>
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Factory size={20} /> Vendor ({vendorList.length})</h2>
+          <p className="text-xs text-gray-500">Kelola vendor, filter wilayah, dan tampilan. Semua data bisa diedit.</p>
+        </div>
+        <div className="flex items-center gap-1" data-html2canvas-ignore="true">
+          <details className="dropdown dropdown-end">
+            <summary className="btn btn-ghost btn-xs text-gray-600 list-none"><Settings size={14} className="mr-1"/> Kelola <ChevronDown size={12} className="ml-0.5"/></summary>
+            <ul className="dropdown-content menu bg-white border border-gray-200 rounded-lg shadow-lg w-52 p-1 mt-1 z-30">
+              <li><button type="button" onClick={(e) => { setShowKelolaKategori(true); e.currentTarget.blur(); }}><Settings size={14}/> Kategori vendor</button></li>
+              <li><button type="button" onClick={(e) => { setShowKelolaPertanyaan(true); e.currentTarget.blur(); }}><List size={14}/> Pertanyaan awal</button></li>
+              <li><button type="button" onClick={(e) => { setShowKelolaTujuan(true); e.currentTarget.blur(); }}><Target size={14}/> Tujuan kunjungan</button></li>
+            </ul>
+          </details>
           <button className="btn btn-primary btn-xs" onClick={handleBukaForm}><Plus size={14} className="mr-1"/> Tambah Vendor</button>
         </div>
       </div>
 
       <div className="card bg-white shadow border border-gray-200">
-        <div className="card-body p-3">
+        <div className="card-body p-3 space-y-2">
           <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-semibold text-gray-500">Filter:</span>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterKategori} onChange={(e) => setFilterKategori(e.target.value)}>
+            <span className="text-xs font-semibold text-gray-500 flex items-center gap-1"><Filter size={12}/> Filter</span>
+            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterKategori} onChange={(e) => setFilterKategori(e.target.value)} aria-label="Filter kategori vendor">
               <option value="all">Semua Kategori</option>
               {kategoriVendorList.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
             </select>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} aria-label="Filter status vendor">
               <option value="all">Semua Status</option>
               {STATUS_VENDOR.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
-            {(filterKategori !== "all" || filterStatus !== "all") && (
-              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterKategori("all"); setFilterStatus("all"); }}><X size={12} className="mr-1"/> Reset</button>
+            {(filterKategori !== "all" || filterStatus !== "all" || adaFilterWilayah(filterWilayah)) && (
+              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterKategori("all"); setFilterStatus("all"); setFilterWilayah(FILTER_WILAYAH_KOSONG); }}><X size={12} className="mr-1"/> Reset semua</button>
             )}
             <div className="ml-auto flex items-center gap-2">
               <div className="join" data-html2canvas-ignore="true" role="group" aria-label="Mode tampilan">
@@ -369,9 +390,18 @@ export default function VendorManager({
                   );
                 })}
               </div>
-              <span className="text-xs text-gray-400">{filteredVendor.length} vendor</span>
+              <span className="text-xs text-gray-400 whitespace-nowrap">{filteredVendor.length} vendor</span>
             </div>
           </div>
+
+          <FilterWilayah
+            pilihan={pilihanWilayah}
+            nilai={filterWilayah}
+            onChange={setFilterWilayah}
+            jumlah={filteredVendor.length}
+            jumlahTotal={vendorList.length}
+            label="Wilayah vendor"
+          />
         </div>
       </div>
 

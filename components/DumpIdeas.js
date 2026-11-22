@@ -7,13 +7,13 @@ import {
   PenLine, Presentation, ChevronLeft, ChevronRight, Eraser, Undo2,
   Search, Calendar, ArrowLeft, Bold, Italic, Underline, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, RemoveFormatting, StickyNote, Type,
-  Square, Circle, Minus,
+  Square, Circle, Minus, Move, Shapes,
 } from "lucide-react";
 import {
   TIPE_IDE, normalisasiIde, mindmapKosong, slideKosong, susunMindmap,
   tambahAnak, ubahTeksNode, hapusNode, labelTipe, ringkasIde, idBaru,
   bersihkanHtml, isiSlideKeHtml, catatanBaru, WARNA_CATATAN,
-  LATAR_SLIDE, BENTUK_SLIDE, WARNA_BENTUK,
+  LATAR_SLIDE, BENTUK_SLIDE, WARNA_BENTUK, TEMPLATE_SLIDE, BENTUK_TAMBAHAN,
 } from "@/lib/dumpIdeas";
 
 const IKON_TIPE = { mindmap: Network, gambar: PenLine, catatan: StickyNote, slide: Presentation };
@@ -664,34 +664,101 @@ const WARNA_JUDUL = [
   { id: "merah", label: "Merah", nilai: "#b91c1c" },
 ];
 
+// Bentuk/ornamen bebas: posisi, ukuran, warna, putaran, dan transparansi
+// diatur sendiri oleh user — bukan pilihan bawaan yang cuma di pojok.
+function BentukBebas({ bentuk }) {
+  if (!bentuk) return null;
+  const tinggi = bentuk.jenis === "garis" ? Math.max(0.6, Number(bentuk.h) || 1) : Number(bentuk.h) || 10;
+  return (
+    <span
+      aria-hidden="true"
+      className={`absolute pointer-events-none ${bentuk.jenis === "bulat" ? "rounded-full" : "rounded-sm"}`}
+      style={{
+        left: `${bentuk.x ?? 60}%`,
+        top: `${bentuk.y ?? 8}%`,
+        width: `${bentuk.w ?? 28}%`,
+        height: `${tinggi}%`,
+        backgroundColor: bentuk.warna || "#2563eb",
+        opacity: bentuk.opasitas ?? 0.18,
+        transform: `rotate(${bentuk.putar || 0}deg)`,
+      }}
+    />
+  );
+}
+
 function SlideBlok({ slide, label, tampilan = "normal" }) {
   const baca = tampilan === "baca";
   const bentuk = slide.bentuk || "tidak";
   const warnaBentuk = slide.warnaBentuk || "#2563eb";
   const perataan = PERATAAN[slide.perataan] || PERATAAN.kiri;
+  const posJ = slide.posisiJudul;
+  const posI = slide.posisiIsi;
+  const manual = Boolean(posJ || posI);
+  const daftarBentuk = Array.isArray(slide.bentukList) ? slide.bentukList : [];
+  const kelasJudul = baca
+    ? (UKURAN_JUDUL_BACA[slide.ukuranJudul] || UKURAN_JUDUL_BACA.besar)
+    : (UKURAN_JUDUL[slide.ukuranJudul] || UKURAN_JUDUL.besar);
+  const kelasIsi = baca
+    ? `${KELAS_TEKS_BACA} ${UKURAN_TEKS_BACA[slide.ukuranTeks] || UKURAN_TEKS_BACA.sedang}`
+    : `${KELAS_TEKS} ${UKURAN_TEKS[slide.ukuranTeks] || UKURAN_TEKS.sedang}`;
+
   return (
     <div
-      className={`relative overflow-hidden rounded border border-gray-200 break-inside-avoid ${baca ? "p-8 md:p-10 min-h-[260px] md:min-h-[320px]" : "p-5 min-h-[180px]"}`}
+      className={`relative overflow-hidden rounded border border-gray-200 break-inside-avoid ${
+        manual
+          ? baca
+            ? "h-[340px] md:h-[420px]"
+            : "h-[240px]"
+          : baca
+            ? "p-8 md:p-10 min-h-[260px] md:min-h-[320px]"
+            : "p-5 min-h-[180px]"
+      }`}
       style={{ backgroundColor: slide.latar || "#ffffff" }}
     >
       {bentuk === "kotak" && <div className="absolute right-0 top-0 w-24 h-24 rounded-bl-3xl opacity-80" style={{ backgroundColor: warnaBentuk }} />}
       {bentuk === "bulat" && <div className="absolute -right-10 -bottom-12 w-40 h-40 rounded-full opacity-30" style={{ backgroundColor: warnaBentuk }} />}
       {bentuk === "garis" && <div className="absolute left-0 right-0 bottom-0 h-2" style={{ backgroundColor: warnaBentuk }} />}
       {bentuk === "miring" && <div className="absolute right-0 top-0 bottom-0 w-20 opacity-20" style={{ backgroundColor: warnaBentuk, transform: "skewX(-14deg)" }} />}
+      {daftarBentuk.map((b) => <BentukBebas key={b.id} bentuk={b} />)}
 
-      <div className={`relative ${perataan}`}>
-        {label && <p className="text-[10px] font-semibold text-gray-400 mb-1">{label}</p>}
-        <h4
-          className={`font-bold mb-4 ${baca ? (UKURAN_JUDUL_BACA[slide.ukuranJudul] || UKURAN_JUDUL_BACA.besar) : (UKURAN_JUDUL[slide.ukuranJudul] || UKURAN_JUDUL.besar)}`}
-          style={{ color: slide.warnaJudul || "#1f2937" }}
-        >
-          {slide.judul || "(tanpa judul)"}
-        </h4>
-        <div
-          className={baca ? `${KELAS_TEKS_BACA} ${UKURAN_TEKS_BACA[slide.ukuranTeks] || UKURAN_TEKS_BACA.sedang}` : `${KELAS_TEKS} ${UKURAN_TEKS[slide.ukuranTeks] || UKURAN_TEKS.sedang}`}
-          dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }}
-        />
-      </div>
+      {label && (
+        <p className={`absolute left-3 top-2 text-[10px] font-semibold text-gray-400 ${manual ? "z-10" : "relative mb-1"}`}>
+          {label}
+        </p>
+      )}
+
+      {manual ? (
+        <>
+          <div
+            className={`absolute z-10 ${perataan}`}
+            style={{
+              left: `${posJ?.x ?? 8}%`,
+              top: `${posJ?.y ?? 8}%`,
+              width: `${posJ?.w ?? 84}%`,
+            }}
+          >
+            <h4 className={`font-bold ${kelasJudul}`} style={{ color: slide.warnaJudul || "#1f2937" }}>
+              {slide.judul || "(tanpa judul)"}
+            </h4>
+          </div>
+          <div
+            className={`absolute z-10 overflow-hidden ${perataan} ${kelasIsi}`}
+            style={{
+              left: `${posI?.x ?? 8}%`,
+              top: `${posI?.y ?? 30}%`,
+              width: `${posI?.w ?? 84}%`,
+            }}
+            dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }}
+          />
+        </>
+      ) : (
+        <div className={`relative ${perataan}`}>
+          <h4 className={`font-bold mb-4 ${kelasJudul}`} style={{ color: slide.warnaJudul || "#1f2937" }}>
+            {slide.judul || "(tanpa judul)"}
+          </h4>
+          <div className={kelasIsi} dangerouslySetInnerHTML={{ __html: isiSlideKeHtml(slide.isi) }} />
+        </div>
+      )}
     </div>
   );
 }
@@ -726,6 +793,30 @@ function SlideMini({ slide, nomor, aktif, onClick }) {
   );
 }
 
+// Kontrol posisi dalam persen, supaya tetap proporsional di layar dan PDF.
+function KontrolPosisi({ label, nilai, bawaan, onChange }) {
+  const pos = { ...bawaan, ...(nilai || {}) };
+  const ubah = (patch) => onChange({ ...pos, ...patch });
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-[11px] text-gray-600 w-10">{label}</span>
+      {[["x", "X"], ["y", "Y"], ["w", "Lebar"]].map(([k, l]) => (
+        <label key={k} className="text-[10px] text-gray-500 flex items-center gap-0.5">
+          {l}
+          <input
+            type="number"
+            min="0"
+            max="100"
+            className="input input-bordered input-xs w-14 text-gray-800 bg-white"
+            value={Math.round(pos[k] ?? 0)}
+            onChange={(e) => ubah({ [k]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function SlideEditor({ value, onChange }) {
   const [aktif, setAktif] = useState(0);
   const [modePratinjau, setModePratinjau] = useState(false);
@@ -734,9 +825,47 @@ function SlideEditor({ value, onChange }) {
   const slide = slides[index] || { id: idBaru("slide"), judul: "", isi: "" };
 
   const ubah = (patch) => onChange({ slides: slides.map((s, i) => (i === index ? { ...s, ...patch } : s)) });
+  const bentukList = Array.isArray(slide.bentukList) ? slide.bentukList : [];
+
+  const terapkanTemplate = (id) => {
+    const template = TEMPLATE_SLIDE.find((t) => t.id === id);
+    if (!template) return;
+    ubah({ ...template.patch, bentukList });
+  };
+
+  const ubahBentuk = (id, patch) => {
+    ubah({ bentukList: bentukList.map((b) => (b.id === id ? { ...b, ...patch } : b)) });
+  };
+
+  const tambahBentuk = () => {
+    ubah({
+      bentukList: [
+        ...bentukList,
+        {
+          id: idBaru("bentuk"),
+          jenis: "kotak",
+          x: 62,
+          y: 8,
+          w: 28,
+          h: 24,
+          warna: "#2563eb",
+          opasitas: 0.18,
+          putar: 0,
+        },
+      ],
+    });
+  };
+
+  const hapusBentuk = (id) => ubah({ bentukList: bentukList.filter((b) => b.id !== id) });
 
   const tambahSlide = () => {
-    const baru = [...slides, { id: idBaru("slide"), judul: `Slide ${slides.length + 1}`, isi: "" }];
+    // Slide baru mengikuti susunan standar (judul di atas, isi di bawah) tapi
+    // posisinya sudah bisa digeser seperti slide lain.
+    const dasar = slideKosong().slides[0];
+    const baru = [
+      ...slides,
+      { ...dasar, id: idBaru("slide"), judul: `Slide ${slides.length + 1}`, isi: "" },
+    ];
     onChange({ slides: baru });
     setAktif(baru.length - 1);
   };
@@ -828,6 +957,119 @@ function SlideEditor({ value, onChange }) {
             })}
           </div>
         </div>
+      </div>
+
+      <div className="rounded border border-gray-200 bg-white p-2 space-y-2" data-html2canvas-ignore="true">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-[11px] font-semibold text-gray-600">Template</label>
+          <select
+            className="select select-bordered select-xs text-gray-800 bg-white"
+            value=""
+            onChange={(e) => terapkanTemplate(e.target.value)}
+            aria-label="Pilih template slide"
+          >
+            <option value="">Pilih template siap pakai</option>
+            {TEMPLATE_SLIDE.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+          <span className="text-[10px] text-gray-400">Mengubah latar, warna, dan posisi. Isi slide tetap.</span>
+        </div>
+
+        <p className="text-[11px] font-semibold text-gray-600 flex items-center gap-1">
+          <Move size={12} /> Posisi judul &amp; isi (persen dari slide)
+        </p>
+        <KontrolPosisi
+          label="Judul"
+          nilai={slide.posisiJudul}
+          bawaan={{ x: 8, y: 10, w: 84 }}
+          onChange={(v) => ubah({ posisiJudul: v })}
+        />
+        <KontrolPosisi
+          label="Isi"
+          nilai={slide.posisiIsi}
+          bawaan={{ x: 8, y: 34, w: 84 }}
+          onChange={(v) => ubah({ posisiIsi: v })}
+        />
+        {(slide.posisiJudul || slide.posisiIsi) && (
+          <button
+            className="btn btn-ghost btn-xs text-gray-500"
+            onClick={() => ubah({ posisiJudul: null, posisiIsi: null })}
+          >
+            Kembalikan ke susunan otomatis
+          </button>
+        )}
+      </div>
+
+      <div className="rounded border border-gray-200 bg-white p-2 space-y-1.5" data-html2canvas-ignore="true">
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <p className="text-[11px] font-semibold text-gray-600 flex items-center gap-1">
+            <Shapes size={12} /> Ornamen bentuk ({bentukList.length})
+          </p>
+          <button className="btn btn-outline btn-xs text-gray-700" onClick={tambahBentuk}>
+            <Plus size={12} className="mr-1" /> Bentuk
+          </button>
+        </div>
+        {bentukList.length === 0 && (
+          <p className="text-[11px] text-gray-400">
+            Belum ada ornamen. Tambah kotak/bulat/garis, lalu atur posisi, ukuran, warna, dan putarannya.
+          </p>
+        )}
+        {bentukList.map((b) => (
+          <div key={b.id} className="flex flex-wrap items-center gap-1 border-b border-gray-100 pb-1 last:border-0">
+            <select
+              className="select select-bordered select-xs text-gray-800 bg-white"
+              value={b.jenis}
+              onChange={(e) => ubahBentuk(b.id, { jenis: e.target.value })}
+              aria-label="Jenis bentuk"
+            >
+              {BENTUK_TAMBAHAN.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select>
+            {[["x", "X"], ["y", "Y"], ["w", "Lbr"], ["h", "Tgi"]].map(([k, l]) => (
+              <label key={k} className="text-[10px] text-gray-500 flex items-center gap-0.5">
+                {l}
+                <input
+                  type="number"
+                  className="input input-bordered input-xs w-12 text-gray-800 bg-white"
+                  value={Math.round(b[k] ?? 0)}
+                  onChange={(e) => ubahBentuk(b.id, { [k]: Number(e.target.value) || 0 })}
+                />
+              </label>
+            ))}
+            <select
+              className="select select-bordered select-xs w-20 text-gray-800 bg-white"
+              value={b.warna || "#2563eb"}
+              onChange={(e) => ubahBentuk(b.id, { warna: e.target.value })}
+              aria-label="Warna bentuk"
+            >
+              {WARNA_BENTUK.map((w) => <option key={w.id} value={w.nilai}>{w.label}</option>)}
+            </select>
+            <label className="text-[10px] text-gray-500 flex items-center gap-0.5">
+              Putar
+              <input
+                type="number"
+                className="input input-bordered input-xs w-12 text-gray-800 bg-white"
+                value={Math.round(b.putar || 0)}
+                onChange={(e) => ubahBentuk(b.id, { putar: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <select
+              className="select select-bordered select-xs w-20 text-gray-800 bg-white"
+              value={String(b.opasitas ?? 0.18)}
+              onChange={(e) => ubahBentuk(b.id, { opasitas: Number(e.target.value) })}
+              aria-label="Ketebalan bentuk"
+            >
+              <option value="0.18">Ringan</option>
+              <option value="0.35">Sedang</option>
+              <option value="0.7">Kuat</option>
+            </select>
+            <button
+              className="btn btn-ghost btn-xs text-stone-400 hover:text-error"
+              onClick={() => hapusBentuk(b.id)}
+              title="Hapus bentuk"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        ))}
       </div>
 
       {!modePratinjau && (
