@@ -97,7 +97,11 @@ export async function GET(req) {
     const wilayahDiminta = String(searchParams.get("wilayah") || "semua");
     const jenisDiminta = String(searchParams.get("jenis") || "semua");
     const wilayah = WILAYAH_VALID.has(wilayahDiminta) ? wilayahDiminta : "semua";
-    const jenis = JENIS_VALID.has(jenisDiminta) ? jenisDiminta : "semua";
+    // Jenis boleh dikirim lebih dari satu, dipisah koma (vendor,jasa).
+    const jenis = jenisDiminta
+      .split(",")
+      .map((j) => j.trim())
+      .filter((j) => JENIS_VALID.has(j) && j !== "semua");
 
     if (!bolehCari(decoded.uid)) {
       return NextResponse.json(

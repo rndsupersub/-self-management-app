@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
 import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, ChevronDown, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3, Filter } from "lucide-react";
 import FilterWilayah from "@/components/FilterWilayah";
+import FilterMulti from "@/components/FilterMulti";
+import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 import {
   bangunPilihanWilayah,
   cocokWilayah,
@@ -40,8 +42,8 @@ export default function VendorManager({
   const [showKelolaPertanyaan, setShowKelolaPertanyaan] = useState(false);
   const [showKelolaTujuan, setShowKelolaTujuan] = useState(false);
 
-  const [filterKategori, setFilterKategori] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterKategori, setFilterKategori] = useState([]);
+  const [filterStatus, setFilterStatus] = useState([]);
   const [filterWilayah, setFilterWilayah] = useState(FILTER_WILAYAH_KOSONG);
   const [modeTampilan, setModeTampilan] = useState("besar");
 
@@ -69,8 +71,8 @@ export default function VendorManager({
   const pilihanWilayah = useMemo(() => bangunPilihanWilayah(vendorList, filterWilayah), [vendorList, filterWilayah]);
 
   const filteredVendor = vendorList.filter((v) => {
-    if (filterKategori !== "all" && v.kategoriId !== filterKategori) return false;
-    if (filterStatus !== "all" && v.status !== filterStatus) return false;
+    if (!cocokPilihan(v.kategoriId, filterKategori)) return false;
+    if (!cocokPilihan(v.status, filterStatus)) return false;
     if (adaFilterWilayah(filterWilayah) && !cocokWilayah(v, filterWilayah)) return false;
     return true;
   });
@@ -361,16 +363,22 @@ export default function VendorManager({
         <div className="card-body p-3 space-y-2">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs font-semibold text-gray-500 flex items-center gap-1"><Filter size={12}/> Filter</span>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterKategori} onChange={(e) => setFilterKategori(e.target.value)} aria-label="Filter kategori vendor">
-              <option value="all">Semua Kategori</option>
-              {kategoriVendorList.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
-            </select>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} aria-label="Filter status vendor">
-              <option value="all">Semua Status</option>
-              {STATUS_VENDOR.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-            {(filterKategori !== "all" || filterStatus !== "all" || adaFilterWilayah(filterWilayah)) && (
-              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterKategori("all"); setFilterStatus("all"); setFilterWilayah(FILTER_WILAYAH_KOSONG); }}><X size={12} className="mr-1"/> Reset semua</button>
+            <FilterMulti
+              label="Kategori"
+              labelSemua="Semua Kategori"
+              pilihan={kategoriVendorList.map((k) => ({ id: k.id, label: k.label }))}
+              nilai={filterKategori}
+              onChange={setFilterKategori}
+            />
+            <FilterMulti
+              label="Status"
+              labelSemua="Semua Status"
+              pilihan={STATUS_VENDOR.map((s) => ({ id: s.id, label: s.label }))}
+              nilai={filterStatus}
+              onChange={setFilterStatus}
+            />
+            {(daftarPilihan(filterKategori).length > 0 || daftarPilihan(filterStatus).length > 0 || adaFilterWilayah(filterWilayah)) && (
+              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterKategori([]); setFilterStatus([]); setFilterWilayah(FILTER_WILAYAH_KOSONG); }}><X size={12} className="mr-1"/> Reset semua</button>
             )}
             <div className="ml-auto flex items-center gap-2">
               <div className="join" data-html2canvas-ignore="true" role="group" aria-label="Mode tampilan">

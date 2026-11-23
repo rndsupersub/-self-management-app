@@ -6,6 +6,8 @@ import { HOLIDAYS } from "@/lib/holidays";
 import { generateId, DEFAULT_KATEGORI_KEGIATAN, WARNA_OPTIONS, getKategoriStyle, formatRentang } from "@/lib/pekerjaanData";
 import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowRight, FileText, Save, List, Circle, Eye, EyeOff } from "lucide-react";
 import KelolaLabelKegiatan from "@/components/KelolaLabelKegiatan";
+import FilterMulti from "@/components/FilterMulti";
+import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -37,9 +39,9 @@ export default function KalenderPekerjaan({
   const [selectEnd, setSelectEnd] = useState(null);
   const [showForm, setShowForm] = useState(false);
 
-  const [filterPrioritas, setFilterPrioritas] = useState("all");
-  const [filterSumber, setFilterSumber] = useState("all");
-  const [filterKategori, setFilterKategori] = useState("all");
+  const [filterPrioritas, setFilterPrioritas] = useState([]);
+  const [filterSumber, setFilterSumber] = useState([]);
+  const [filterKategori, setFilterKategori] = useState([]);
 
   const [formData, setFormData] = useState({
     judul: "",
@@ -55,9 +57,9 @@ export default function KalenderPekerjaan({
 
   const filteredKegiatan = useMemo(() => {
     return kegiatan.filter((k) => {
-      if (filterPrioritas !== "all" && k.prioritas !== filterPrioritas) return false;
-      if (filterSumber !== "all" && k.sumber !== filterSumber) return false;
-      if (filterKategori !== "all" && k.kategori !== filterKategori) return false;
+      if (!cocokPilihan(k.prioritas, filterPrioritas)) return false;
+      if (!cocokPilihan(k.sumber, filterSumber)) return false;
+      if (!cocokPilihan(k.kategori, filterKategori)) return false;
       return true;
     });
   }, [kegiatan, filterPrioritas, filterSumber, filterKategori]);
@@ -275,20 +277,29 @@ export default function KalenderPekerjaan({
         <div className="card-body p-3">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs font-semibold text-gray-500">Filter:</span>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterKategori} onChange={(e) => setFilterKategori(e.target.value)}>
-              <option value="all">Semua Kategori</option>
-              {kategoriList.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
-            </select>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterPrioritas} onChange={(e) => setFilterPrioritas(e.target.value)}>
-              <option value="all">Semua Prioritas</option>
-              {prioritasList.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-            </select>
-            <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterSumber} onChange={(e) => setFilterSumber(e.target.value)}>
-              <option value="all">Semua Sumber</option>
-              {sumberList.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-            {(filterPrioritas !== "all" || filterSumber !== "all" || filterKategori !== "all") && (
-              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterPrioritas("all"); setFilterSumber("all"); setFilterKategori("all"); }}><X size={14} /> Reset</button>
+            <FilterMulti
+              label="Kategori"
+              labelSemua="Semua Kategori"
+              pilihan={kategoriList.map((k) => ({ id: k.id, label: k.label }))}
+              nilai={filterKategori}
+              onChange={setFilterKategori}
+            />
+            <FilterMulti
+              label="Prioritas"
+              labelSemua="Semua Prioritas"
+              pilihan={prioritasList.map((p) => ({ id: p.id, label: p.label }))}
+              nilai={filterPrioritas}
+              onChange={setFilterPrioritas}
+            />
+            <FilterMulti
+              label="Sumber"
+              labelSemua="Semua Sumber"
+              pilihan={sumberList.map((s) => ({ id: s.id, label: s.label }))}
+              nilai={filterSumber}
+              onChange={setFilterSumber}
+            />
+            {(daftarPilihan(filterPrioritas).length > 0 || daftarPilihan(filterSumber).length > 0 || daftarPilihan(filterKategori).length > 0) && (
+              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterPrioritas([]); setFilterSumber([]); setFilterKategori([]); }}><X size={14} /> Reset</button>
             )}
             <div className="ml-auto flex items-center gap-1">
               <KelolaLabelKegiatan

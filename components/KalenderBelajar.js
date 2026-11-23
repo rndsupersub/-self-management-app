@@ -5,6 +5,8 @@ import { useState, useMemo } from "react";
 import { HOLIDAYS } from "@/lib/holidays";
 import { getLabelKategoriById, getDefaultTargetByKategori, formatTanggal, getWarnaStyle, getWarnaToolByPath } from "@/lib/belajarData";
 import { Target, CheckCircle2, Pencil, Save, X, Link as LinkIcon, Calendar, FileText, ArrowRight, Info, MessageSquare, FolderOpen, AlertTriangle, Plus, Trash2 } from "lucide-react";
+import FilterMulti from "@/components/FilterMulti";
+import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 import { generateId } from "@/lib/pekerjaanData";
 
 export default function KalenderBelajar({
@@ -25,8 +27,8 @@ export default function KalenderBelajar({
   const [editTargetMode, setEditTargetMode] = useState(false);
   const [targetInput, setTargetInput] = useState("");
 
-  const [filterSubKategori, setFilterSubKategori] = useState("all");
-  const [filterTool, setFilterTool] = useState("all");
+  const [filterSubKategori, setFilterSubKategori] = useState([]);
+  const [filterTool, setFilterTool] = useState([]);
 
   const [formData, setFormData] = useState({ subKategoriId: "", toolId: "", fiturId: "", partId: "", catatan: "", gdriveUrl: "" });
   const [errorMsg, setErrorMsg] = useState("");
@@ -75,8 +77,8 @@ export default function KalenderBelajar({
         if (!log) return;
         if (log.kategoriId !== kategoriId) return;
         if (subKategoriId && log.subKategoriId !== subKategoriId) return;
-        if (filterSubKategori !== "all" && log.subKategoriId !== filterSubKategori) return;
-        if (filterTool !== "all" && log.toolId !== filterTool) return;
+        if (!cocokPilihan(log.subKategoriId, filterSubKategori)) return;
+        if (!cocokPilihan(log.toolId, filterTool)) return;
         result.push({ ...log, tanggal });
       });
     });
@@ -410,16 +412,24 @@ export default function KalenderBelajar({
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><FolderOpen size={16}/> Semua Catatan Belajar --- {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()} ({logBulanIni.length})</h3>
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-xs text-gray-500">Filter:</span>
-              <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterSubKategori} onChange={(e) => { setFilterSubKategori(e.target.value); setFilterTool("all"); }}>
-                <option value="all">Semua Sub-Kategori</option>
-                {subKategoriList.map((s) => s && <option key={s.id} value={s.id}>{s.nama}</option>)}
-              </select>
-              <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterTool} onChange={(e) => setFilterTool(e.target.value)}>
-                <option value="all">Semua Tool</option>
-                {allToolsInKategori.filter((t) => filterSubKategori === "all" || t.subKategoriId === filterSubKategori).map((t) => t && <option key={t.id} value={t.id}>{t.nama}</option>)}
-              </select>
-              {(filterSubKategori !== "all" || filterTool !== "all") && (
-                <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterSubKategori("all"); setFilterTool("all"); }}><X size={14} /> Reset</button>
+              <FilterMulti
+                label="Sub-Kategori"
+                labelSemua="Semua Sub-Kategori"
+                pilihan={subKategoriList.filter(Boolean).map((s) => ({ id: s.id, label: s.nama }))}
+                nilai={filterSubKategori}
+                onChange={(baru) => { setFilterSubKategori(baru); setFilterTool([]); }}
+              />
+              <FilterMulti
+                label="Tool"
+                labelSemua="Semua Tool"
+                pilihan={allToolsInKategori
+                  .filter((t) => t && cocokPilihan(t.subKategoriId, filterSubKategori))
+                  .map((t) => ({ id: t.id, label: t.nama }))}
+                nilai={filterTool}
+                onChange={setFilterTool}
+              />
+              {(daftarPilihan(filterSubKategori).length > 0 || daftarPilihan(filterTool).length > 0) && (
+                <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterSubKategori([]); setFilterTool([]); }}><X size={14} /> Reset</button>
               )}
             </div>
           </div>

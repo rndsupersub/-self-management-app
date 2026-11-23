@@ -5,6 +5,8 @@ import { useState, useMemo } from "react";
 import { METODE_KUNJUNGAN, STATUS_VENDOR, STATUS_KUNJUNGAN, PROGRESS_KUNJUNGAN, SATUAN_MOQ, DEFAULT_TUJUAN_KUNJUNGAN, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getStatusKunjungan, getProgressKunjungan, getLabelStatusKunjungan, getWarnaStatusKunjungan, getLabelProgressKunjungan, getWarnaProgressKunjungan } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
 import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, FolderOpen, Plus } from "lucide-react";
+import FilterMulti from "@/components/FilterMulti";
+import { cocokPilihan } from "@/lib/filterMulti";
 
 export default function VendorDetail({
   vendor, kategoriVendorList = [], tujuanKunjunganList = DEFAULT_TUJUAN_KUNJUNGAN, fieldEvaluasiVendorList = DEFAULT_FIELD_EVALUASI_VENDOR, periodeEvaluasiList = DEFAULT_PERIODE_EVALUASI, onUpdateVendor, onDeleteVendor, onBack,
@@ -12,7 +14,7 @@ export default function VendorDetail({
   const daftarTujuan = Array.isArray(tujuanKunjunganList) ? tujuanKunjunganList : [];
   const [showFormKunjungan, setShowFormKunjungan] = useState(false);
   const [editingKunjunganId, setEditingKunjunganId] = useState(null);
-  const [filterTujuan, setFilterTujuan] = useState("all");
+  const [filterTujuan, setFilterTujuan] = useState([]);
   const [confirmHapusVendor, setConfirmHapusVendor] = useState(false);
 
   const [showEditProfil, setShowEditProfil] = useState(false);
@@ -80,7 +82,7 @@ export default function VendorDetail({
   const setIsEditingEval = (nilai) => setEditEvalDraft({ kunci: kunciEval, nilai });
 
   const filteredLog = (vendor?.logKunjungan || []).filter((log) => {
-    if (filterTujuan !== "all" && log.tujuanId !== filterTujuan) return false;
+    if (!cocokPilihan(log.tujuanId, filterTujuan)) return false;
     return true;
   });
 
@@ -515,10 +517,13 @@ export default function VendorDetail({
           <div className="flex flex-wrap justify-between items-center mb-3 gap-2">
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1"><Calendar size={16}/> Log Kunjungan ({vendor.logKunjungan?.length || 0})</h3>
             <div className="flex gap-1" data-html2canvas-ignore="true">
-              <select className="select select-bordered select-xs text-gray-800 bg-white" value={filterTujuan} onChange={(e) => setFilterTujuan(e.target.value)}>
-                <option value="all">Semua Tujuan</option>
-                {daftarTujuan.map((t) => <option key={t.id} value={t.id}>{cleanText(t.label)}</option>)}
-              </select>
+              <FilterMulti
+                label="Tujuan"
+                labelSemua="Semua Tujuan"
+                pilihan={daftarTujuan.map((t) => ({ id: t.id, label: cleanText(t.label) }))}
+                nilai={filterTujuan}
+                onChange={setFilterTujuan}
+              />
               <button className="btn btn-primary btn-xs" onClick={() => { resetFormKunjungan(); setShowFormKunjungan(true); }}><Plus size={14} className="mr-1"/> Tambah</button>
             </div>
           </div>

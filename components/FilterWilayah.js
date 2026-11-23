@@ -2,13 +2,12 @@
 "use client";
 
 // Filter wilayah bertingkat (negara -> provinsi -> kota) yang dibangun dari
-// data yang benar-benar ada. Dipakai di Direktori dan Vendor supaya keduanya
-// punya cara yang sama untuk menyaring lokasi.
+// data yang benar-benar ada. Tiap tingkat bisa pilih satu atau beberapa
+// sekaligus. Dipakai di Direktori dan Vendor supaya caranya sama.
 
 import { MapPin, RotateCcw } from "lucide-react";
-
-const KELAS_SELECT =
-  "select select-bordered select-xs w-full text-stone-800 bg-white min-w-0";
+import FilterMulti from "@/components/FilterMulti";
+import { daftarPilihan } from "@/lib/filterMulti";
 
 export default function FilterWilayah({
   pilihan,
@@ -21,7 +20,12 @@ export default function FilterWilayah({
   const negara = pilihan?.negara || [];
   const provinsi = pilihan?.provinsi || [];
   const kota = pilihan?.kota || [];
-  const aktif = Boolean(nilai?.negara || nilai?.provinsi || nilai?.kota);
+
+  const nilaiNegara = daftarPilihan(nilai?.negara);
+  const nilaiProvinsi = daftarPilihan(nilai?.provinsi);
+  const nilaiKota = daftarPilihan(nilai?.kota);
+  const aktif =
+    nilaiNegara.length > 0 || nilaiProvinsi.length > 0 || nilaiKota.length > 0;
 
   return (
     <div className="rounded-lg border border-stone-200 bg-stone-50/70 p-2" data-html2canvas-ignore="true">
@@ -30,60 +34,52 @@ export default function FilterWilayah({
           <MapPin size={12} /> {label}
         </span>
 
-        <select
-          className={KELAS_SELECT}
-          value={nilai?.negara || ""}
-          onChange={(e) =>
-            onChange({ negara: e.target.value, provinsi: "", kota: "" })
+        <FilterMulti
+          label="Negara"
+          labelSemua="Semua negara"
+          lebar={150}
+          pilihan={negara.map((n) => ({ id: n.nama, label: n.nama, jumlah: n.jumlah }))}
+          nilai={nilaiNegara}
+          onChange={(baru) => onChange({ negara: baru, provinsi: [], kota: [] })}
+        />
+
+        <FilterMulti
+          label="Provinsi"
+          labelSemua={provinsi.length ? "Semua provinsi" : "Pilih negara dulu"}
+          lebar={190}
+          pilihan={provinsi.map((p) => ({
+            id: p.nama,
+            kunci: `${p.negara}-${p.nama}`,
+            label: p.nama,
+            jumlah: p.jumlah,
+          }))}
+          nilai={nilaiProvinsi}
+          onChange={(baru) =>
+            onChange({ negara: nilaiNegara, provinsi: baru, kota: [] })
           }
-          aria-label="Filter negara"
-          style={{ maxWidth: 150 }}
-        >
-          <option value="">Semua negara</option>
-          {negara.map((n) => (
-            <option key={n.nama} value={n.nama}>
-              {n.nama} ({n.jumlah})
-            </option>
-          ))}
-        </select>
+        />
 
-        <select
-          className={KELAS_SELECT}
-          value={nilai?.provinsi || ""}
-          onChange={(e) => onChange({ ...nilai, provinsi: e.target.value, kota: "" })}
-          aria-label="Filter provinsi"
-          disabled={provinsi.length === 0}
-          style={{ maxWidth: 190 }}
-        >
-          <option value="">Semua provinsi</option>
-          {provinsi.map((p) => (
-            <option key={`${p.negara}-${p.nama}`} value={p.nama}>
-              {p.nama} ({p.jumlah})
-            </option>
-          ))}
-        </select>
-
-        <select
-          className={KELAS_SELECT}
-          value={nilai?.kota || ""}
-          onChange={(e) => onChange({ ...nilai, kota: e.target.value })}
-          aria-label="Filter kota"
-          disabled={kota.length === 0}
-          style={{ maxWidth: 170 }}
-        >
-          <option value="">Semua kota</option>
-          {kota.map((k) => (
-            <option key={`${k.negara}-${k.provinsi}-${k.nama}`} value={k.nama}>
-              {k.nama} ({k.jumlah})
-            </option>
-          ))}
-        </select>
+        <FilterMulti
+          label="Kota"
+          labelSemua={kota.length ? "Semua kota" : "Pilih provinsi dulu"}
+          lebar={170}
+          pilihan={kota.map((k) => ({
+            id: k.nama,
+            kunci: `${k.negara}-${k.provinsi}-${k.nama}`,
+            label: k.nama,
+            jumlah: k.jumlah,
+          }))}
+          nilai={nilaiKota}
+          onChange={(baru) =>
+            onChange({ negara: nilaiNegara, provinsi: nilaiProvinsi, kota: baru })
+          }
+        />
 
         {aktif && (
           <button
             type="button"
             className="btn btn-ghost btn-xs text-stone-500 hover:text-stone-800"
-            onClick={() => onChange({ negara: "", provinsi: "", kota: "" })}
+            onClick={() => onChange({ negara: [], provinsi: [], kota: [] })}
             title="Hapus filter wilayah"
           >
             <RotateCcw size={11} className="mr-1" /> Reset

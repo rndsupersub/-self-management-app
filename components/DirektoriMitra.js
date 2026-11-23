@@ -60,6 +60,8 @@ import {
 import PanduanCari from "@/components/PanduanCari";
 import TambahDariMaps from "@/components/TambahDariMaps";
 import FilterWilayah from "@/components/FilterWilayah";
+import FilterMulti from "@/components/FilterMulti";
+import { togglePilihan } from "@/lib/filterMulti";
 import {
   FILTER_WILAYAH_KOSONG,
   adaFilterWilayah,
@@ -496,7 +498,7 @@ export default function DirektoriMitra({
   // ---- pencarian ----
   const [q, setQ] = useState("");
   const [wilayah, setWilayah] = useState(WILAYAH_DEFAULT);
-  const [jenis, setJenis] = useState("semua");
+  const [jenis, setJenis] = useState([]);
   const [hasil, setHasil] = useState([]);
   const [mencari, setMencari] = useState(false);
   const [pesan, setPesan] = useState("");
@@ -505,8 +507,8 @@ export default function DirektoriMitra({
 
   // ---- daftar tersimpan ----
   const [qTersimpan, setQTersimpan] = useState("");
-  const [jenisTersimpan, setJenisTersimpan] = useState("semua");
-  const [statusTersimpan, setStatusTersimpan] = useState("semua");
+  const [jenisTersimpan, setJenisTersimpan] = useState([]);
+  const [statusTersimpan, setStatusTersimpan] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(buatMitraKosong());
@@ -573,7 +575,11 @@ export default function DirektoriMitra({
           throw new Error("Sesi login tidak ditemukan. Muat ulang halaman lalu login lagi.");
         }
         const token = await user.getIdToken();
-        const param = new URLSearchParams({ q: teks, wilayah, jenis });
+        const param = new URLSearchParams({
+          q: teks,
+          wilayah,
+          jenis: jenis.length > 0 ? jenis.join(",") : "semua",
+        });
         const res = await fetch(`/api/direktori/cari?${param}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
@@ -857,7 +863,7 @@ export default function DirektoriMitra({
 
               <div className="flex flex-wrap gap-1 items-center">
                 <span className="text-xs text-stone-400 mr-1">Jenis:</span>
-                <button className={KELAS_CHIP(jenis === "semua")} onClick={() => setJenis("semua")}>
+                <button className={KELAS_CHIP(jenis.length === 0)} onClick={() => setJenis([])}>
                   Semua
                 </button>
                 {JENIS_MITRA.map((j) => {
@@ -865,8 +871,10 @@ export default function DirektoriMitra({
                   return (
                     <button
                       key={j.id}
-                      className={KELAS_CHIP(jenis === j.id)}
-                      onClick={() => setJenis(j.id)}
+                      className={KELAS_CHIP(jenis.includes(j.id))}
+                      onClick={() => setJenis(togglePilihan(jenis, j.id))}
+                      aria-pressed={jenis.includes(j.id)}
+                      title="Bisa pilih lebih dari satu"
                     >
                       <Ikon size={12} className="mr-1" /> {j.label}
                     </button>
@@ -1031,32 +1039,20 @@ export default function DirektoriMitra({
                     aria-label="Cari di direktori saya"
                   />
                 </div>
-                <select
-                  className="select select-bordered select-xs text-stone-800 bg-white"
-                  value={jenisTersimpan}
-                  onChange={(e) => setJenisTersimpan(e.target.value)}
-                  aria-label="Filter jenis entri tersimpan"
-                >
-                  <option value="semua">Semua jenis</option>
-                  {JENIS_MITRA.map((j) => (
-                    <option key={j.id} value={j.id}>
-                      {j.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="select select-bordered select-xs text-stone-800 bg-white"
-                  value={statusTersimpan}
-                  onChange={(e) => setStatusTersimpan(e.target.value)}
-                  aria-label="Filter status entri tersimpan"
-                >
-                  <option value="semua">Semua status</option>
-                  {STATUS_MITRA.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
+                <FilterMulti
+                  label="Jenis"
+                  labelSemua="Semua jenis"
+                  pilihan={JENIS_MITRA.map((j) => ({ id: j.id, label: j.label }))}
+                  nilai={jenisTersimpan}
+                  onChange={setJenisTersimpan}
+                />
+                <FilterMulti
+                  label="Status"
+                  labelSemua="Semua status"
+                  pilihan={STATUS_MITRA.map((s) => ({ id: s.id, label: s.label }))}
+                  nilai={statusTersimpan}
+                  onChange={setStatusTersimpan}
+                />
                 <span className="text-xs text-stone-400">{tersimpanTampil.length} entri</span>
               </div>
 
