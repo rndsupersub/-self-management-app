@@ -48,6 +48,7 @@ import {
 
 // === TAMBAHAN BARU: Import helper buat reminder proyek ===
 import { REMINDER_PROYEK_CONFIG } from "@/lib/telegramReminderProyek";
+import { cariJuzSurat } from "@/lib/hafalanData";
 import { verifyTelegramWebhook } from "@/lib/telegramSecurity";
 import { syncUserToSheets } from "@/lib/sheetsSync";
 import { deriveWalletId, getKategoriList, terapkanAksiTransaksi } from "@/lib/keuanganData";
@@ -580,10 +581,30 @@ async function handleWizardCallback(firestore, chatId, data, state, userData, me
     try {
       await saveWizard(firestore, userData, state);
       await clearState(firestore, chatId);
+
+      // Hafalan: langsung buka mode voice note, biar user nggak perlu nebak
+      // bahwa rekaman bisa dikirim ke bot.
+      const vnInfo =
+        state.menuId === "hafalan"
+          ? cariJuzSurat(state.fields?.suratId)
+          : null;
+      if (vnInfo) {
+        await setState(firestore, chatId, {
+          mode: "vn",
+          suratId: vnInfo.surat.id,
+          juzId: vnInfo.juzId,
+          suratLabel: vnInfo.surat.label,
+        });
+      }
+
+      const teks = vnInfo
+        ? `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\n🎙️ <b>Sekarang lo bisa langsung kirim voice note</b> buat surat <b>${vnInfo.surat.label}</b>.\nTekan ikon 🎙️ dan rekam hafalan lo — hasilnya muncul di web (Hafalan → surat → Rekaman Hafalan).\n\nMau backup ke Google Sheets juga?`
+        : `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\nData udah masuk ke website. Mau backup ke Google Sheets sekarang?`;
+
       await editTelegramMessage(
         chatId,
         messageId,
-        `<b>✅ Tersimpan!</b>\n\nMenu: <b>${config.label}</b>\n\nData udah masuk ke website. Mau backup ke Google Sheets sekarang?`,
+        teks,
         [[{ text: "📊 Sync ke Sheets", callback_data: `syncnow|${userData._uid}` }]]
       );
     } catch (err) {
@@ -1606,7 +1627,21 @@ async function handleSubMenuPick(firestore, chatId, messageId, userData, command
 
 // ========== HANDLE PESAN TEKS ==========
 async function handleTextMessage(firestore, chatId, text, userData, messageId, fromData) {
-  const state = await getState(firestore, chatId);
+  let state = await getState(firestore, chatId);
+
+  // Mode voice note hafalan: setelah simpan hafalan atau /vn, user bisa
+  // langsung kirim VN tanpa memulai wizard lagi. Teks biasa cuma diingetin.
+  if (state && state.mode === "vn") {
+    if (!text.startsWith("/")) {
+      await sendTelegramMessage(
+        chatId,
+        `🎙️ <b>Mode voice note hafalan</b>\n\n📖 Surat: <b>${state.suratLabel || state.suratId}</b>\n\nKirim voice note (ikon 🎙️) buat simpan rekaman. Ketik /help kalau mau keluar dari mode ini.`
+      );
+      return;
+    }
+    await clearState(firestore, chatId);
+    state = null;
+  }
 
   // ==== STATE AKTIF: CEK VENDOR vs WIZARD BIASA ====
   if (state && state.phase && VENDOR_MENUS.includes(state.menuId)) {
@@ -1670,6 +1705,9 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   const command = COMMAND_ALIAS[rawCommand] || rawCommand;
 
   if (command === "start" || command === "help") {
+    // Daftarkan ulang menu command: user lama tetap dapat command baru
+    // (/vn, /pause, /resume, /dashboard) tanpa harus link ulang.
+    await setBotCommands(BOT_COMMANDS);
     const { text, keyboard } = buildHelpView("root");
     await sendTelegramWithButtons(chatId, text, keyboard);
     return;
@@ -1686,6 +1724,40 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   if (command === "menu_list") {
     const { text, keyboard } = buildMenuListView(userData);
     await sendTelegramWithButtons(chatId, text, keyboard);
+    return;
+  }
+
+  // ==== VOICE NOTE HAFALAN (TANPA WIZARD) ====
+  if (command === "vn") {
+    const suratId = (payload || "").split(/\s+/)[0];
+    if (!suratId) {
+      await sendTelegramMessage(
+        chatId,
+        `🎙️ <b>Voice Note Hafalan</b>\n\nKirim VN lewat menu /hafalan (paling gampang), atau pakai format:\n<code>/vn SURAT_ID</code>\n\nContoh: <code>/vn juz30_annaba</code>\n\n<i>ID surat kelihatan di link web: /dashboard/hafalan/juz_30/juz30_annaba</i>`
+      );
+      return;
+    }
+
+    const info = cariJuzSurat(suratId);
+    if (!info) {
+      await sendTelegramMessage(
+        chatId,
+        `❌ Surat <code>${suratId}</code> nggak ketemu.\n\nContoh ID yang benar: <code>juz1_alfatihah</code>, <code>juz30_annaba</code>.\nAtau langsung pakai /hafalan.`
+      );
+      return;
+    }
+
+    await setState(firestore, chatId, {
+      mode: "vn",
+      suratId: info.surat.id,
+      juzId: info.juzId,
+      suratLabel: info.surat.label,
+      updatedAt: new Date().toISOString(),
+    });
+    await sendTelegramMessage(
+      chatId,
+      `🎙️ <b>Siap terima voice note</b>\n\n📖 Surat: <b>${info.surat.label}</b>\n📚 ${info.juzLabel}\n\nSekarang tekan ikon 🎙️ dan kirim rekaman hafalan lo. Bisa kirim beberapa kali.`
+    );
     return;
   }
 
@@ -2078,6 +2150,17 @@ async function handleCallback(callbackQuery, userData, firestore) {
     return;
   }
 
+  // ==== SELESAI MODE VOICE NOTE ====
+  if (action === "vn_selesai") {
+    await clearState(firestore, chatId);
+    await editTelegramMessage(
+      chatId,
+      messageId,
+      `✅ <b>Mode voice note ditutup.</b>\n\nKetik /hafalan buat catat bacaan baru, atau /help buat menu lain.`
+    );
+    return;
+  }
+
   // ==== SYNC NOW ====
   if (action === "syncnow") {
     await editTelegramMessage(chatId, messageId, "📊 Sync dijalankan...");
@@ -2103,6 +2186,17 @@ async function handleCallback(callbackQuery, userData, firestore) {
   // ==== REMINDER CALLBACK (PRIBADI) ====
   if (action.startsWith("rem_")) {
     const { action: remAction, menuId } = parseReminderCallback(data);
+
+    if (remAction === "rem_status") {
+      const settings = userData.reminderSettings || {};
+      await editTelegramMessage(
+        chatId,
+        messageId,
+        buildStatusReminderText(settings, userData),
+        buildStatusReminderButtons(settings, userData)
+      );
+      return;
+    }
 
     if (remAction === "rem_toggle" && menuId) {
       const settings = userData.reminderSettings || {};
@@ -2223,10 +2317,16 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (remAction === "rem_belum" && menuId) {
+      // Tandai lapis 1–3 sudah dibaca. Dulu log nggak ditulis, jadi tombol
+      // "Belum Mau Mulai" tetap dibarengi reminder yang sama tiap menit.
+      reminderIds.forEach((id) => {
+        logHariIni[id] = { ...(logHariIni[id] || {}), 1: true, 2: true, 3: true };
+      });
+      await simpanLog();
       await editTelegramMessage(
         chatId,
         messageId,
-        `🚫 <b>Oke, dicatat.</b>\n\nReminder buat <b>${reminderLabel}</b> bakal dikirim lagi nanti.\n\n<i>Semangat, bos!</i>`
+        `🚫 <b>Oke, dicatat.</b>\n\nReminder sebelum mulai buat <b>${reminderLabel}</b> dimatiin.\nKalau sampai jam mulai belum dikerjain, bot bakal nawarin <b>pindah jadwal</b> atau skip.\n\n<i>Semangat, bos!</i>`
       );
       return;
     }
@@ -2259,7 +2359,7 @@ async function handleCallback(callbackQuery, userData, firestore) {
         await editTelegramMessage(
           chatId,
           messageId,
-          `⚠️ <b>${reminderLabel}</b> nggak ada di jadwal hari ini.\n\nCek <b>Kelola Jadwal</b> di web ya.`
+          `⚠️ <b>${reminderLabel}</b> nggak ada di jadwal hari ini.\n\nJadi belum bisa dipindah sekarang. Cek <b>Kelola Jadwal</b> di web, atau ketik /reminder buat lihat aktivitas yang ada hari ini.`
         );
         return;
       }
@@ -2280,9 +2380,13 @@ async function handleCallback(callbackQuery, userData, firestore) {
     }
 
     if (remAction === "rem_slot" && menuId) {
-      const index = Number(parts[2]);
+      const pilihan = parts[2] || "";
       const info = getPindahInfo(userData, reminderKey, todayLocal);
-      const slot = info?.slots?.[index];
+      // Versi baru ngirim jam ("21:30") supaya nggak geser kalau daftar slot
+      // berubah; pesan lama yang masih pakai index tetap didukung.
+      const slot = /^\d{1,2}:\d{2}$/.test(pilihan)
+        ? info?.slots?.find((s) => s.mulai === pilihan)
+        : info?.slots?.[Number(pilihan)];
 
       // Fail-closed: slot dihitung ulang dari jadwal terbaru. Kalau jadwal
       // sempat berubah, jangan pindah ke jam yang udah nggak kosong.
@@ -2570,12 +2674,18 @@ export async function POST(req) {
 
       const state = await getState(firestore, chatId);
 
-      if (state && state.menuId === "hafalan") {
-        const suratId = state.fields?.suratId;
-        const juzId = state.fields?.juzId;
+      // Terima VN saat wizard hafalan lagi jalan ATAU saat mode "vn"
+      // (setelah simpan hafalan / perintah /vn).
+      if (state && (state.menuId === "hafalan" || state.mode === "vn")) {
+        const modeVN = state.mode === "vn";
+        const suratId = modeVN ? state.suratId : state.fields?.suratId;
+        const juzId = modeVN ? state.juzId : state.fields?.juzId;
 
         if (!suratId || !juzId) {
-          await sendTelegramMessage(chatId, `⚠️ Pilih surat dulu. Ketik /hafalan.`);
+          await sendTelegramMessage(
+            chatId,
+            `⚠️ <b>Pilih surat dulu.</b>\n\nKetik /hafalan → pilih Juz & Surat → baru kirim voice note.\nAtau langsung: <code>/vn juz30_annaba</code>`
+          );
           return NextResponse.json({ ok: true });
         }
 
@@ -2602,15 +2712,18 @@ export async function POST(req) {
           { merge: true }
         );
 
-        await sendTelegramMessage(
+        const suratInfo = cariJuzSurat(suratId);
+        await sendTelegramWithButtons(
           chatId,
-          `✅ <b>Voice Note tersimpan!</b>\n\n📖 Surat: <b>${suratId}</b>\n⏱️ Durasi: ${duration} detik\n📅 ${todayLocal}\n\n<i>Buka web → Hafalan → ${suratId} → Rekaman Hafalan</i>`
+          `✅ <b>Voice Note tersimpan!</b>\n\n📖 Surat: <b>${suratInfo?.surat?.label || suratId}</b>\n⏱️ Durasi: ${duration} detik\n📅 ${todayLocal}\n\nBuka web → <b>Hafalan</b> → surat ini → <b>Rekaman Hafalan</b>.\n\nKirim VN lagi kalau mau, atau tekan Selesai.`,
+          [[{ text: "✅ Selesai", callback_data: "vn_selesai" }]]
         );
         return NextResponse.json({ ok: true });
       } else {
         await sendTelegramMessage(
           chatId,
-          `⚠️ <b>Kirim VN lewat menu /hafalan dulu ya.</b>\n\n1. Ketik /hafalan\n2. Pilih Juz & Surat\n3. Baru kirim VN\n\n<i>Atau kalo mau simpen VN ke surat tertentu tanpa wizard, kirim format:</i>\n<code>/vn suratId</code>\n\nContoh: <code>/vn 1_alfatihah</code>`
+          `🎙️ <b>Voice note hafalan</b>\n\nCara paling gampang:\n1. Ketik /hafalan\n2. Pilih Juz & Surat\n3. Setelah tersimpan, langsung kirim voice note\n\nAtau tanpa wizard:\n<code>/vn juz30_annaba</code>\n
+<i>ID surat kelihatan di link web Hafalan.</i>`
         );
         return NextResponse.json({ ok: true });
       }

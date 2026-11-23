@@ -262,7 +262,10 @@ export default function Schedule({
         ) : (
           <div className="space-y-0.5">
             {ditampilkan.map((act, index) => {
-              const isSelesai = progressHariIni[act.id]?.selesai || false;
+              // Item lama bisa nggak punya `id` (cuma _kunci), jadi pakai
+              // kunci yang sama dengan tombol Mulai — dulu centangnya nggak muncul.
+              const kunciProgress = act.id || act._kunci;
+              const isSelesai = progressHariIni[kunciProgress]?.selesai || false;
               const labelBersih = bersihkanLabel(act.label);
               const { mulai, selesai } = parseJamJadwal(act);
               const a = jamKeMenit(mulai);

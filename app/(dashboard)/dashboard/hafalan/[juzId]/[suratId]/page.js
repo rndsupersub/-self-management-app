@@ -1,7 +1,7 @@
 // app/(dashboard)/dashboard/hafalan/[juzId]/[suratId]/page.js
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
@@ -9,6 +9,16 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { DEFAULT_ACTIVITIES } from "@/lib/defaultData";
 import { DEFAULT_JENIS_KESALAHAN, formatTanggal, formatTanggalPendek, getTotalKesalahan, formatKesalahan } from "@/lib/hafalanData";
 import { BookOpen, Home, Library, FileText, Play, Square, Mic, Trash2, CheckCircle2, Clock, Pencil, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"; // <-- RefreshCw UDAH DITAMBAHIN
+
+// Tanggal lokal (WIB), bukan UTC. Dulu `toISOString()` bikin status hafal yang
+// ditandai jam 00:00–06:59 WIB tercatat di tanggal kemarin.
+function tanggalLokal() {
+  const d = new Date();
+  const tahun = d.getFullYear();
+  const bulan = String(d.getMonth() + 1).padStart(2, "0");
+  const hari = String(d.getDate()).padStart(2, "0");
+  return `${tahun}-${bulan}-${hari}`;
+}
 
 export default function HafalanSuratPage() {
   const [user, setUser] = useState(null);
@@ -22,6 +32,7 @@ export default function HafalanSuratPage() {
   const [catatanInput, setCatatanInput] = useState("");
   const [playingId, setPlayingId] = useState(null);
   const [loadingFileId, setLoadingFileId] = useState(null);
+  const audioRef = useRef(null);
 
   const router = useRouter();
   const params = useParams();
@@ -80,7 +91,7 @@ export default function HafalanSuratPage() {
     if (found) {
       updated[found[0]] = { ...found[1], sudah: false };
     } else {
-      const today = new Date().toISOString().split("T")[0];
+      const today = tanggalLokal();
       updated[today] = updated[today] ? { ...updated[today], suratId, juzId, sudah: true } : { juzId, suratId, halamanMulai: 0, halamanSelesai: 0, sudah: true, catatan: "", updatedAt: new Date().toISOString() };
     }
     setHafalanMembaca(updated);
@@ -96,8 +107,18 @@ export default function HafalanSuratPage() {
     setHafalanVoiceNotes(newVoiceNotes);
   };
 
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setPlayingId(null);
+  };
+
   const handlePlayVoiceNote = async (vn) => {
-    if (playingId === vn.id) { setPlayingId(null); return; }
+    // Tombol kotak = benar-benar berhenti (dulu cuma ganti ikon, suara jalan terus).
+    if (playingId === vn.id) { stopAudio(); return; }
+    stopAudio();
     setLoadingFileId(vn.id);
     try {
       // Endpoint ini sekarang wajib login; token bot tidak lagi dikirim ke browser.
@@ -107,10 +128,16 @@ export default function HafalanSuratPage() {
       });
       const data = await res.json();
       if (data.ok && data.fileUrl) {
-        setPlayingId(vn.id);
         const audio = new Audio(data.fileUrl);
-        audio.play();
-        audio.onended = () => setPlayingId(null);
+        audioRef.current = audio;
+        setPlayingId(vn.id);
+        audio.onended = () => {
+          if (audioRef.current === audio) {
+            audioRef.current = null;
+            setPlayingId(null);
+          }
+        };
+        await audio.play();
       } else {
         alert("Gagal ambil link file: " + (data.error || "Unknown"));
       }
@@ -119,6 +146,8 @@ export default function HafalanSuratPage() {
     }
     setLoadingFileId(null);
   };
+
+  useEffect(() => () => stopAudio(), []);
 
   const sudahHafal = useMemo(() => Object.values(hafalanMembaca || {}).some((e) => e.suratId === suratId && e.sudah === true), [hafalanMembaca, suratId]);
   const riwayatMembaca = useMemo(() => Object.entries(hafalanMembaca || {}).map(([tgl, e]) => ({ tanggal: tgl, ...e })).filter((e) => e.suratId === suratId).sort((a, b) => b.tanggal.localeCompare(a.tanggal)), [hafalanMembaca, suratId]);
