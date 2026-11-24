@@ -110,6 +110,7 @@ export default function BisnisDetailKegiatanPage() {
   // Cari brand & kegiatan dari URL
   const brand = brands.find((b) => b.id === brandId);
   const kegiatan = brand?.kegiatan?.find((k) => k.id === kegId);
+  const vendorList = brand?.vendorList || [];
 
   // ========== SIMPAN BRANDS KE FIRESTORE ==========
   const simpanBrands = async (updatedBrands) => {
@@ -245,6 +246,7 @@ export default function BisnisDetailKegiatanPage() {
         sumberList={sumberList}
         sections={sections}
         kategoriList={kategoriList}
+        vendorList={vendorList}
         onUpdate={handleUpdateKegiatan}
         onDelete={handleDeleteKegiatan}
         onToggleStatus={handleToggleStatus}

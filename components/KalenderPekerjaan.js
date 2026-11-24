@@ -8,6 +8,8 @@ import { Settings, X, Calendar, Info, Pencil, Plus, CheckCircle2, Trash2, ArrowR
 import KelolaLabelKegiatan from "@/components/KelolaLabelKegiatan";
 import FilterMulti from "@/components/FilterMulti";
 import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
+import { getTanggalHariIniLokal } from "@/lib/tanggalLokal";
+import { statusVendorEfektif } from "@/lib/vendorStatus";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -19,6 +21,8 @@ export default function KalenderPekerjaan({
   prioritasList = [],
   sumberList = [],
   kategoriList = DEFAULT_KATEGORI_KEGIATAN,
+  vendorList = [],
+  onBukaVendor,
   onUpdateKategoriList,
   onUpdatePrioritasList,
   onUpdateSumberList,
@@ -42,12 +46,14 @@ export default function KalenderPekerjaan({
   const [filterPrioritas, setFilterPrioritas] = useState([]);
   const [filterSumber, setFilterSumber] = useState([]);
   const [filterKategori, setFilterKategori] = useState([]);
+  const [filterVendor, setFilterVendor] = useState([]);
 
   const [formData, setFormData] = useState({
     judul: "",
     kategori: kategoriList[0]?.id || "design",
     prioritas: prioritasList[0]?.id || "utama",
     sumber: sumberList[0]?.id || "gua",
+    vendorId: "",
     catatan: "",
   });
 
@@ -60,9 +66,10 @@ export default function KalenderPekerjaan({
       if (!cocokPilihan(k.prioritas, filterPrioritas)) return false;
       if (!cocokPilihan(k.sumber, filterSumber)) return false;
       if (!cocokPilihan(k.kategori, filterKategori)) return false;
+      if (!cocokPilihan(k.vendorId, filterVendor)) return false;
       return true;
     });
-  }, [kegiatan, filterPrioritas, filterSumber, filterKategori]);
+  }, [kegiatan, filterPrioritas, filterSumber, filterKategori, filterVendor]);
 
   // --- LOGIKA KALENDER GRID ---
   const generateCalendar = () => {
@@ -123,6 +130,9 @@ export default function KalenderPekerjaan({
       kategori: formData.kategori,
       prioritas: formData.prioritas,
       sumber: formData.sumber,
+      // Relasi ke vendor brand ini: bikin time schedule nyambung ke vendor
+      // (nama + status otomatis), bukan cuma reminder tanggal.
+      vendorId: formData.vendorId || "",
       catatan: formData.catatan,
       tanggalMulai, tanggalSelesai, tanggal: tanggalMulai,
       status: "belum",
@@ -132,7 +142,7 @@ export default function KalenderPekerjaan({
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     onAdd(newKegiatan);
-    setFormData({ judul: "", kategori: kategoriList[0]?.id || "design", prioritas: prioritasList[0]?.id || "utama", sumber: sumberList[0]?.id || "gua", catatan: "" });
+    setFormData({ judul: "", kategori: kategoriList[0]?.id || "design", prioritas: prioritasList[0]?.id || "utama", sumber: sumberList[0]?.id || "gua", vendorId: "", catatan: "" });
     setSelectStart(null); setSelectEnd(null); setShowForm(false);
   };
 
@@ -141,6 +151,31 @@ export default function KalenderPekerjaan({
   // Format rentang tanggal: satu sumber logika, sama kayak halaman detail.
   const formatTanggalRange = (mulai, selesai) =>
     formatRentang(mulai, selesai, "pendek");
+
+  // ========== VENDOR TERKAIT ==========
+  // Satu kegiatan bisa nempel ke satu vendor di brand ini. Status yang
+  // ditampilkan selalu status efektif (otomatis/manual), bukan field mentah.
+  const chipVendor = (keg) => {
+    const vendor = vendorList.find((v) => v.id === keg.vendorId);
+    if (!vendor) return null;
+    const info = statusVendorEfektif(vendor);
+    const judul = `${vendor.nama} — ${info.label}${info.skor === null ? "" : ` (skor ${info.skor}/100)`}`;
+    const kelas = "inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-stone-300 bg-stone-100 text-stone-700";
+    if (onBukaVendor) {
+      return (
+        <button type="button" className={`${kelas} hover:bg-stone-200`} title={`${judul}. Klik buat buka vendor.`} onClick={(e) => { e.stopPropagation(); onBukaVendor(vendor.id); }}>
+          <span className="truncate">🏭 {vendor.nama}</span>
+          <span className="shrink-0 text-gray-500">{info.label}</span>
+        </button>
+      );
+    }
+    return (
+      <span className={kelas} title={judul}>
+        <span className="truncate">🏭 {vendor.nama}</span>
+        <span className="shrink-0 text-gray-500">{info.label}</span>
+      </span>
+    );
+  };
 
   const getKategoriData = (kategoriId) => kategoriList.find((k) => k.id === kategoriId) || kategoriList[0];
   const getPrioritasData = (prioritasId) => prioritasList.find((p) => p.id === prioritasId);
@@ -269,7 +304,8 @@ export default function KalenderPekerjaan({
   const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
   const currentYear = new Date().getFullYear();
   const years = []; for (let y = currentYear - 1; y <= currentYear + 5; y++) years.push(y);
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Jangan pakai toISOString: di WIB (UTC+7) tanggalnya bisa mundur sehari.
+  const todayStr = getTanggalHariIniLokal();
 
   return (
     <div className="space-y-4">
@@ -298,8 +334,17 @@ export default function KalenderPekerjaan({
               nilai={filterSumber}
               onChange={setFilterSumber}
             />
-            {(daftarPilihan(filterPrioritas).length > 0 || daftarPilihan(filterSumber).length > 0 || daftarPilihan(filterKategori).length > 0) && (
-              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterPrioritas([]); setFilterSumber([]); setFilterKategori([]); }}><X size={14} /> Reset</button>
+            {vendorList.length > 0 && (
+              <FilterMulti
+                label="Vendor"
+                labelSemua="Semua Vendor"
+                pilihan={vendorList.map((v) => ({ id: v.id, label: v.nama }))}
+                nilai={filterVendor}
+                onChange={setFilterVendor}
+              />
+            )}
+            {(daftarPilihan(filterPrioritas).length > 0 || daftarPilihan(filterSumber).length > 0 || daftarPilihan(filterKategori).length > 0 || daftarPilihan(filterVendor).length > 0) && (
+              <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterPrioritas([]); setFilterSumber([]); setFilterKategori([]); setFilterVendor([]); }}><X size={14} /> Reset</button>
             )}
             <div className="ml-auto flex items-center gap-1">
               <KelolaLabelKegiatan
@@ -457,16 +502,19 @@ export default function KalenderPekerjaan({
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
                           <div className="w-[320px] shrink-0 px-2 flex items-center justify-between border-r border-gray-200 pr-2">
-                            <div className="flex items-center gap-2 pr-2">
-                               <div className={`w-2 h-2 rounded-full shrink-0 mt-1 self-start ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
-                               <span 
-                                 className={`text-xs font-semibold leading-tight ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}
-                                 title={k.judul}
-                                 style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                               >
-                                 {k.judul}
-                               </span>
-                            </div>
+                                                        <div className="flex items-start gap-2 pr-2 min-w-0">
+                               <div className={`w-2 h-2 rounded-full shrink-0 mt-1 ${style.isCustom ? '' : style.bg}`} style={style.isCustom ? style.inlineStyle : {}} />
+                               <div className="min-w-0">
+                                 <span 
+                                   className={`text-xs font-semibold leading-tight ${k.status === "selesai" ? "line-through text-gray-400" : "text-gray-800"}`}
+                                   title={k.judul}
+                                   style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                                 >
+                                   {k.judul}
+                                 </span>
+                                 {chipVendor(k) && <div className="mt-0.5">{chipVendor(k)}</div>}
+                               </div>
+                             </div>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-html2canvas-ignore="true">
                               <button 
                                 className={`w-5 h-5 rounded-full flex items-center justify-center transition ${k.status === "selesai" ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500 hover:bg-gray-300"}`}
@@ -537,6 +585,7 @@ export default function KalenderPekerjaan({
                           <div className="flex-1">
                             <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
                             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
+                            {chipVendor(k) && <div className="mt-1">{chipVendor(k)}</div>}
                           </div>
                           <button className="btn btn-ghost btn-xs text-gray-500 shrink-0" onClick={() => toggleRingkas(k.id)} title={tertutup ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"} data-html2canvas-ignore="true">
                             {tertutup ? <Eye size={14}/> : <EyeOff size={14}/>}
@@ -575,6 +624,14 @@ export default function KalenderPekerjaan({
                   {kategoriList.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
                 </select>
                 <p className="text-[10px] text-gray-500 mt-1">Mau tambah kategori baru? Klik <Settings size={10} className="inline"/> Kelola Kategori di atas kalender.</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Vendor Terkait (opsional)</label>
+                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.vendorId} onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}>
+                  <option value="">— Tanpa vendor —</option>
+                  {vendorList.map((v) => <option key={v.id} value={v.id}>{v.nama} · {statusVendorEfektif(v).label}</option>)}
+                </select>
+                <p className="text-[10px] text-gray-500 mt-1">Kegiatan ini bakal tampil nyambung ke vendor di Time Schedule.</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

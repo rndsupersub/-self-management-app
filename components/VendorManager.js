@@ -2,7 +2,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, generateId, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus } from "@/lib/vendorData";
+import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, STATUS_VENDOR, SATUAN_MOQ, TIPE_PERTANYAAN, generateId, formatRupiah, getBadgeClass } from "@/lib/vendorData";
+import { statusVendorEfektif, labelStatusVendor, DAFTAR_STATUS_FILTER } from "@/lib/vendorStatus";
 import { Factory, Settings, X, Plus, Pencil, Trash2, User, Phone, Package, Wallet, Calendar, ChevronRight, ChevronDown, List, Check, Save, Target, LayoutGrid, Grid2x2, Grid3x3, Rows3, Filter } from "lucide-react";
 import FilterWilayah from "@/components/FilterWilayah";
 import FilterMulti from "@/components/FilterMulti";
@@ -48,7 +49,7 @@ export default function VendorManager({
   const [modeTampilan, setModeTampilan] = useState("besar");
 
   const [formData, setFormData] = useState({
-    nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "silver", catatan: "", pertanyaanAwal: [],
+    nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "otomatis", catatan: "", pertanyaanAwal: [],
   });
 
   const [newKategori, setNewKategori] = useState("");
@@ -72,15 +73,17 @@ export default function VendorManager({
 
   const filteredVendor = vendorList.filter((v) => {
     if (!cocokPilihan(v.kategoriId, filterKategori)) return false;
-    if (!cocokPilihan(v.status, filterStatus)) return false;
+    if (!cocokPilihan(statusVendorEfektif(v).status, filterStatus)) return false;
     if (adaFilterWilayah(filterWilayah) && !cocokWilayah(v, filterWilayah)) return false;
     return true;
   });
 
   const resetForm = () => {
     setFormData({
-      nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "silver", catatan: "",
-      pertanyaanAwal: pertanyaanVendorList.map((q) => ({ id: q.id, pertanyaan: q.pertanyaan, tipe: q.tipe, jawaban: q.tipe === "checkbox" ? false : "" })),
+      nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "otomatis", catatan: "",
+      // null = belum dijawab. Dulu default-nya false, jadi "belum dijawab"
+      // kelihatan seperti jawaban "Tidak" dan ikut dinilai.
+      pertanyaanAwal: pertanyaanVendorList.map((q) => ({ id: q.id, pertanyaan: q.pertanyaan, tipe: q.tipe, dampak: q.dampak || "positif", bobot: q.bobot || 1, jawaban: q.tipe === "checkbox" ? null : "" })),
     });
     setShowKategoriBaru(false); setShowSatuanBaru(false);
   };
@@ -93,7 +96,12 @@ export default function VendorManager({
       id: generateId("vendor"), nama: formData.nama, kategoriId: formData.kategoriId,
       kontak: { nama: formData.kontakNama, telp: formData.kontakTelp, email: formData.kontakEmail },
       alamat: formData.alamat, moq: { nilai: parseInt(formData.moqNilai) || 0, satuan: formData.moqSatuan },
-      hpp: parseInt(formData.hpp) || 0, status: formData.status, catatan: formData.catatan, pertanyaanAwal: formData.pertanyaanAwal, logKunjungan: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      hpp: parseInt(formData.hpp) || 0,
+      // "otomatis" bukan status, tapi mode: status dihitung dari pertanyaan +
+      // kunjungan (lib/vendorStatus.js). Pilihan lain = kunci manual.
+      status: formData.status === "otomatis" ? "" : formData.status,
+      statusMode: formData.status === "otomatis" ? "otomatis" : "manual",
+      catatan: formData.catatan, pertanyaanAwal: formData.pertanyaanAwal, logKunjungan: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     // PENTING: pertanyaan di form ini cuma milik vendor ini. Jangan disimpan
     // balik ke template, kalau tidak template berubah tiap kali tambah vendor
@@ -104,6 +112,19 @@ export default function VendorManager({
   const handleUpdateJawaban = (index, jawaban) => {
     const updated = [...formData.pertanyaanAwal];
     updated[index] = { ...updated[index], jawaban };
+    setFormData({ ...formData, pertanyaanAwal: updated });
+  };
+
+  // Bobot & dampak = parameter penilaian yang bisa beda per vendor.
+  const handleUpdateDampak = (index, dampak) => {
+    const updated = [...formData.pertanyaanAwal];
+    updated[index] = { ...updated[index], dampak };
+    setFormData({ ...formData, pertanyaanAwal: updated });
+  };
+
+  const handleUpdateBobot = (index, bobot) => {
+    const updated = [...formData.pertanyaanAwal];
+    updated[index] = { ...updated[index], bobot: Math.max(1, Math.min(5, parseInt(bobot) || 1)) };
     setFormData({ ...formData, pertanyaanAwal: updated });
   };
 
@@ -120,7 +141,7 @@ export default function VendorManager({
   };
 
   const handleTambahPertanyaanInline = () => {
-    setFormData({ ...formData, pertanyaanAwal: [...formData.pertanyaanAwal, { id: generateId("q"), pertanyaan: "", tipe: "checkbox", jawaban: false }] });
+    setFormData({ ...formData, pertanyaanAwal: [...formData.pertanyaanAwal, { id: generateId("q"), pertanyaan: "", tipe: "checkbox", dampak: "positif", bobot: 1, jawaban: null }] });
   };
 
   const handleHapusPertanyaanInline = (index) => {
@@ -209,9 +230,14 @@ export default function VendorManager({
   };
 
   // ========== RENDER KARTU / BARIS ==========
-  const badgeStatus = (vendor) => (
-    <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getWarnaStatus(vendor.status))}`}>{getLabelStatus(vendor.status)}</span>
-  );
+  const badgeStatus = (vendor) => {
+    const info = statusVendorEfektif(vendor);
+    return (
+      <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(info.warna)}`} title={info.alasan}>
+        {info.label}{info.mode === "manual" && info.status !== "belum" ? " · manual" : ""}
+      </span>
+    );
+  };
   const tombolHapus = (vendor, kelas = "btn btn-ghost btn-xs text-stone-400 hover:text-error") => (
     <button className={kelas} onClick={(e) => { e.stopPropagation(); if (confirm("Hapus vendor ini?")) onDeleteVendor(vendor.id); }} title="Hapus vendor"><Trash2 size={14} /></button>
   );
@@ -226,7 +252,7 @@ export default function VendorManager({
             <Factory size={16} className="text-gray-400 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-gray-800 truncate" title={vendor.nama}>{vendor.nama}</p>
-              <p className="text-[10px] text-gray-500 truncate">{getLabelStatus(vendor.status)} · {vendor.logKunjungan?.length || 0} kunjungan</p>
+              <p className="text-[10px] text-gray-500 truncate">{labelStatusVendor(vendor)} · {vendor.logKunjungan?.length || 0} kunjungan</p>
             </div>
             <span className="shrink-0" data-html2canvas-ignore="true">{tombolHapus(vendor, "btn btn-ghost btn-xs text-error")}</span>
           </div>
@@ -373,7 +399,7 @@ export default function VendorManager({
             <FilterMulti
               label="Status"
               labelSemua="Semua Status"
-              pilihan={STATUS_VENDOR.map((s) => ({ id: s.id, label: s.label }))}
+              pilihan={DAFTAR_STATUS_FILTER.map((s) => ({ id: s.id, label: s.label }))}
               nilai={filterStatus}
               onChange={setFilterStatus}
             />
@@ -473,10 +499,12 @@ export default function VendorManager({
                   <input type="number" className="input input-bordered input-sm w-full text-gray-800 bg-white" placeholder="15000" value={formData.hpp} onChange={(e) => setFormData({ ...formData, hpp: e.target.value })} />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-600 mb-1 block">Status</label>
+                  <label className="text-xs text-gray-600 mb-1 block">Status Awal</label>
                   <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                    {STATUS_VENDOR.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    <option value="otomatis">🤖 Otomatis</option>
+                    {STATUS_VENDOR.map((s) => <option key={s.id} value={s.id}>{s.label} (manual)</option>)}
                   </select>
+                  <p className="text-[10px] text-gray-500 mt-1">Otomatis dihitung dari pertanyaan &amp; kunjungan.</p>
                 </div>
               </div>
 
@@ -501,10 +529,22 @@ export default function VendorManager({
                       <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => handleHapusPertanyaanInline(idx)} title="Hapus pertanyaan"><Trash2 size={14} /></button>
                     </div>
                     {q.tipe === "checkbox" && (
-                      <div className="flex gap-1">
-                        <button className={`btn btn-xs flex-1 ${q.jawaban === true ? "btn-success" : "btn-outline"}`} onClick={() => handleUpdateJawaban(idx, true)}><Check size={12} className="mr-1"/> Ya</button>
-                        <button className={`btn btn-xs flex-1 ${q.jawaban === false ? "btn-error" : "btn-outline"}`} onClick={() => handleUpdateJawaban(idx, false)}><X size={12} className="mr-1"/> Tidak</button>
-                      </div>
+                      <>
+                        <div className="flex flex-wrap gap-1 items-center">
+                          <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.dampak || "positif"} onChange={(e) => handleUpdateDampak(idx, e.target.value)} title="Nilai jawaban Ya">
+                            <option value="positif">Ya = nilai plus</option>
+                            <option value="negatif">Ya = nilai minus</option>
+                            <option value="netral">Netral (tidak dinilai)</option>
+                          </select>
+                          <label className="text-[10px] text-gray-500">Bobot</label>
+                          <input type="number" min="1" max="5" className="input input-bordered input-xs w-14 text-gray-800 bg-white" value={q.bobot || 1} onChange={(e) => handleUpdateBobot(idx, e.target.value)} title="Bobot pertanyaan (1-5)" />
+                        </div>
+                        <div className="flex gap-1">
+                          <button className={`btn btn-xs flex-1 ${q.jawaban === true ? "btn-success" : "btn-outline"}`} onClick={() => handleUpdateJawaban(idx, true)}><Check size={12} className="mr-1"/> Ya</button>
+                          <button className={`btn btn-xs flex-1 ${q.jawaban === false ? "btn-error" : "btn-outline"}`} onClick={() => handleUpdateJawaban(idx, false)}><X size={12} className="mr-1"/> Tidak</button>
+                          <button className={`btn btn-xs ${q.jawaban === null || q.jawaban === undefined ? "btn-outline" : "btn-ghost text-gray-500"}`} onClick={() => handleUpdateJawaban(idx, null)} title="Kosongkan jawaban">Belum</button>
+                        </div>
+                      </>
                     )}
                     {q.tipe === "short" && <input type="text" className="input input-bordered input-xs w-full text-gray-800 bg-white" placeholder="Jawaban pendek..." value={q.jawaban || ""} onChange={(e) => handleUpdateJawaban(idx, e.target.value)} />}
                     {q.tipe === "long" && <textarea className="textarea textarea-bordered w-full text-xs text-gray-800 bg-white" rows="2" placeholder="Jawaban panjang..." value={q.jawaban || ""} onChange={(e) => handleUpdateJawaban(idx, e.target.value)} />}

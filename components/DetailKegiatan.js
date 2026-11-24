@@ -12,6 +12,7 @@ import {
   hexToRgba,
 } from "@/lib/pekerjaanData";
 import { Settings, X, Pencil, Trash2, Plus, Check, Save, Info } from "lucide-react";
+import { statusVendorEfektif } from "@/lib/vendorStatus";
 
 function formDariKegiatan(keg) {
   const { mulai, selesai } = rentangKegiatan(keg);
@@ -23,6 +24,7 @@ function formDariKegiatan(keg) {
     catatan: keg?.catatan || "",
     tanggalMulai: mulai || "",
     tanggalSelesai: selesai || "",
+    vendorId: keg?.vendorId || "",
   };
 }
 
@@ -46,6 +48,7 @@ export default function DetailKegiatan({
   sumberList = [],
   sections = [],
   kategoriList = [],
+  vendorList = [],
   onUpdate,
   onDelete,
   onToggleStatus,
@@ -90,6 +93,9 @@ export default function DetailKegiatan({
   const kategoriData = kategoriList.find((k) => k.id === kegiatan.kategori);
   const prioritasData = prioritasList.find((p) => p.id === kegiatan.prioritas);
   const sumberData = sumberList.find((s) => s.id === kegiatan.sumber);
+  // Relasi ke vendor brand ini (opsional) + status efektifnya.
+  const vendorTerkait = vendorList.find((v) => v.id === kegiatan.vendorId) || null;
+  const statusVendorTerkait = vendorTerkait ? statusVendorEfektif(vendorTerkait) : null;
 
   // ========== MODE EDIT: MULAI / BATAL / SIMPAN ==========
   const mulaiEdit = () => {
@@ -127,6 +133,7 @@ export default function DetailKegiatan({
         prioritas: form.prioritas,
         sumber: form.sumber,
         catatan: form.catatan,
+        vendorId: form.vendorId || "",
         tanggalMulai: form.tanggalMulai,
         tanggalSelesai,
         // `tanggal` tetap disimpan biar data lama & fitur lain (sync sheets/telegram) aman.
@@ -314,6 +321,30 @@ export default function DetailKegiatan({
                 </div>
               </div>
 
+              <div>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">
+                  Vendor Terkait
+                </label>
+                <select
+                  className="select select-bordered select-sm w-full text-gray-800 bg-white"
+                  value={form.vendorId}
+                  onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
+                >
+                  <option value="">— Tanpa vendor —</option>
+                  {vendorList.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nama} · {statusVendorEfektif(v).label}
+                    </option>
+                  ))}
+                  {form.vendorId && !vendorList.some((v) => v.id === form.vendorId) && (
+                    <option value={form.vendorId}>Vendor lama (dihapus dari daftar)</option>
+                  )}
+                </select>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Bikin kegiatan ini nyambung ke vendor di Time Schedule &amp; log kunjungan.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs font-semibold text-gray-600 mb-1 block">
@@ -452,7 +483,14 @@ export default function DetailKegiatan({
                     {isSelesai ? "✅ Selesai" : "⏳ Belum Selesai"}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 flex items-center gap-1">
+                {vendorTerkait && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                    <span className="px-2 py-1 rounded border border-stone-300 bg-stone-100 text-stone-700">🏭 {vendorTerkait.nama}</span>
+                    <span className={`px-2 py-1 rounded border ${badgeClass(statusVendorTerkait.warna)}`}>{statusVendorTerkait.label}</span>
+                    <span className="text-gray-500">{vendorTerkait.logKunjungan?.length || 0} kunjungan</span>
+                  </div>
+                )}
+                <p className="text-sm text-gray-500 flex items-center gap-1 mt-2">
                   📅 {formatRentang(mulai, selesai, "panjang")}
                 </p>
                 {kegiatan.catatan && (

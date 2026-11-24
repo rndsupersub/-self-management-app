@@ -1522,7 +1522,9 @@ async function saveVendorWizard(firestore, userData, state) {
       satuan: f.moqSatuan || "pcs",
     },
     hpp: parseInt(f.hpp) || 0,
-    status: f.status || "silver",
+    // "otomatis" = status dihitung dari pertanyaan + kunjungan (lib/vendorStatus.js).
+    status: f.status && f.status !== "otomatis" ? f.status : "",
+    statusMode: f.status && f.status !== "otomatis" ? "manual" : "otomatis",
     catatan: f.catatan || "",
     pertanyaanAwal,
     logKunjungan: [],
@@ -2582,7 +2584,10 @@ async function handleCallback(callbackQuery, userData, firestore) {
           for (let b of p.brands || []) {
             const vIdx = (b.vendorList || []).findIndex((v) => v.id === vendorId);
             if (vIdx !== -1) {
-              b.vendorList[vIdx].status = "belum_digunakan";
+              // Bukan status mentah: “Belum Digunakan” = belum ada status,
+              // dikunci manual supaya tidak tiba-tiba berubah jadi hitam.
+              b.vendorList[vIdx].status = "belum";
+              b.vendorList[vIdx].statusMode = "manual";
               updated = true;
               break;
             }
@@ -2595,7 +2600,8 @@ async function handleCallback(callbackQuery, userData, firestore) {
         for (let b of brands) {
           const vIdx = (b.vendorList || []).findIndex((v) => v.id === vendorId);
           if (vIdx !== -1) {
-            b.vendorList[vIdx].status = "belum_digunakan";
+            b.vendorList[vIdx].status = "belum";
+            b.vendorList[vIdx].statusMode = "manual";
             updated = true;
             break;
           }

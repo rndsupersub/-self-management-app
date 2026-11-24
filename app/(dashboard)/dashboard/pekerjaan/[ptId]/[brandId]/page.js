@@ -284,6 +284,8 @@ export default function BrandPage() {
             onEditKegiatan={(keg) => router.push(`/dashboard/pekerjaan/${ptId}/${brandId}/${keg.id}?edit=1`)}
             onDeleteKegiatan={handleHapusKegiatan}
             onToggleStatusKegiatan={handleToggleStatusKegiatan}
+            vendorList={vendorList}
+            onBukaVendor={(id) => { setActiveTab("vendor"); setSelectedVendorId(id); }}
             prioritasList={prioritasList} 
             sumberList={sumberList} 
             kategoriList={kategoriPekerjaanList} 

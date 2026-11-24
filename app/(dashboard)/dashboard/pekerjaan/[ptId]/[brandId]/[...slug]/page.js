@@ -94,6 +94,13 @@ export default function DetailKegiatanPage() {
   // ========== KEGIATAN DIAMBIL LANGSUNG DARI DATA (bukan disalin ke state) ==========
   // Dulu pakai effect + setKegiatan; sekarang cukup diturunkan dari `pekerjaan`,
   // jadi setelah simpan/hapus otomatis ikut terbarui.
+  // Vendor brand ini dipakai buat nampilin relasi kegiatan → vendor + statusnya.
+  const vendorList = useMemo(() => {
+    const pt = pekerjaan.find((p) => p.id === ptId);
+    const brand = pt?.brands?.find((b) => b.id === brandId);
+    return brand?.vendorList || [];
+  }, [pekerjaan, ptId, brandId]);
+
   const kegiatan = useMemo(() => {
     if (!pekerjaan.length || !ptId || !brandId || !kegId) return null;
     const pt = pekerjaan.find((p) => p.id === ptId);
@@ -272,6 +279,7 @@ export default function DetailKegiatanPage() {
           sumberList={sumberList}
           sections={sections}
           kategoriList={kategoriList}
+          vendorList={vendorList}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}

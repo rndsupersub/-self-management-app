@@ -2,10 +2,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { METODE_KUNJUNGAN, STATUS_VENDOR, STATUS_KUNJUNGAN, PROGRESS_KUNJUNGAN, SATUAN_MOQ, DEFAULT_TUJUAN_KUNJUNGAN, generateId, formatTanggal, formatRupiah, getBadgeClass, getWarnaStatus, getLabelStatus, getLabelMetode, getStatusKunjungan, getProgressKunjungan, getLabelStatusKunjungan, getWarnaStatusKunjungan, getLabelProgressKunjungan, getWarnaProgressKunjungan } from "@/lib/vendorData";
+import { METODE_KUNJUNGAN, STATUS_VENDOR, STATUS_KUNJUNGAN, PROGRESS_KUNJUNGAN, SATUAN_MOQ, DEFAULT_TUJUAN_KUNJUNGAN, generateId, formatTanggal, formatRupiah, getBadgeClass, getLabelMetode, getStatusKunjungan, getProgressKunjungan, getLabelStatusKunjungan, getWarnaStatusKunjungan, getLabelProgressKunjungan, getWarnaProgressKunjungan } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI, getPeriodeRange, formatTanggalPendek, autoGenerateVendorSummary } from "@/lib/evaluasiData";
 import { Factory, ArrowLeft, Pencil, Trash2, Phone, User, Smartphone, Mail, MapPin, Wallet, Package, Banknote, MessageSquare, BarChart3, Eye, EyeOff, Calendar, RefreshCw, Save, CheckCircle2, List, Inbox, Target, Monitor, FolderOpen, Plus } from "lucide-react";
 import FilterMulti from "@/components/FilterMulti";
+import { statusVendorEfektif } from "@/lib/vendorStatus";
 import { cocokPilihan } from "@/lib/filterMulti";
 
 export default function VendorDetail({
@@ -125,7 +126,10 @@ export default function VendorDetail({
     setEditingKunjunganId(log.id); setShowFormKunjungan(true);
   };
 
-  const handleUbahStatus = (newStatus) => { onUpdateVendor({ ...vendor, status: newStatus, updatedAt: new Date().toISOString() }); };
+  const handleUbahStatus = (newStatus) => { onUpdateVendor({ ...vendor, status: newStatus, statusMode: "manual", updatedAt: new Date().toISOString() }); };
+  // Status otomatis dihitung dari pertanyaan + kunjungan, tapi user boleh
+  // mengunci manual kapan saja (misal vendor lama yang sudah punya status).
+  const handleUbahModeStatus = (mode) => { onUpdateVendor({ ...vendor, statusMode: mode, updatedAt: new Date().toISOString() }); };
 
   // Pertanyaan awal disimpan per vendor (bukan template global), jadi edit di
   // sini tidak mengubah pertanyaan default untuk vendor berikutnya.
@@ -196,6 +200,7 @@ export default function VendorDetail({
   if (!vendor) return null;
 
   const kategoriData = kategoriVendorList.find((k) => k.id === vendor.kategoriId);
+  const statusInfo = statusVendorEfektif(vendor);
 
   return (
     <div className="space-y-4">
@@ -209,7 +214,7 @@ export default function VendorDetail({
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Factory className="text-primary" size={24}/> {vendor.nama}</h1>
-                <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(getWarnaStatus(vendor.status))}`}>{getLabelStatus(vendor.status)}</span>
+                <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(statusInfo.warna)}`} title={statusInfo.alasan}>{statusInfo.label}</span>
               </div>
               {kategoriData && <p className="text-sm text-gray-500">{kategoriData.label}</p>}
             </div>
@@ -229,13 +234,49 @@ export default function VendorDetail({
             </div>
           )}
 
-          <div className="mt-3" data-html2canvas-ignore="true">
-            <p className="text-xs font-semibold text-gray-600 mb-1">Ubah Status:</p>
-            <div className="flex flex-wrap gap-1">
-              {STATUS_VENDOR.map((s) => (
-                <button key={s.id} className={`btn btn-xs ${vendor.status === s.id ? "btn-primary" : "btn-outline"}`} onClick={() => handleUbahStatus(s.id)}>{s.label}</button>
-              ))}
+          <div className="mt-3 rounded border border-stone-200 bg-stone-50 p-3 space-y-2" data-html2canvas-ignore="true">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded border ${getBadgeClass(statusInfo.warna)}`}>{statusInfo.label}</span>
+                <span className="text-[10px] text-gray-500">{statusInfo.mode === "manual" ? "manual" : "otomatis"}</span>
+              </div>
+              <div className="flex gap-1">
+                <button className={`btn btn-xs ${statusInfo.mode === "otomatis" ? "btn-primary" : "btn-outline"}`} onClick={() => handleUbahModeStatus("otomatis")}>🤖 Otomatis</button>
+                <button className={`btn btn-xs ${statusInfo.mode === "manual" ? "btn-primary" : "btn-outline"}`} onClick={() => handleUbahModeStatus("manual")}>✍️ Manual</button>
+              </div>
             </div>
+
+            {statusInfo.skor !== null && (
+              <div>
+                <div className="flex justify-between text-[10px] text-gray-500 mb-1"><span>Skor otomatis</span><span>{statusInfo.skor}/100</span></div>
+                <progress className="progress progress-neutral w-full h-2" value={statusInfo.skor} max="100" />
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div className="bg-white rounded border border-stone-200 p-2">
+                <p className="font-semibold text-stone-700">Pertanyaan (profiling)</p>
+                <p className="text-gray-600">{statusInfo.pertanyaan.terjawab}/{statusInfo.pertanyaan.total} terjawab · skor {statusInfo.pertanyaan.skor === null ? "—" : `${statusInfo.pertanyaan.skor}/100`}</p>
+              </div>
+              <div className="bg-white rounded border border-stone-200 p-2">
+                <p className="font-semibold text-stone-700">Kunjungan (realitas)</p>
+                <p className="text-gray-600">{statusInfo.kunjungan.total} kunjungan · {statusInfo.kunjungan.layak} layak · {statusInfo.kunjungan.tidakLayak} tidak layak · skor {statusInfo.kunjungan.skor === null ? "—" : `${statusInfo.kunjungan.skor}/100`}</p>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-gray-600 leading-relaxed">{statusInfo.alasan}</p>
+            <p className="text-[10px] text-gray-400">Ambang: Gold ≥{statusInfo.ambang.gold} + minimal {statusInfo.ambang.minimalKunjunganGold} kunjungan, Silver ≥{statusInfo.ambang.silver}, Bronze ≥{statusInfo.ambang.bronze}. Kunjungan berbobot {statusInfo.ambang.bobotKunjungan}%, pertanyaan {statusInfo.ambang.bobotPertanyaan}%.</p>
+
+            {statusInfo.mode === "manual" && (
+              <div>
+                <p className="text-[10px] font-semibold text-gray-600 mb-1">Kunci status manual:</p>
+                <div className="flex flex-wrap gap-1">
+                  {STATUS_VENDOR.map((s) => (
+                    <button key={s.id} className={`btn btn-xs ${vendor.status === s.id ? "btn-primary" : "btn-outline"}`} onClick={() => handleUbahStatus(s.id)}>{s.label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -358,13 +399,16 @@ export default function VendorDetail({
                   <p className="text-xs font-semibold text-gray-700">{q.pertanyaan}</p>
                   <p className="text-xs mt-1">
                     {q.tipe === "checkbox" ? (
-                      <span className={`px-2 py-0.5 rounded border ${q.jawaban === true ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-error border-red-300"}`}>
-                        {q.jawaban === true ? "Ya" : "Tidak"}
+                      <span className={`px-2 py-0.5 rounded border ${q.jawaban === true ? "bg-green-100 text-green-700 border-green-300" : q.jawaban === false ? "bg-red-100 text-error border-red-300" : "bg-gray-100 text-gray-500 border-gray-300"}`}>
+                        {q.jawaban === true ? "Ya" : q.jawaban === false ? "Tidak" : "Belum dijawab"}
                       </span>
                     ) : (
                       <span className="text-gray-800 whitespace-pre-wrap">{q.jawaban || <span className="text-gray-400 italic">Belum dijawab</span>}</span>
                     )}
                   </p>
+                  {q.tipe === "checkbox" && (
+                    <p className="text-[10px] text-gray-500 mt-1">Ya = {q.dampak === "negatif" ? "nilai minus" : q.dampak === "netral" ? "netral (tidak dinilai)" : "nilai plus"} · bobot {q.bobot || 1}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -373,16 +417,28 @@ export default function VendorDetail({
               {(draftPertanyaanAwal || []).map((q, idx) => (
                 <div key={q.id} className="bg-gray-50 rounded p-2 border border-gray-200 space-y-2">
                   <div className="flex gap-1 items-center">
-                    <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.tipe} onChange={(e) => handleUbahPertanyaanDraft(idx, { tipe: e.target.value, jawaban: e.target.value === "checkbox" ? q.jawaban === true : "" })}>
+                    <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.tipe} onChange={(e) => handleUbahPertanyaanDraft(idx, { tipe: e.target.value, jawaban: e.target.value === "checkbox" ? (typeof q.jawaban === "boolean" ? q.jawaban : null) : "" })}>
                       <option value="checkbox">Checkbox</option><option value="short">Pendek</option><option value="long">Panjang</option>
                     </select>
                     <input type="text" className="input input-bordered input-xs flex-1 text-gray-800 bg-white" value={q.pertanyaan} onChange={(e) => handleUbahPertanyaanDraft(idx, { pertanyaan: e.target.value })} />
                     <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setDraftPertanyaanAwal((draftPertanyaanAwal || []).filter((_, i) => i !== idx))} title="Hapus pertanyaan dari vendor ini"><Trash2 size={14}/></button>
                   </div>
+                  {q.tipe === "checkbox" && (
+                    <div className="flex flex-wrap gap-1 items-center">
+                      <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.dampak || "positif"} onChange={(e) => handleUbahPertanyaanDraft(idx, { dampak: e.target.value })} title="Nilai jawaban Ya">
+                        <option value="positif">Ya = nilai plus</option>
+                        <option value="negatif">Ya = nilai minus</option>
+                        <option value="netral">Netral</option>
+                      </select>
+                      <label className="text-[10px] text-gray-500">Bobot</label>
+                      <input type="number" min="1" max="5" className="input input-bordered input-xs w-14 text-gray-800 bg-white" value={q.bobot || 1} onChange={(e) => handleUbahPertanyaanDraft(idx, { bobot: Math.max(1, Math.min(5, parseInt(e.target.value) || 1)) })} />
+                    </div>
+                  )}
                   {q.tipe === "checkbox" ? (
                     <div className="flex gap-1">
                       <button className={`btn btn-xs flex-1 ${q.jawaban === true ? "btn-success" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: true })}>Ya</button>
                       <button className={`btn btn-xs flex-1 ${q.jawaban === false ? "btn-error" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: false })}>Tidak</button>
+                      <button className={`btn btn-xs ${typeof q.jawaban === "boolean" ? "btn-ghost text-gray-500" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: null })}>Belum</button>
                     </div>
                   ) : q.tipe === "short" ? (
                     <input type="text" className="input input-bordered input-xs w-full text-gray-800 bg-white" value={q.jawaban || ""} onChange={(e) => handleUbahPertanyaanDraft(idx, { jawaban: e.target.value })} />
@@ -391,7 +447,7 @@ export default function VendorDetail({
                   )}
                 </div>
               ))}
-              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => setDraftPertanyaanAwal([...(draftPertanyaanAwal || []), { id: generateId("q"), pertanyaan: "", tipe: "checkbox", jawaban: false }])}>
+              <button className="btn btn-ghost btn-xs text-stone-400 hover:text-stone-800" onClick={() => setDraftPertanyaanAwal([...(draftPertanyaanAwal || []), { id: generateId("q"), pertanyaan: "", tipe: "checkbox", dampak: "positif", bobot: 1, jawaban: null }])}>
                 <Plus size={14} className="mr-1"/> Tambah Pertanyaan (khusus vendor ini)
               </button>
             </div>
@@ -594,7 +650,7 @@ export default function VendorDetail({
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredLog.slice().sort((a, b) => b.tanggal.localeCompare(a.tanggal)).map((log) => {
+              {filteredLog.slice().sort((a, b) => String(b.tanggal || b.createdAt || "").localeCompare(String(a.tanggal || a.createdAt || ""))).map((log) => {
                 const tujuanData = tujuanKunjunganList.find((t) => t.id === log.tujuanId);
                 const statusLog = getStatusKunjungan(log);
                 const progressLog = getProgressKunjungan(log);
