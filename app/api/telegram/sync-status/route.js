@@ -90,7 +90,9 @@ export async function POST(req) {
             ...(userData.reminderLog || {}),
             [tanggal]: {
               ...((userData.reminderLog || {})[tanggal] || {}),
-              [aktivitasId]: { 1: true, 2: true, 3: true, 4: true },
+              // Tandai lapis 5 juga: kalau nggak, reminder "sedang berjalan"
+              // masih bisa nyusul padahal aktivitasnya baru dimulai dari web.
+              [aktivitasId]: { 1: true, 2: true, 3: true, 4: true, 5: true },
             },
           },
         },

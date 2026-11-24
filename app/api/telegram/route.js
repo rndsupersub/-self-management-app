@@ -7,6 +7,7 @@ import {
   sendTelegramWithButtons,
   answerCallbackQuery,
   editTelegramMessage,
+  escapeHtml,
   parseCommand,
   findMenuByCommand,
   setBotCommands,
@@ -1687,9 +1688,11 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
   }
 
   if (state && !state.phase && !state.awaiting && !text.startsWith("/")) {
+    // Bisa di langkah pilihan, langkah tanggal, atau ringkasan — jangan
+    // bilang "lagi di ringkasan" kalau sebenarnya masih pilih tombol.
     await sendTelegramMessage(
       chatId,
-      `⚠️ Wizard lagi di ringkasan.\n\nKlik <b>[✅ Simpan]</b> buat simpen, atau <b>[❌ Batal]</b> buat batalin.`
+      `⚠️ Wizard masih jalan.\n\nKlik tombol yang tersedia di atas. Kalau mau keluar, ketik /help.`
     );
     return;
   }
@@ -1783,13 +1786,17 @@ async function handleTextMessage(firestore, chatId, text, userData, messageId, f
     let pesan = `📅 <b>JADWAL ${labelHari.toUpperCase()} (${hariIni.toUpperCase()})</b>\n${tanggal}\n\n`;
 
     jadwalHariIni.forEach((item, index) => {
-      const labelBersih = (item.label || "").replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '').trim();
+      const labelBersih = escapeHtml(
+        (item.label || "")
+          .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+          .trim()
+      );
       const { mulai, selesai } = parseJamJadwal(item);
       const jamStr = formatJamJadwal(mulai, selesai);
 
       pesan += `<b>${index + 1}. ${labelBersih}</b>${item._dipindah ? " 🕒" : ""}\n`;
       if (jamStr) pesan += `⏰ ${jamStr}${item._dipindah ? " <i>(dipindah hari ini)</i>" : ""}\n`;
-      if (item.unit) pesan += `🎯 Target: ${item.unit}\n`;
+      if (item.unit) pesan += `🎯 Target: ${escapeHtml(item.unit)}\n`;
       pesan += `\n`;
     });
 
@@ -2263,9 +2270,19 @@ async function handleCallback(callbackQuery, userData, firestore) {
     const reminderIds = [...new Set([reminderKey, scheduleKey, itemId].filter(Boolean))];
 
     const logHariIni = { ...((userData.reminderLog || {})[todayLocal] || {}) };
+    // Lapis 5 ("sedang berjalan") juga wajib ditandai. Dulu cuma 1–4, jadi
+    // setelah user pilih "Skip Hari Ini" atau "Isi Sekarang" bot masih
+    // ngirim reminder "sedang berjalan" di menit berikutnya.
     const tandaiSemuaLapis = () => {
       reminderIds.forEach((id) => {
-        logHariIni[id] = { ...(logHariIni[id] || {}), 1: true, 2: true, 3: true, 4: true };
+        logHariIni[id] = {
+          ...(logHariIni[id] || {}),
+          1: true,
+          2: true,
+          3: true,
+          4: true,
+          5: true,
+        };
       });
     };
     const simpanLog = () =>

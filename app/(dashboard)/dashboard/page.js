@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteField, doc, getDoc, setDoc } from "firebase/firestore";
 import Schedule from "@/components/Schedule";
 import RingkasanKeuangan from "@/components/RingkasanKeuangan";
 import ExportPDFButton from "@/components/ExportPDFButton";
@@ -228,12 +228,22 @@ export default function Dashboard() {
     }
 
     const baru = { ...jadwalOverride };
-    if (Object.keys(hari).length === 0) delete baru[tanggal];
+    const kosong = Object.keys(hari).length === 0;
+    if (kosong) delete baru[tanggal];
     else baru[tanggal] = hari;
 
     setJadwalOverride(baru);
     setUserData((prev) => (prev ? { ...prev, jadwalOverride: baru } : prev));
-    await setDoc(doc(db, "users", user.uid), { jadwalOverride: baru }, { merge: true });
+
+    // `merge: true` TIDAK menghapus key lama. Dulu tanggal yang sudah kosong
+    // cuma dihapus dari state, jadi setelah reload perubahan "Kembalikan"
+    // muncul lagi. Hapus field tanggalnya secara eksplisit.
+    const isiSimpan = kosong ? { ...baru, [tanggal]: deleteField() } : baru;
+    await setDoc(
+      doc(db, "users", user.uid),
+      { jadwalOverride: isiSimpan },
+      { merge: true }
+    );
   };
 
   if (loading) {
