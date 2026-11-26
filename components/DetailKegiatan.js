@@ -13,6 +13,7 @@ import {
 } from "@/lib/pekerjaanData";
 import { Settings, X, Pencil, Trash2, Plus, Check, Save, Info } from "lucide-react";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
+import { cariSaranVendorKegiatan } from "@/lib/kegiatanVendor";
 
 function formDariKegiatan(keg) {
   const { mulai, selesai } = rentangKegiatan(keg);
@@ -71,6 +72,8 @@ export default function DetailKegiatan({
   const [showKelolaSection, setShowKelolaSection] = useState(false);
   const [draftSections, setDraftSections] = useState([]);
   const [errorSection, setErrorSection] = useState("");
+  // Vendor yang sarannya sudah ditolak user (per sesi), biar nggak nagih.
+  const [saranDiabaikan, setSaranDiabaikan] = useState("");
 
   // Sinkronin form kalau data kegiatan berubah dari Firestore (selama nggak lagi ngedit).
   // Form di-refresh tiap kali mode edit dibuka, jadi nggak perlu effect di sini.
@@ -96,6 +99,16 @@ export default function DetailKegiatan({
   // Relasi ke vendor brand ini (opsional) + status efektifnya.
   const vendorTerkait = vendorList.find((v) => v.id === kegiatan.vendorId) || null;
   const statusVendorTerkait = vendorTerkait ? statusVendorEfektif(vendorTerkait) : null;
+  // Kegiatan lama sering belum punya vendorId padahal log kunjungan vendor
+  // sudah jelas nyebut kegiatannya (mis. kunjungan controlling ke Pawsteel).
+  const saranVendor = vendorTerkait
+    ? null
+    : cariSaranVendorKegiatan({
+        kegiatan,
+        vendorList,
+        kategoriNama: kategoriData?.label || "",
+      });
+  const tampilkanSaran = saranVendor && saranDiabaikan !== saranVendor.vendor.id;
 
   // ========== MODE EDIT: MULAI / BATAL / SIMPAN ==========
   const mulaiEdit = () => {
@@ -488,6 +501,30 @@ export default function DetailKegiatan({
                     <span className="px-2 py-1 rounded border border-stone-300 bg-stone-100 text-stone-700">🏭 {vendorTerkait.nama}</span>
                     <span className={`px-2 py-1 rounded border ${badgeClass(statusVendorTerkait.warna)}`}>{statusVendorTerkait.label}</span>
                     <span className="text-gray-500">{vendorTerkait.logKunjungan?.length || 0} kunjungan</span>
+                  </div>
+                )}
+                {tampilkanSaran && (
+                  <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-stone-700" data-html2canvas-ignore="true">
+                    <p className="font-semibold flex items-center gap-1">🔗 Mungkin terkait: {saranVendor.vendor.nama}</p>
+                    <p className="text-[11px] text-stone-600 mt-0.5">
+                      {saranVendor.alasan} Hubungkan supaya kegiatan ini tampil nyambung ke vendor di Time Schedule.
+                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-primary"
+                        onClick={() => onUpdate(kegiatan.id, { vendorId: saranVendor.vendor.id })}
+                      >
+                        Hubungkan ke {saranVendor.vendor.nama}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-ghost text-stone-600"
+                        onClick={() => setSaranDiabaikan(saranVendor.vendor.id)}
+                      >
+                        Bukan ini
+                      </button>
+                    </div>
                   </div>
                 )}
                 <p className="text-sm text-gray-500 flex items-center gap-1 mt-2">

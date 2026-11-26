@@ -10,6 +10,7 @@ import FilterMulti from "@/components/FilterMulti";
 import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 import { getTanggalHariIniLokal } from "@/lib/tanggalLokal";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
+import { cariSaranVendorKegiatan } from "@/lib/kegiatanVendor";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -156,11 +157,20 @@ export default function KalenderPekerjaan({
   // Satu kegiatan bisa nempel ke satu vendor di brand ini. Status yang
   // ditampilkan selalu status efektif (otomatis/manual), bukan field mentah.
   const chipVendor = (keg) => {
+    const kelas = "inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-stone-300 bg-stone-100 text-stone-700";
     const vendor = vendorList.find((v) => v.id === keg.vendorId);
-    if (!vendor) return null;
+    if (!vendor) {
+      // Jangan diam-diam hilang: kasih tahu kalau tautannya menunjuk vendor
+      // yang sudah tidak ada di brand ini, biar user bisa perbaiki.
+      if (!keg.vendorId) return null;
+      return (
+        <span className={`${kelas} text-amber-700 border-amber-300 bg-amber-50`} title="Vendor yang dulu ditautkan sudah tidak ada di daftar brand ini. Buka detail kegiatan buat memilih ulang.">
+          🏭 Vendor tidak ditemukan
+        </span>
+      );
+    }
     const info = statusVendorEfektif(vendor);
     const judul = `${vendor.nama} — ${info.label}${info.skor === null ? "" : ` (skor ${info.skor}/100)`}`;
-    const kelas = "inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-stone-300 bg-stone-100 text-stone-700";
     if (onBukaVendor) {
       return (
         <button type="button" className={`${kelas} hover:bg-stone-200`} title={`${judul}. Klik buat buka vendor.`} onClick={(e) => { e.stopPropagation(); onBukaVendor(vendor.id); }}>
@@ -498,6 +508,11 @@ export default function KalenderPekerjaan({
                     timeScheduleData.bars.map((k) => {
                       const kategoriData = getKategoriData(k.kategori);
                       const style = getKategoriStyle(kategoriData);
+                      // Kegiatan lama tanpa vendor tapi punya bukti kunjungan:
+                      // tampilkan saran biar relasinya kelihatan dari jadwal.
+                      const saran = !k.vendorId
+                        ? cariSaranVendorKegiatan({ kegiatan: k, vendorList, kategoriNama: kategoriData?.label || "" })
+                        : null;
                       
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
@@ -513,6 +528,18 @@ export default function KalenderPekerjaan({
                                    {k.judul}
                                  </span>
                                  {chipVendor(k) && <div className="mt-0.5">{chipVendor(k)}</div>}
+                                 {!k.vendorId && saran?.kuat && (
+                                   <div className="mt-0.5">
+                                     <button
+                                       type="button"
+                                       className="inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                       title={`${saran.alasan} Klik buat cek & hubungkan.`}
+                                       onClick={(e) => { e.stopPropagation(); onClickKegiatan(k.id); }}
+                                     >
+                                       🔗 Saran: <span className="truncate">{saran.vendor.nama}</span>
+                                     </button>
+                                   </div>
+                                 )}
                                </div>
                              </div>
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-html2canvas-ignore="true">
@@ -578,6 +605,9 @@ export default function KalenderPekerjaan({
                       const mulai = k.tanggalMulai || k.tanggal;
                       const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
                       const tertutup = !!ringkasTertutup[k.id];
+                      const saran = !k.vendorId
+                        ? cariSaranVendorKegiatan({ kegiatan: k, vendorList, kategoriNama: getKategoriData(k.kategori)?.label || "" })
+                        : null;
                       // Tersembunyi = tidak dirender, jadi tidak ikut ke PDF.
                       if (tertutup && !tampilRingkasTersembunyi) return null;
                       return (
@@ -586,6 +616,16 @@ export default function KalenderPekerjaan({
                             <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
                             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
                             {chipVendor(k) && <div className="mt-1">{chipVendor(k)}</div>}
+                            {!k.vendorId && saran?.kuat && (
+                              <button
+                                type="button"
+                                className="mt-1 inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                                title={`${saran.alasan} Klik buat cek & hubungkan.`}
+                                onClick={() => onClickKegiatan(k.id)}
+                              >
+                                🔗 Saran: <span className="truncate">{saran.vendor.nama}</span>
+                              </button>
+                            )}
                           </div>
                           <button className="btn btn-ghost btn-xs text-gray-500 shrink-0" onClick={() => toggleRingkas(k.id)} title={tertutup ? "Tampilkan (ikut ke PDF)" : "Sembunyikan dari PDF"} data-html2canvas-ignore="true">
                             {tertutup ? <Eye size={14}/> : <EyeOff size={14}/>}
