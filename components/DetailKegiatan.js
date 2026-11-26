@@ -13,7 +13,7 @@ import {
 } from "@/lib/pekerjaanData";
 import { Settings, X, Pencil, Trash2, Plus, Check, Save, Info } from "lucide-react";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
-import { cariSaranVendorKegiatanSemua } from "@/lib/kegiatanVendor";
+import { vendorEfektifKegiatan } from "@/lib/kegiatanVendor";
 
 function formDariKegiatan(keg) {
   const { mulai, selesai } = rentangKegiatan(keg);
@@ -26,6 +26,14 @@ function formDariKegiatan(keg) {
     tanggalMulai: mulai || "",
     tanggalSelesai: selesai || "",
     vendorId: keg?.vendorId || "",
+    // Relasi lama yang sudah punya vendor dianggap manual; yang belum punya
+    // vendor memakai mode otomatis (dihitung dari bukti kunjungan/nama).
+    vendorMode:
+      keg?.vendorMode === "manual" || keg?.vendorMode === "otomatis"
+        ? keg.vendorMode
+        : keg?.vendorId
+          ? "manual"
+          : "otomatis",
   };
 }
 
@@ -96,20 +104,20 @@ export default function DetailKegiatan({
   const kategoriData = kategoriList.find((k) => k.id === kegiatan.kategori);
   const prioritasData = prioritasList.find((p) => p.id === kegiatan.prioritas);
   const sumberData = sumberList.find((s) => s.id === kegiatan.sumber);
-  // Relasi ke vendor brand ini (opsional) + status efektifnya.
-  const vendorTerkait = vendorList.find((v) => v.id === kegiatan.vendorId) || null;
-  const statusVendorTerkait = vendorTerkait ? statusVendorEfektif(vendorTerkait) : null;
-  // Kegiatan lama sering belum punya vendorId padahal log kunjungan vendor
-  // sudah jelas nyebut kegiatannya (mis. kunjungan controlling ke Pawsteel).
-  // Beberapa kandidat sekaligus, urut dari yang paling kuat. Kalau kegiatan
-  // sudah terhubung ke vendor, kandidat lain tetap ditampilkan supaya user bisa
-  // ganti kalau saran/penautan sebelumnya ternyata salah.
-  const kandidatVendor = cariSaranVendorKegiatanSemua({
+  // Relasi ke vendor brand ini (otomatis / manual) + status efektifnya.
+  // Mode otomatis memakai mesin saran yang sama dengan filter kalender.
+  const relasiVendor = vendorEfektifKegiatan({
     kegiatan,
     vendorList,
     kategoriNama: kategoriData?.label || "",
-  })
-    .filter((s) => s.vendor.id !== kegiatan.vendorId)
+  });
+  const vendorTerkait = relasiVendor.vendor;
+  const statusVendorTerkait = vendorTerkait ? statusVendorEfektif(vendorTerkait) : null;
+  // Beberapa kandidat sekaligus, urut dari yang paling kuat. Kalau kegiatan
+  // sudah terhubung ke vendor, kandidat lain tetap ditampilkan supaya user bisa
+  // ganti kalau saran/penautan sebelumnya ternyata salah.
+  const kandidatVendor = relasiVendor.kandidat
+    .filter((s) => s.vendor.id !== vendorTerkait?.id)
     // Kalau sudah ada vendor terpilih, tampilkan cuma alternatif yang buktinya
     // kuat, biar nggak berisik dan user nggak asal ganti.
     .filter((s) => !vendorTerkait || s.kuat)
@@ -155,7 +163,8 @@ export default function DetailKegiatan({
         prioritas: form.prioritas,
         sumber: form.sumber,
         catatan: form.catatan,
-        vendorId: form.vendorId || "",
+        vendorId: form.vendorMode === "manual" ? form.vendorId || "" : "",
+        vendorMode: form.vendorMode === "manual" ? "manual" : "otomatis",
         tanggalMulai: form.tanggalMulai,
         tanggalSelesai,
         // `tanggal` tetap disimpan biar data lama & fitur lain (sync sheets/telegram) aman.
@@ -345,26 +354,39 @@ export default function DetailKegiatan({
 
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Vendor Terkait
+                  Relasi Vendor
                 </label>
                 <select
                   className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                  value={form.vendorId}
-                  onChange={(e) => setForm({ ...form, vendorId: e.target.value })}
+                  value={form.vendorMode === "manual" ? form.vendorId || "" : "otomatis"}
+                  onChange={(e) => {
+                    const nilai = e.target.value;
+                    if (nilai === "otomatis") {
+                      setForm({ ...form, vendorMode: "otomatis", vendorId: "" });
+                    } else {
+                      setForm({ ...form, vendorMode: "manual", vendorId: nilai });
+                    }
+                  }}
                 >
-                  <option value="">— Tanpa vendor —</option>
+                  <option value="otomatis">🤖 Otomatis — pilih dari bukti kunjungan/nama</option>
+                  <option value="">— Tanpa vendor (manual) —</option>
                   {vendorList.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.nama} · {statusVendorEfektif(v).label}
                     </option>
                   ))}
-                  {form.vendorId && !vendorList.some((v) => v.id === form.vendorId) && (
+                  {form.vendorMode === "manual" && form.vendorId && !vendorList.some((v) => v.id === form.vendorId) && (
                     <option value={form.vendorId}>Vendor lama (dihapus dari daftar)</option>
                   )}
                 </select>
                 <p className="text-[10px] text-gray-500 mt-1">
-                  Bikin kegiatan ini nyambung ke vendor di Time Schedule &amp; log kunjungan.
+                  Otomatis memakai nama vendor &amp; log kunjungan yang cocok. Pilih vendor langsung untuk mengunci manual.
                 </p>
+                {relasiVendor.mode === "otomatis" && relasiVendor.vendor && (
+                  <p className="text-[10px] text-amber-700 mt-1">
+                    Saran otomatis saat ini: <strong>{relasiVendor.vendor.nama}</strong>
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -510,6 +532,12 @@ export default function DetailKegiatan({
                     <span className="px-2 py-1 rounded border border-stone-300 bg-stone-100 text-stone-700">🏭 {vendorTerkait.nama}</span>
                     <span className={`px-2 py-1 rounded border ${badgeClass(statusVendorTerkait.warna)}`}>{statusVendorTerkait.label}</span>
                     <span className="text-gray-500">{vendorTerkait.logKunjungan?.length || 0} kunjungan</span>
+                    <span className={`px-1.5 py-0.5 rounded border text-[10px] ${relasiVendor.mode === "otomatis" ? "border-amber-300 bg-amber-50 text-amber-800" : "border-stone-300 bg-white text-stone-600"}`}>
+                      {relasiVendor.mode === "otomatis" ? "🤖 otomatis" : "✍️ manual"}
+                    </span>
+                    {relasiVendor.mode === "otomatis" && relasiVendor.sumber === "manual-lama" && (
+                      <span className="text-[10px] text-gray-500">belum ada bukti otomatis yang kuat</span>
+                    )}
                   </div>
                 )}
                 {tampilkanSaran && (
@@ -536,7 +564,7 @@ export default function DetailKegiatan({
                             <button
                               type="button"
                               className="btn btn-xs btn-primary"
-                              onClick={() => onUpdate(kegiatan.id, { vendorId: saran.vendor.id })}
+                              onClick={() => onUpdate(kegiatan.id, { vendorId: saran.vendor.id, vendorMode: "manual" })}
                             >
                               {vendorTerkait ? `Ganti ke ${saran.vendor.nama}` : `Hubungkan ke ${saran.vendor.nama}`}
                             </button>

@@ -10,7 +10,7 @@ import FilterMulti from "@/components/FilterMulti";
 import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 import { getTanggalHariIniLokal } from "@/lib/tanggalLokal";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
-import { cariSaranVendorKegiatanSemua } from "@/lib/kegiatanVendor";
+import { cariSaranVendorKegiatanSemua, vendorEfektifKegiatan } from "@/lib/kegiatanVendor";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -55,6 +55,7 @@ export default function KalenderPekerjaan({
     prioritas: prioritasList[0]?.id || "utama",
     sumber: sumberList[0]?.id || "gua",
     vendorId: "",
+    vendorMode: "otomatis",
     catatan: "",
   });
 
@@ -62,15 +63,31 @@ export default function KalenderPekerjaan({
   const [editingKategoriId, setEditingKategoriId] = useState(null);
   const [kategoriForm, setKategoriForm] = useState({ label: "", emoji: "", warna: "gray", customHex: "" });
 
+  // Relasi vendor efektif per kegiatan (otomatis / manual). Dipakai bareng oleh
+  // filter, chip, time schedule, dan ringkasan supaya semuanya konsisten.
+  const relasiVendorMap = useMemo(() => {
+    const map = new Map();
+    kegiatan.forEach((k) => {
+      const kategoriNama = kategoriList.find((kat) => kat.id === k.kategori)?.label || "";
+      map.set(
+        k.id,
+        vendorEfektifKegiatan({ kegiatan: k, vendorList, kategoriNama })
+      );
+    });
+    return map;
+  }, [kegiatan, vendorList, kategoriList]);
+
   const filteredKegiatan = useMemo(() => {
     return kegiatan.filter((k) => {
       if (!cocokPilihan(k.prioritas, filterPrioritas)) return false;
       if (!cocokPilihan(k.sumber, filterSumber)) return false;
       if (!cocokPilihan(k.kategori, filterKategori)) return false;
-      if (!cocokPilihan(k.vendorId, filterVendor)) return false;
+      // Filter vendor mengikuti relasi efektif, jadi vendor hasil otomatis ikut
+      // ketemu walau kegiatan belum pernah disimpan dengan vendorId.
+      if (!cocokPilihan(relasiVendorMap.get(k.id)?.vendor?.id || "", filterVendor)) return false;
       return true;
     });
-  }, [kegiatan, filterPrioritas, filterSumber, filterKategori, filterVendor]);
+  }, [kegiatan, filterPrioritas, filterSumber, filterKategori, filterVendor, relasiVendorMap]);
 
   // --- LOGIKA KALENDER GRID ---
   const generateCalendar = () => {
@@ -133,7 +150,8 @@ export default function KalenderPekerjaan({
       sumber: formData.sumber,
       // Relasi ke vendor brand ini: bikin time schedule nyambung ke vendor
       // (nama + status otomatis), bukan cuma reminder tanggal.
-      vendorId: formData.vendorId || "",
+      vendorId: formData.vendorMode === "manual" ? formData.vendorId || "" : "",
+      vendorMode: formData.vendorMode === "manual" ? "manual" : "otomatis",
       catatan: formData.catatan,
       tanggalMulai, tanggalSelesai, tanggal: tanggalMulai,
       status: "belum",
@@ -143,7 +161,7 @@ export default function KalenderPekerjaan({
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     onAdd(newKegiatan);
-    setFormData({ judul: "", kategori: kategoriList[0]?.id || "design", prioritas: prioritasList[0]?.id || "utama", sumber: sumberList[0]?.id || "gua", vendorId: "", catatan: "" });
+    setFormData({ judul: "", kategori: kategoriList[0]?.id || "design", prioritas: prioritasList[0]?.id || "utama", sumber: sumberList[0]?.id || "gua", vendorId: "", vendorMode: "otomatis", catatan: "" });
     setSelectStart(null); setSelectEnd(null); setShowForm(false);
   };
 
@@ -158,7 +176,8 @@ export default function KalenderPekerjaan({
   // ditampilkan selalu status efektif (otomatis/manual), bukan field mentah.
   const chipVendor = (keg) => {
     const kelas = "inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-stone-300 bg-stone-100 text-stone-700";
-    const vendor = vendorList.find((v) => v.id === keg.vendorId);
+    const relasi = relasiVendorMap.get(keg.id);
+    const vendor = relasi?.vendor;
     if (!vendor) {
       // Jangan diam-diam hilang: kasih tahu kalau tautannya menunjuk vendor
       // yang sudah tidak ada di brand ini, biar user bisa perbaiki.
@@ -170,10 +189,12 @@ export default function KalenderPekerjaan({
       );
     }
     const info = statusVendorEfektif(vendor);
-    const judul = `${vendor.nama} — ${info.label}${info.skor === null ? "" : ` (skor ${info.skor}/100)`}`;
+    const otomatis = relasi?.mode === "otomatis";
+    const judul = `${vendor.nama} — ${info.label}${info.skor === null ? "" : ` (skor ${info.skor}/100)`}. Relasi ${otomatis ? "otomatis dari bukti kunjungan/nama" : "dikunci manual"}.`;
     if (onBukaVendor) {
       return (
-        <button type="button" className={`${kelas} hover:bg-stone-200`} title={`${judul}. Klik buat buka vendor.`} onClick={(e) => { e.stopPropagation(); onBukaVendor(vendor.id); }}>
+        <button type="button" className={`${kelas} hover:bg-stone-200`} title={`${judul} Klik buat buka vendor.`} onClick={(e) => { e.stopPropagation(); onBukaVendor(vendor.id); }}>
+          <span className="shrink-0">{otomatis ? "🤖" : "✍️"}</span>
           <span className="truncate">🏭 {vendor.nama}</span>
           <span className="shrink-0 text-gray-500">{info.label}</span>
         </button>
@@ -181,6 +202,7 @@ export default function KalenderPekerjaan({
     }
     return (
       <span className={kelas} title={judul}>
+        <span className="shrink-0">{otomatis ? "🤖" : "✍️"}</span>
         <span className="truncate">🏭 {vendor.nama}</span>
         <span className="shrink-0 text-gray-500">{info.label}</span>
       </span>
@@ -508,9 +530,9 @@ export default function KalenderPekerjaan({
                     timeScheduleData.bars.map((k) => {
                       const kategoriData = getKategoriData(k.kategori);
                       const style = getKategoriStyle(kategoriData);
-                      // Kegiatan lama tanpa vendor tapi punya bukti kunjungan:
+                      // Kegiatan tanpa vendor efektif tapi punya bukti kunjungan:
                       // tampilkan saran biar relasinya kelihatan dari jadwal.
-                      const saranList = !k.vendorId
+                      const saranList = !relasiVendorMap.get(k.id)?.vendor
                         ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: kategoriData?.label || "" }).filter((s) => s.kuat)
                         : [];
                       const saran = saranList[0] || null;
@@ -529,7 +551,7 @@ export default function KalenderPekerjaan({
                                    {k.judul}
                                  </span>
                                  {chipVendor(k) && <div className="mt-0.5">{chipVendor(k)}</div>}
-                                 {!k.vendorId && saran && (
+                                 {saran && (
                                    <div className="mt-0.5">
                                      <button
                                        type="button"
@@ -607,7 +629,7 @@ export default function KalenderPekerjaan({
                       const mulai = k.tanggalMulai || k.tanggal;
                       const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
                       const tertutup = !!ringkasTertutup[k.id];
-                      const saranList = !k.vendorId
+                      const saranList = !relasiVendorMap.get(k.id)?.vendor
                         ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: getKategoriData(k.kategori)?.label || "" }).filter((s) => s.kuat)
                         : [];
                       const saran = saranList[0] || null;
@@ -619,7 +641,7 @@ export default function KalenderPekerjaan({
                             <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
                             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
                             {chipVendor(k) && <div className="mt-1">{chipVendor(k)}</div>}
-                            {!k.vendorId && saran && (
+                            {saran && (
                               <button
                                 type="button"
                                 className="mt-1 inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
@@ -670,12 +692,24 @@ export default function KalenderPekerjaan({
                 <p className="text-[10px] text-gray-500 mt-1">Mau tambah kategori baru? Klik <Settings size={10} className="inline"/> Kelola Kategori di atas kalender.</p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Vendor Terkait (opsional)</label>
-                <select className="select select-bordered select-sm w-full text-gray-800 bg-white" value={formData.vendorId} onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}>
-                  <option value="">— Tanpa vendor —</option>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Relasi Vendor</label>
+                <select
+                  className="select select-bordered select-sm w-full text-gray-800 bg-white"
+                  value={formData.vendorMode === "manual" ? formData.vendorId : "otomatis"}
+                  onChange={(e) => {
+                    const nilai = e.target.value;
+                    if (nilai === "otomatis") {
+                      setFormData({ ...formData, vendorMode: "otomatis", vendorId: "" });
+                    } else {
+                      setFormData({ ...formData, vendorMode: "manual", vendorId: nilai });
+                    }
+                  }}
+                >
+                  <option value="otomatis">🤖 Otomatis — cocokkan dari nama &amp; log kunjungan</option>
+                  <option value="">— Tanpa vendor (manual) —</option>
                   {vendorList.map((v) => <option key={v.id} value={v.id}>{v.nama} · {statusVendorEfektif(v).label}</option>)}
                 </select>
-                <p className="text-[10px] text-gray-500 mt-1">Kegiatan ini bakal tampil nyambung ke vendor di Time Schedule.</p>
+                <p className="text-[10px] text-gray-500 mt-1">Otomatis memakai logika saran yang sama; pilih vendor langsung untuk mengunci manual.</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

@@ -83,7 +83,9 @@ export default function VendorManager({
       nama: "", kategoriId: kategoriVendorList[0]?.id || "lainnya", kontakNama: "", kontakTelp: "", kontakEmail: "", alamat: "", moqNilai: "", moqSatuan: "pcs", hpp: "", status: "otomatis", catatan: "",
       // null = belum dijawab. Dulu default-nya false, jadi "belum dijawab"
       // kelihatan seperti jawaban "Tidak" dan ikut dinilai.
-      pertanyaanAwal: pertanyaanVendorList.map((q) => ({ id: q.id, pertanyaan: q.pertanyaan, tipe: q.tipe, dampak: q.dampak || "positif", bobot: q.bobot || 1, jawaban: q.tipe === "checkbox" ? null : "" })),
+      // Template lama bisa belum punya `tipe` (dulu semua checkbox). Tanpa
+      // normalisasi ini, pertanyaannya tidak tampil dan tidak ikut dinilai.
+      pertanyaanAwal: pertanyaanVendorList.map((q) => ({ id: q.id, pertanyaan: q.pertanyaan, tipe: q.tipe || "checkbox", dampak: q.dampak || "positif", bobot: q.bobot || 1, jawaban: (q.tipe || "checkbox") === "checkbox" ? null : "" })),
     });
     setShowKategoriBaru(false); setShowSatuanBaru(false);
   };

@@ -134,6 +134,18 @@ export default function VendorDetail({
   // Pertanyaan awal disimpan per vendor (bukan template global), jadi edit di
   // sini tidak mengubah pertanyaan default untuk vendor berikutnya.
   const pertanyaanAwal = Array.isArray(vendor?.pertanyaanAwal) ? vendor.pertanyaanAwal : [];
+  // Pertanyaan lama bisa belum punya `tipe`; anggap checkbox supaya jawaban
+  // ya/tidak-nya tetap tampil dan bisa diedit.
+  const tipePertanyaan = (q) => (q?.tipe === "short" || q?.tipe === "long" ? q.tipe : "checkbox");
+  const jawabanYa = (q) => {
+    const n = q?.jawaban;
+    if (n === true || n === 1) return true;
+    if (n === false || n === 0) return false;
+    const t = String(n ?? "").trim().toLowerCase();
+    if (["ya", "yes", "y", "true", "1", "iya", "bisa", "ada"].includes(t)) return true;
+    if (["tidak", "no", "n", "false", "0", "nggak", "gak"].includes(t)) return false;
+    return null;
+  };
   const handleUbahPertanyaanDraft = (idx, patch) => {
     setDraftPertanyaanAwal((draft) => (draft || []).map((q, i) => (i === idx ? { ...q, ...patch } : q)));
   };
@@ -398,15 +410,15 @@ export default function VendorDetail({
                 <div key={q.id} className="bg-gray-50 rounded p-2 border border-gray-200">
                   <p className="text-xs font-semibold text-gray-700">{q.pertanyaan}</p>
                   <p className="text-xs mt-1">
-                    {q.tipe === "checkbox" ? (
-                      <span className={`px-2 py-0.5 rounded border ${q.jawaban === true ? "bg-green-100 text-green-700 border-green-300" : q.jawaban === false ? "bg-red-100 text-error border-red-300" : "bg-gray-100 text-gray-500 border-gray-300"}`}>
-                        {q.jawaban === true ? "Ya" : q.jawaban === false ? "Tidak" : "Belum dijawab"}
+                    {tipePertanyaan(q) === "checkbox" ? (
+                      <span className={`px-2 py-0.5 rounded border ${jawabanYa(q) === true ? "bg-green-100 text-green-700 border-green-300" : jawabanYa(q) === false ? "bg-red-100 text-error border-red-300" : "bg-gray-100 text-gray-500 border-gray-300"}`}>
+                        {jawabanYa(q) === true ? "Ya" : jawabanYa(q) === false ? "Tidak" : "Belum dijawab"}
                       </span>
                     ) : (
                       <span className="text-gray-800 whitespace-pre-wrap">{q.jawaban || <span className="text-gray-400 italic">Belum dijawab</span>}</span>
                     )}
                   </p>
-                  {q.tipe === "checkbox" && (
+                  {tipePertanyaan(q) === "checkbox" && (
                     <p className="text-[10px] text-gray-500 mt-1">Ya = {q.dampak === "negatif" ? "nilai minus" : q.dampak === "netral" ? "netral (tidak dinilai)" : "nilai plus"} · bobot {q.bobot || 1}</p>
                   )}
                 </div>
@@ -417,13 +429,13 @@ export default function VendorDetail({
               {(draftPertanyaanAwal || []).map((q, idx) => (
                 <div key={q.id} className="bg-gray-50 rounded p-2 border border-gray-200 space-y-2">
                   <div className="flex gap-1 items-center">
-                    <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.tipe} onChange={(e) => handleUbahPertanyaanDraft(idx, { tipe: e.target.value, jawaban: e.target.value === "checkbox" ? (typeof q.jawaban === "boolean" ? q.jawaban : null) : "" })}>
+                    <select className="select select-bordered select-xs text-gray-800 bg-white" value={tipePertanyaan(q)} onChange={(e) => handleUbahPertanyaanDraft(idx, { tipe: e.target.value, jawaban: e.target.value === "checkbox" ? (typeof q.jawaban === "boolean" ? q.jawaban : null) : "" })}>
                       <option value="checkbox">Checkbox</option><option value="short">Pendek</option><option value="long">Panjang</option>
                     </select>
                     <input type="text" className="input input-bordered input-xs flex-1 text-gray-800 bg-white" value={q.pertanyaan} onChange={(e) => handleUbahPertanyaanDraft(idx, { pertanyaan: e.target.value })} />
                     <button className="btn btn-ghost btn-xs text-stone-400 hover:text-error" onClick={() => setDraftPertanyaanAwal((draftPertanyaanAwal || []).filter((_, i) => i !== idx))} title="Hapus pertanyaan dari vendor ini"><Trash2 size={14}/></button>
                   </div>
-                  {q.tipe === "checkbox" && (
+                  {tipePertanyaan(q) === "checkbox" && (
                     <div className="flex flex-wrap gap-1 items-center">
                       <select className="select select-bordered select-xs text-gray-800 bg-white" value={q.dampak || "positif"} onChange={(e) => handleUbahPertanyaanDraft(idx, { dampak: e.target.value })} title="Nilai jawaban Ya">
                         <option value="positif">Ya = nilai plus</option>
@@ -434,13 +446,13 @@ export default function VendorDetail({
                       <input type="number" min="1" max="5" className="input input-bordered input-xs w-14 text-gray-800 bg-white" value={q.bobot || 1} onChange={(e) => handleUbahPertanyaanDraft(idx, { bobot: Math.max(1, Math.min(5, parseInt(e.target.value) || 1)) })} />
                     </div>
                   )}
-                  {q.tipe === "checkbox" ? (
+                  {tipePertanyaan(q) === "checkbox" ? (
                     <div className="flex gap-1">
                       <button className={`btn btn-xs flex-1 ${q.jawaban === true ? "btn-success" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: true })}>Ya</button>
                       <button className={`btn btn-xs flex-1 ${q.jawaban === false ? "btn-error" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: false })}>Tidak</button>
                       <button className={`btn btn-xs ${typeof q.jawaban === "boolean" ? "btn-ghost text-gray-500" : "btn-outline"}`} onClick={() => handleUbahPertanyaanDraft(idx, { jawaban: null })}>Belum</button>
                     </div>
-                  ) : q.tipe === "short" ? (
+                  ) : tipePertanyaan(q) === "short" ? (
                     <input type="text" className="input input-bordered input-xs w-full text-gray-800 bg-white" value={q.jawaban || ""} onChange={(e) => handleUbahPertanyaanDraft(idx, { jawaban: e.target.value })} />
                   ) : (
                     <textarea className="textarea textarea-bordered w-full text-xs text-gray-800 bg-white" rows="2" value={q.jawaban || ""} onChange={(e) => handleUbahPertanyaanDraft(idx, { jawaban: e.target.value })} />
