@@ -10,7 +10,7 @@ import FilterMulti from "@/components/FilterMulti";
 import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 import { getTanggalHariIniLokal } from "@/lib/tanggalLokal";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
-import { cariSaranVendorKegiatan } from "@/lib/kegiatanVendor";
+import { cariSaranVendorKegiatanSemua } from "@/lib/kegiatanVendor";
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -510,9 +510,10 @@ export default function KalenderPekerjaan({
                       const style = getKategoriStyle(kategoriData);
                       // Kegiatan lama tanpa vendor tapi punya bukti kunjungan:
                       // tampilkan saran biar relasinya kelihatan dari jadwal.
-                      const saran = !k.vendorId
-                        ? cariSaranVendorKegiatan({ kegiatan: k, vendorList, kategoriNama: kategoriData?.label || "" })
-                        : null;
+                      const saranList = !k.vendorId
+                        ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: kategoriData?.label || "" }).filter((s) => s.kuat)
+                        : [];
+                      const saran = saranList[0] || null;
                       
                       return (
                         <div key={k.id} className="flex items-center group py-1 hover:bg-gray-50 rounded">
@@ -528,15 +529,16 @@ export default function KalenderPekerjaan({
                                    {k.judul}
                                  </span>
                                  {chipVendor(k) && <div className="mt-0.5">{chipVendor(k)}</div>}
-                                 {!k.vendorId && saran?.kuat && (
+                                 {!k.vendorId && saran && (
                                    <div className="mt-0.5">
                                      <button
                                        type="button"
                                        className="inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                                       title={`${saran.alasan} Klik buat cek & hubungkan.`}
+                                       title={`${saran.alasan}${saranList.length > 1 ? ` Vendor lain: ${saranList.slice(1).map((s) => s.vendor.nama).join(", ")}.` : ""} Klik buat cek & hubungkan.`}
                                        onClick={(e) => { e.stopPropagation(); onClickKegiatan(k.id); }}
                                      >
                                        🔗 Saran: <span className="truncate">{saran.vendor.nama}</span>
+                                       {saranList.length > 1 && <span className="shrink-0">+{saranList.length - 1}</span>}
                                      </button>
                                    </div>
                                  )}
@@ -605,9 +607,10 @@ export default function KalenderPekerjaan({
                       const mulai = k.tanggalMulai || k.tanggal;
                       const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
                       const tertutup = !!ringkasTertutup[k.id];
-                      const saran = !k.vendorId
-                        ? cariSaranVendorKegiatan({ kegiatan: k, vendorList, kategoriNama: getKategoriData(k.kategori)?.label || "" })
-                        : null;
+                      const saranList = !k.vendorId
+                        ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: getKategoriData(k.kategori)?.label || "" }).filter((s) => s.kuat)
+                        : [];
+                      const saran = saranList[0] || null;
                       // Tersembunyi = tidak dirender, jadi tidak ikut ke PDF.
                       if (tertutup && !tampilRingkasTersembunyi) return null;
                       return (
@@ -616,14 +619,15 @@ export default function KalenderPekerjaan({
                             <p className={`text-sm font-semibold text-gray-800 ${k.status === "selesai" ? "line-through opacity-60" : ""}`}>{k.judul}</p>
                             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1"><Calendar size={12} /> {formatTanggalRange(mulai, selesai)}</p>
                             {chipVendor(k) && <div className="mt-1">{chipVendor(k)}</div>}
-                            {!k.vendorId && saran?.kuat && (
+                            {!k.vendorId && saran && (
                               <button
                                 type="button"
                                 className="mt-1 inline-flex items-center gap-1 max-w-full text-[10px] px-1.5 py-0.5 rounded border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                                title={`${saran.alasan} Klik buat cek & hubungkan.`}
+                                title={`${saran.alasan}${saranList.length > 1 ? ` Vendor lain: ${saranList.slice(1).map((s) => s.vendor.nama).join(", ")}.` : ""} Klik buat cek & hubungkan.`}
                                 onClick={() => onClickKegiatan(k.id)}
                               >
                                 🔗 Saran: <span className="truncate">{saran.vendor.nama}</span>
+                                {saranList.length > 1 && <span className="shrink-0">+{saranList.length - 1}</span>}
                               </button>
                             )}
                           </div>

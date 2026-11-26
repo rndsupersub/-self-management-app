@@ -13,7 +13,7 @@ import {
 } from "@/lib/pekerjaanData";
 import { Settings, X, Pencil, Trash2, Plus, Check, Save, Info } from "lucide-react";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
-import { cariSaranVendorKegiatan } from "@/lib/kegiatanVendor";
+import { cariSaranVendorKegiatanSemua } from "@/lib/kegiatanVendor";
 
 function formDariKegiatan(keg) {
   const { mulai, selesai } = rentangKegiatan(keg);
@@ -72,8 +72,8 @@ export default function DetailKegiatan({
   const [showKelolaSection, setShowKelolaSection] = useState(false);
   const [draftSections, setDraftSections] = useState([]);
   const [errorSection, setErrorSection] = useState("");
-  // Vendor yang sarannya sudah ditolak user (per sesi), biar nggak nagih.
-  const [saranDiabaikan, setSaranDiabaikan] = useState("");
+  // Saran vendor yang sudah ditolak user (per sesi), biar nggak nagih.
+  const [saranDiabaikan, setSaranDiabaikan] = useState([]);
 
   // Sinkronin form kalau data kegiatan berubah dari Firestore (selama nggak lagi ngedit).
   // Form di-refresh tiap kali mode edit dibuka, jadi nggak perlu effect di sini.
@@ -101,14 +101,23 @@ export default function DetailKegiatan({
   const statusVendorTerkait = vendorTerkait ? statusVendorEfektif(vendorTerkait) : null;
   // Kegiatan lama sering belum punya vendorId padahal log kunjungan vendor
   // sudah jelas nyebut kegiatannya (mis. kunjungan controlling ke Pawsteel).
-  const saranVendor = vendorTerkait
-    ? null
-    : cariSaranVendorKegiatan({
-        kegiatan,
-        vendorList,
-        kategoriNama: kategoriData?.label || "",
-      });
-  const tampilkanSaran = saranVendor && saranDiabaikan !== saranVendor.vendor.id;
+  // Beberapa kandidat sekaligus, urut dari yang paling kuat. Kalau kegiatan
+  // sudah terhubung ke vendor, kandidat lain tetap ditampilkan supaya user bisa
+  // ganti kalau saran/penautan sebelumnya ternyata salah.
+  const kandidatVendor = cariSaranVendorKegiatanSemua({
+    kegiatan,
+    vendorList,
+    kategoriNama: kategoriData?.label || "",
+  })
+    .filter((s) => s.vendor.id !== kegiatan.vendorId)
+    // Kalau sudah ada vendor terpilih, tampilkan cuma alternatif yang buktinya
+    // kuat, biar nggak berisik dan user nggak asal ganti.
+    .filter((s) => !vendorTerkait || s.kuat)
+    .filter((s) => !saranDiabaikan.includes(s.vendor.id))
+    .slice(0, 3);
+  const tampilkanSaran = kandidatVendor.length > 0;
+  const abaikanSaran = (id) =>
+    setSaranDiabaikan((prev) => (prev.includes(id) ? prev : [...prev, id]));
 
   // ========== MODE EDIT: MULAI / BATAL / SIMPAN ==========
   const mulaiEdit = () => {
@@ -505,26 +514,46 @@ export default function DetailKegiatan({
                 )}
                 {tampilkanSaran && (
                   <div className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-xs text-stone-700" data-html2canvas-ignore="true">
-                    <p className="font-semibold flex items-center gap-1">🔗 Mungkin terkait: {saranVendor.vendor.nama}</p>
-                    <p className="text-[11px] text-stone-600 mt-0.5">
-                      {saranVendor.alasan} Hubungkan supaya kegiatan ini tampil nyambung ke vendor di Time Schedule.
+                    <p className="font-semibold flex items-center gap-1">
+                      {vendorTerkait ? "🔁 Bukan vendor ini? Vendor lain yang mungkin" : "🔗 Mungkin terkait"}
                     </p>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-primary"
-                        onClick={() => onUpdate(kegiatan.id, { vendorId: saranVendor.vendor.id })}
-                      >
-                        Hubungkan ke {saranVendor.vendor.nama}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-ghost text-stone-600"
-                        onClick={() => setSaranDiabaikan(saranVendor.vendor.id)}
-                      >
-                        Bukan ini
-                      </button>
-                    </div>
+                    <ul className="mt-1 space-y-1.5">
+                      {kandidatVendor.map((saran) => (
+                        <li
+                          key={saran.vendor.id}
+                          className="rounded border border-amber-200 bg-white/70 p-1.5"
+                        >
+                          <p className="font-semibold text-stone-800">
+                            {saran.vendor.nama}
+                            {saran.kuat && (
+                              <span className="ml-1 text-[10px] font-normal text-amber-700">
+                                · bukti kuat
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[11px] text-stone-600 mt-0.5">{saran.alasan}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-primary"
+                              onClick={() => onUpdate(kegiatan.id, { vendorId: saran.vendor.id })}
+                            >
+                              {vendorTerkait ? `Ganti ke ${saran.vendor.nama}` : `Hubungkan ke ${saran.vendor.nama}`}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-ghost text-stone-600"
+                              onClick={() => abaikanSaran(saran.vendor.id)}
+                            >
+                              Bukan ini
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[10px] text-stone-500 mt-1">
+                      Relasi tidak diubah otomatis — pilih sendiri vendor yang benar.
+                    </p>
                   </div>
                 )}
                 <p className="text-sm text-gray-500 flex items-center gap-1 mt-2">
