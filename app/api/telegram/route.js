@@ -1503,6 +1503,11 @@ async function saveVendorWizard(firestore, userData, state) {
       id: q.id,
       pertanyaan: q.pertanyaan,
       tipe: q.tipe,
+      // Simpan parameter penilaian dari template, bukan cuma teksnya. Tanpa
+      // ini semua pertanyaan dari Telegram dinilai bobot 1 & dampak positif,
+      // jadi status otomatisnya beda dengan versi web.
+      dampak: q.dampak || "positif",
+      bobot: q.bobot || 1,
       jawaban: finalJawab,
     };
   });
