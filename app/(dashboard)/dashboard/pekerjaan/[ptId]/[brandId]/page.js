@@ -12,12 +12,11 @@ import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
 import DumpIdeas from "@/components/DumpIdeas";
-import DirektoriMitra from "@/components/DirektoriMitra";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_PRIORITAS, DEFAULT_SUMBER, DEFAULT_SECTIONS, DEFAULT_KATEGORI_KEGIATAN } from "@/lib/pekerjaanData";
 import { DEFAULT_KATEGORI_VENDOR, DEFAULT_PERTANYAAN_VENDOR, DEFAULT_TUJUAN_KUNJUNGAN, SATUAN_MOQ } from "@/lib/vendorData";
 import { DEFAULT_FIELD_EVALUASI, DEFAULT_FIELD_EVALUASI_VENDOR, DEFAULT_PERIODE_EVALUASI } from "@/lib/evaluasiData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus, Lightbulb, Search } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Plus, Lightbulb } from "lucide-react";
 
 export default function BrandPage() {
   const [user, setUser] = useState(null);
@@ -42,7 +41,6 @@ export default function BrandPage() {
   const [confirmHapusBrand, setConfirmHapusBrand] = useState(false);
   const [activeTab, setActiveTab] = useState("kalender");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
-  const [direktoriMitra, setDirektoriMitra] = useState([]);
 
   const router = useRouter();
   const params = useParams();
@@ -69,7 +67,6 @@ export default function BrandPage() {
         if (data.fieldEvaluasiPekerjaanList) setFieldEvaluasiPekerjaanList(data.fieldEvaluasiPekerjaanList);
         if (data.fieldEvaluasiVendorList) setFieldEvaluasiVendorList(data.fieldEvaluasiVendorList);
         if (data.periodeEvaluasiPekerjaanList) setPeriodeEvaluasiPekerjaanList(data.periodeEvaluasiPekerjaanList);
-        if (Array.isArray(data.direktoriMitra)) setDirektoriMitra(data.direktoriMitra);
       }
       setLoading(false);
     });
@@ -89,13 +86,6 @@ export default function BrandPage() {
 
   const simpanSettings = async (updates) => {
     await setDoc(doc(db, "users", user.uid), updates, { merge: true });
-  };
-
-  // Direktori vendor/agency/jasa disimpan di dokumen user, bukan di brand,
-  // supaya entri yang sama terbaca dari Pekerjaan maupun Bisnis.
-  const simpanDirektori = async (list) => {
-    setDirektoriMitra(list);
-    await setDoc(doc(db, "users", user.uid), { direktoriMitra: list }, { merge: true });
   };
 
   const handleTambahKegiatan = async (newKegiatan) => {
@@ -145,27 +135,6 @@ export default function BrandPage() {
   const handleAddVendor = async (newVendor) => {
     const updated = pekerjaan.map((p) => p.id === ptId ? { ...p, brands: p.brands.map((b) => b.id === brandId ? { ...b, vendorList: [...(b.vendorList || []), newVendor] } : b) } : p);
     await simpanKeFirestore(updated);
-  };
-
-  // Ekspor entri Direktori ke daftar Vendor brand ini. Data sudah terisi dari
-  // hasil pencarian/simpanan, jadi user tinggal cek di tab Vendor.
-  const handleExportDirektoriKeVendor = async (vendorBaru) => {
-    if (!Array.isArray(vendorBaru) || vendorBaru.length === 0) return;
-    const updated = pekerjaan.map((p) =>
-      p.id === ptId
-        ? {
-            ...p,
-            brands: p.brands.map((b) =>
-              b.id === brandId
-                ? { ...b, vendorList: [...(b.vendorList || []), ...vendorBaru] }
-                : b
-            ),
-          }
-        : p
-    );
-    await simpanKeFirestore(updated);
-    setSelectedVendorId(null);
-    setActiveTab("vendor");
   };
 
   const handleUpdateVendor = async (updatedVendor) => {
@@ -263,9 +232,6 @@ export default function BrandPage() {
         <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}>
           <BarChart3 size={16} className="mr-2" /> Evaluasi
         </button>
-        <button className={`tab ${activeTab === "direktori" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("direktori"); setSelectedVendorId(null); }}>
-          <Search size={16} className="mr-2" /> Direktori ({direktoriMitra.length})
-        </button>
         <button className={`tab ${activeTab === "ide" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("ide"); setSelectedVendorId(null); }}>
           <Lightbulb size={16} className="mr-2" /> Dump Ideas ({(brand.dumpIdeas || []).length})
         </button>
@@ -319,17 +285,6 @@ export default function BrandPage() {
 
         {activeTab === "evaluasi" && (
           <EvaluasiPekerjaan kegiatanList={brand.kegiatan || []} laporanData={brand.laporanData || {}} evaluasiData={brand.evaluasiData || {}} vendorList={vendorList} fieldEvaluasiList={fieldEvaluasiPekerjaanList} periodeEvaluasiList={periodeEvaluasiPekerjaanList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} onUpdateEvaluasi={handleUpdateEvaluasi} onUpdateFieldEvaluasi={(u) => { setFieldEvaluasiPekerjaanList(u); simpanSettings({ fieldEvaluasiPekerjaanList: u }); }} onUpdatePeriodeEvaluasi={(u) => { setPeriodeEvaluasiPekerjaanList(u); simpanSettings({ periodeEvaluasiPekerjaanList: u }); }} onUpdateFieldEvaluasiVendor={(u) => { setFieldEvaluasiVendorList(u); simpanSettings({ fieldEvaluasiVendorList: u }); }} />
-        )}
-
-        {activeTab === "direktori" && (
-          <DirektoriMitra
-            daftar={direktoriMitra}
-            onUpdate={simpanDirektori}
-            brandNama={brand.nama}
-            vendorBrand={vendorList}
-            onExportVendor={handleExportDirektoriKeVendor}
-            kategoriVendor={vendorKategoriList}
-          />
         )}
 
         {activeTab === "ide" && (

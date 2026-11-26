@@ -3,7 +3,7 @@
 
 // Filter wilayah bertingkat (negara -> provinsi -> kota) yang dibangun dari
 // data yang benar-benar ada. Tiap tingkat bisa pilih satu atau beberapa
-// sekaligus. Dipakai di Direktori dan Vendor supaya caranya sama.
+// sekaligus. Dipakai di tab Vendor supaya caranya sama.
 
 import { MapPin, RotateCcw } from "lucide-react";
 import FilterMulti from "@/components/FilterMulti";

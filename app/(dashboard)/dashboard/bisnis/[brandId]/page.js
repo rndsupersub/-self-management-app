@@ -12,10 +12,9 @@ import VendorDetail from "@/components/VendorDetail";
 import LaporanPekerjaan from "@/components/LaporanPekerjaan";
 import EvaluasiPekerjaan from "@/components/EvaluasiPekerjaan";
 import DumpIdeas from "@/components/DumpIdeas";
-import DirektoriMitra from "@/components/DirektoriMitra";
 import ExportPDFButton from "@/components/ExportPDFButton";
 import { DEFAULT_BISNIS_BRANDS, DEFAULT_BISNIS_PRIORITAS, DEFAULT_BISNIS_SUMBER, DEFAULT_BISNIS_SECTIONS, DEFAULT_BISNIS_KATEGORI, DEFAULT_BISNIS_VENDOR_KATEGORI, DEFAULT_BISNIS_VENDOR_PERTANYAAN, DEFAULT_BISNIS_VENDOR_TUJUAN, DEFAULT_BISNIS_VENDOR_SATUAN_MOQ, DEFAULT_BISNIS_FIELD_EVALUASI, DEFAULT_BISNIS_FIELD_EVALUASI_VENDOR, DEFAULT_BISNIS_PERIODE_EVALUASI } from "@/lib/bisnisData";
-import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Lightbulb, Search } from "lucide-react";
+import { Building2, Tag, Pencil, Trash2, Home, Briefcase, Calendar, Factory, FileText, BarChart3, Lightbulb } from "lucide-react";
 
 export default function BisnisBrandPage() {
   const [user, setUser] = useState(null);
@@ -39,7 +38,6 @@ export default function BisnisBrandPage() {
   const [confirmHapusBrand, setConfirmHapusBrand] = useState(false);
   const [activeTab, setActiveTab] = useState("kalender");
   const [selectedVendorId, setSelectedVendorId] = useState(null);
-  const [direktoriMitra, setDirektoriMitra] = useState([]);
 
   const router = useRouter();
   const params = useParams();
@@ -65,7 +63,6 @@ export default function BisnisBrandPage() {
         if (data.bisnisFieldEvaluasiList) setFieldEvaluasiList(data.bisnisFieldEvaluasiList);
         if (data.bisnisFieldEvaluasiVendorList) setFieldEvaluasiVendorList(data.bisnisFieldEvaluasiVendorList);
         if (data.bisnisPeriodeEvaluasiList) setPeriodeEvaluasiList(data.bisnisPeriodeEvaluasiList);
-        if (Array.isArray(data.direktoriMitra)) setDirektoriMitra(data.direktoriMitra);
       } else {
         await setDoc(docRef, { bisnisBrands: DEFAULT_BISNIS_BRANDS });
       }
@@ -86,13 +83,6 @@ export default function BisnisBrandPage() {
 
   const simpanSettings = async (updates) => {
     await setDoc(doc(db, "users", user.uid), updates, { merge: true });
-  };
-
-  // Direktori disimpan di dokumen user (bukan per brand) supaya satu entri
-  // yang sama terbaca dari halaman Pekerjaan maupun Bisnis.
-  const simpanDirektori = async (list) => {
-    setDirektoriMitra(list);
-    await setDoc(doc(db, "users", user.uid), { direktoriMitra: list }, { merge: true });
   };
 
   const updateBrandData = async (updatedBrandData) => {
@@ -147,16 +137,6 @@ export default function BisnisBrandPage() {
     router.push("/dashboard/bisnis");
   };
 
-  // Ekspor entri Direktori ke daftar Vendor brand ini (data langsung terisi).
-  const handleExportDirektoriKeVendor = async (vendorBaru) => {
-    if (!Array.isArray(vendorBaru) || vendorBaru.length === 0) return;
-    await updateBrandData({
-      vendorList: [...(brand.vendorList || []), ...vendorBaru],
-    });
-    setSelectedVendorId(null);
-    setActiveTab("vendor");
-  };
-
   if (loading) return <div className="p-6">Loading...</div>;
   if (!brand) return <div className="p-6 text-center">Brand tidak ditemukan.</div>;
 
@@ -205,7 +185,6 @@ export default function BisnisBrandPage() {
         <button className={`tab ${activeTab === "laporan" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("laporan")}><FileText size={16} className="mr-2" /> Laporan</button>
         <button className={`tab ${activeTab === "evaluasi" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => setActiveTab("evaluasi")}><BarChart3 size={16} className="mr-2" /> Evaluasi</button>
         <button className={`tab ${activeTab === "ide" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("ide"); setSelectedVendorId(null); }}><Lightbulb size={16} className="mr-2" /> Dump Ideas ({(brand.dumpIdeas || []).length})</button>
-        <button className={`tab ${activeTab === "direktori" ? "tab-active bg-stone-800 text-white font-semibold" : "text-gray-600"}`} onClick={() => { setActiveTab("direktori"); setSelectedVendorId(null); }}><Search size={16} className="mr-2" /> Direktori ({direktoriMitra.length})</button>
       </div>
 
       <div id="export-area-konten">
@@ -257,17 +236,6 @@ export default function BisnisBrandPage() {
 
         {activeTab === "evaluasi" && (
           <EvaluasiPekerjaan kegiatanList={brand.kegiatan || []} laporanData={brand.laporanData || {}} evaluasiData={brand.evaluasiData || {}} vendorList={vendorList} fieldEvaluasiList={fieldEvaluasiList} periodeEvaluasiList={periodeEvaluasiList} fieldEvaluasiVendorList={fieldEvaluasiVendorList} onUpdateEvaluasi={(data) => updateBrandData({ evaluasiData: data })} onUpdateFieldEvaluasi={(u) => { setFieldEvaluasiList(u); simpanSettings({ bisnisFieldEvaluasiList: u }); }} onUpdatePeriodeEvaluasi={(u) => { setPeriodeEvaluasiList(u); simpanSettings({ bisnisPeriodeEvaluasiList: u }); }} onUpdateFieldEvaluasiVendor={(u) => { setFieldEvaluasiVendorList(u); simpanSettings({ bisnisFieldEvaluasiVendorList: u }); }} />
-        )}
-
-        {activeTab === "direktori" && (
-          <DirektoriMitra
-            daftar={direktoriMitra}
-            onUpdate={simpanDirektori}
-            brandNama={brand.nama}
-            vendorBrand={vendorList}
-            onExportVendor={handleExportDirektoriKeVendor}
-            kategoriVendor={vendorKategoriList}
-          />
         )}
 
         {activeTab === "ide" && (
