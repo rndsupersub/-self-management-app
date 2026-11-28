@@ -10,11 +10,13 @@ import FilterMulti from "@/components/FilterMulti";
 import { cocokPilihan, daftarPilihan } from "@/lib/filterMulti";
 import { getTanggalHariIniLokal } from "@/lib/tanggalLokal";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
-import { cariSaranVendorKegiatanSemua, vendorEfektifKegiatan } from "@/lib/kegiatanVendor";
+import { cariSaranVendorKegiatanSemua, vendorEfektifKegiatan, PIC_TANPA_VENDOR, MODE_PIC_TANPA_VENDOR, normalisasiModeTanpaVendor, adalahModeTanpaVendor, infoPIC } from "@/lib/kegiatanVendor";
 
-// Nilai filter khusus untuk kegiatan yang tidak dihubungkan ke vendor
-// (belum ada yang mengerjakan / riset & pengembangan).
-const PIC_INTERNAL = "__internal__";
+// Nilai filter khusus untuk kegiatan yang tidak dihubungkan ke vendor.
+// Tiap peran (R&D / belum ada PIC / produksi sendiri) punya nilai sendiri
+// supaya bisa difilter terpisah.
+const PIC_FILTER_PREFIX = "__pic_";
+const picFilterId = (mode) => `${PIC_FILTER_PREFIX}${mode}`;
 
 export default function KalenderPekerjaan({
   kegiatan = [],
@@ -90,7 +92,8 @@ export default function KalenderPekerjaan({
       // Filter PIC mengikuti relasi efektif, jadi vendor hasil otomatis ikut
       // ketemu walau kegiatan belum pernah disimpan dengan vendorId.
       const relasi = relasiVendorMap.get(k.id);
-      const pic = relasi?.mode === "internal" ? PIC_INTERNAL : relasi?.vendor?.id || "";
+      const modeTanpaVendor = normalisasiModeTanpaVendor(relasi?.mode);
+      const pic = modeTanpaVendor ? picFilterId(modeTanpaVendor) : relasi?.vendor?.id || "";
       if (!cocokPilihan(pic, filterVendor)) return false;
       return true;
     });
@@ -152,9 +155,7 @@ export default function KalenderPekerjaan({
     const modePIC =
       formData.vendorMode === "manual" && formData.vendorId
         ? "manual"
-        : formData.vendorMode === "internal"
-          ? "internal"
-          : "otomatis";
+        : normalisasiModeTanpaVendor(formData.vendorMode) || "otomatis";
     const newKegiatan = {
       id: generateId("keg"),
       judul: formData.judul,
@@ -163,7 +164,7 @@ export default function KalenderPekerjaan({
       sumber: formData.sumber,
       // Relasi ke vendor brand ini: bikin time schedule nyambung ke vendor
       // (nama + status otomatis), bukan cuma reminder tanggal.
-      // Mode internal = belum ada yang mengerjakan / R&D, tanpa vendor.
+      // Mode tanpa vendor = belum ada yang mengerjakan / R&D / produksi sendiri.
       vendorId: modePIC === "manual" ? formData.vendorId : "",
       vendorMode: modePIC,
       catatan: formData.catatan,
@@ -193,11 +194,13 @@ export default function KalenderPekerjaan({
     const relasi = relasiVendorMap.get(keg.id);
     const vendor = relasi?.vendor;
     if (!vendor) {
-      // Mode internal = pilihan sadar user (R&D / dikerjakan sendiri).
-      if (relasi?.mode === "internal") {
+      // Mode tanpa vendor = pilihan sadar user (R&D / belum ada PIC / produksi
+      // sendiri), jadi tidak pernah diisi saran otomatis.
+      const info = infoPIC(relasi?.mode);
+      if (info) {
         return (
-          <span className={`${kelas} text-stone-600`} title="Kegiatan ini ditandai belum ada yang mengerjakan / riset & pengembangan, jadi tidak dihubungkan ke vendor.">
-            🧪 Belum ada / R&amp;D
+          <span className={`${kelas} text-stone-600`} title={`${info.label} — ${info.catatan}. Tidak dihubungkan ke vendor.`}>
+            {info.emoji} {info.chip}
           </span>
         );
       }
@@ -392,7 +395,10 @@ export default function KalenderPekerjaan({
               label="PIC / Vendor"
               labelSemua="Semua PIC"
               pilihan={[
-                { id: PIC_INTERNAL, label: "🧪 Belum ada / R&D" },
+                ...MODE_PIC_TANPA_VENDOR.map((id) => ({
+                  id: picFilterId(id),
+                  label: `${PIC_TANPA_VENDOR[id].emoji} ${PIC_TANPA_VENDOR[id].label}`,
+                })),
                 ...vendorList.map((v) => ({ id: v.id, label: v.nama })),
               ]}
               nilai={filterVendor}
@@ -556,7 +562,7 @@ export default function KalenderPekerjaan({
                       // Kegiatan tanpa vendor efektif tapi punya bukti kunjungan:
                       // tampilkan saran biar relasinya kelihatan dari jadwal.
                       const relasiKeg = relasiVendorMap.get(k.id);
-                      const saranList = relasiKeg?.mode !== "internal" && !relasiKeg?.vendor
+                      const saranList = !adalahModeTanpaVendor(relasiKeg?.mode) && !relasiKeg?.vendor
                         ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: kategoriData?.label || "" }).filter((s) => s.kuat)
                         : [];
                       const saran = saranList[0] || null;
@@ -654,7 +660,7 @@ export default function KalenderPekerjaan({
                       const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
                       const tertutup = !!ringkasTertutup[k.id];
                       const relasiKeg = relasiVendorMap.get(k.id);
-                      const saranList = relasiKeg?.mode !== "internal" && !relasiKeg?.vendor
+                      const saranList = !adalahModeTanpaVendor(relasiKeg?.mode) && !relasiKeg?.vendor
                         ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: getKategoriData(k.kategori)?.label || "" }).filter((s) => s.kuat)
                         : [];
                       const saran = saranList[0] || null;
@@ -723,30 +729,36 @@ export default function KalenderPekerjaan({
                   value={
                     formData.vendorMode === "manual" && formData.vendorId
                       ? formData.vendorId
-                      : formData.vendorMode === "internal" || formData.vendorMode === "manual"
-                        ? "internal"
-                        : "otomatis"
+                      : formData.vendorMode === "manual"
+                        ? "produksi"
+                        : PIC_TANPA_VENDOR[formData.vendorMode]
+                          ? formData.vendorMode
+                          : "otomatis"
                   }
                   onChange={(e) => {
                     const nilai = e.target.value;
                     if (nilai === "otomatis") {
                       setFormData({ ...formData, vendorMode: "otomatis", vendorId: "" });
-                    } else if (nilai === "internal") {
-                      setFormData({ ...formData, vendorMode: "internal", vendorId: "" });
+                    } else if (PIC_TANPA_VENDOR[nilai]) {
+                      setFormData({ ...formData, vendorMode: nilai, vendorId: "" });
                     } else {
                       setFormData({ ...formData, vendorMode: "manual", vendorId: nilai });
                     }
                   }}
                 >
                   <option value="otomatis">🤖 Otomatis — cocokkan dari nama &amp; log kunjungan</option>
-                  <option value="internal">🧪 Belum ada yang mengerjakan / R&amp;D (tanpa vendor)</option>
+                  {MODE_PIC_TANPA_VENDOR.map((id) => (
+                    <option key={id} value={id}>
+                      {PIC_TANPA_VENDOR[id].emoji} {PIC_TANPA_VENDOR[id].label}
+                    </option>
+                  ))}
                   {vendorList.length > 0 && (
                     <optgroup label="Vendor — dikunci manual">
                       {vendorList.map((v) => <option key={v.id} value={v.id}>{v.nama} · {statusVendorEfektif(v).label}</option>)}
                     </optgroup>
                   )}
                 </select>
-                <p className="text-[10px] text-gray-500 mt-1">Pilih <strong>R&amp;D</strong> untuk analisis, desain, rapat, atau kegiatan internal yang belum ada vendornya. Pilih vendor untuk mengunci manual; otomatis memakai nama &amp; log kunjungan.</p>
+                <p className="text-[10px] text-gray-500 mt-1">Pilih <strong>R&amp;D</strong> untuk riset &amp; pengembangan, <strong>Belum ada yang mengerjakan</strong> kalau PIC menyusul, atau <strong>Produksi sendiri</strong> kalau dikerjakan tanpa vendor. Pilih vendor untuk mengunci manual; otomatis memakai nama &amp; log kunjungan.</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

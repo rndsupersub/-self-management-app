@@ -13,7 +13,13 @@ import {
 } from "@/lib/pekerjaanData";
 import { Settings, X, Pencil, Trash2, Plus, Check, Save, Info } from "lucide-react";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
-import { vendorEfektifKegiatan } from "@/lib/kegiatanVendor";
+import {
+  vendorEfektifKegiatan,
+  PIC_TANPA_VENDOR,
+  MODE_PIC_TANPA_VENDOR,
+  normalisasiModeTanpaVendor,
+  infoPIC,
+} from "@/lib/kegiatanVendor";
 
 function formDariKegiatan(keg) {
   const { mulai, selesai } = rentangKegiatan(keg);
@@ -26,19 +32,15 @@ function formDariKegiatan(keg) {
     tanggalMulai: mulai || "",
     tanggalSelesai: selesai || "",
     vendorId: keg?.vendorId || "",
-    // Relasi lama yang sudah punya vendor dianggap manual; yang belum punya
-    // vendor memakai mode otomatis (dihitung dari bukti kunjungan/nama).
-    // Manual tanpa vendor = memang tanpa PIC, jadi tampil sebagai R&D.
+    // Tiga peran tanpa vendor dipisah: riset & pengembangan (rnd), belum ada
+    // yang mengerjakan (belum), dan produksi sendiri (produksi). Data lama
+    // "internal" → belum; "manual" tanpa vendor → produksi.
     vendorMode: (() => {
-      const tersimpan =
-        keg?.vendorMode === "manual" ||
-        keg?.vendorMode === "otomatis" ||
-        keg?.vendorMode === "internal"
-          ? keg.vendorMode
-          : keg?.vendorId
-            ? "manual"
-            : "otomatis";
-      return tersimpan === "manual" && !keg?.vendorId ? "internal" : tersimpan;
+      const tanpaVendor = normalisasiModeTanpaVendor(keg?.vendorMode);
+      if (tanpaVendor) return tanpaVendor;
+      if (keg?.vendorMode === "otomatis") return "otomatis";
+      if (keg?.vendorMode === "manual") return keg?.vendorId ? "manual" : "produksi";
+      return keg?.vendorId ? "manual" : "otomatis";
     })(),
   };
 }
@@ -173,9 +175,7 @@ export default function DetailKegiatan({
         vendorMode:
           form.vendorMode === "manual"
             ? "manual"
-            : form.vendorMode === "internal"
-              ? "internal"
-              : "otomatis",
+            : normalisasiModeTanpaVendor(form.vendorMode) || "otomatis",
         tanggalMulai: form.tanggalMulai,
         tanggalSelesai,
         // `tanggal` tetap disimpan biar data lama & fitur lain (sync sheets/telegram) aman.
@@ -372,23 +372,29 @@ export default function DetailKegiatan({
                   value={
                     form.vendorMode === "manual" && form.vendorId
                       ? form.vendorId
-                      : form.vendorMode === "internal" || form.vendorMode === "manual"
-                        ? "internal"
-                        : "otomatis"
+                      : form.vendorMode === "manual"
+                        ? "produksi"
+                        : PIC_TANPA_VENDOR[form.vendorMode]
+                          ? form.vendorMode
+                          : "otomatis"
                   }
                   onChange={(e) => {
                     const nilai = e.target.value;
                     if (nilai === "otomatis") {
                       setForm({ ...form, vendorMode: "otomatis", vendorId: "" });
-                    } else if (nilai === "internal") {
-                      setForm({ ...form, vendorMode: "internal", vendorId: "" });
+                    } else if (PIC_TANPA_VENDOR[nilai]) {
+                      setForm({ ...form, vendorMode: nilai, vendorId: "" });
                     } else {
                       setForm({ ...form, vendorMode: "manual", vendorId: nilai });
                     }
                   }}
                 >
                   <option value="otomatis">🤖 Otomatis — pilih dari bukti kunjungan/nama</option>
-                  <option value="internal">🧪 Belum ada yang mengerjakan / R&amp;D (tanpa vendor)</option>
+                  {MODE_PIC_TANPA_VENDOR.map((id) => (
+                    <option key={id} value={id}>
+                      {PIC_TANPA_VENDOR[id].emoji} {PIC_TANPA_VENDOR[id].label}
+                    </option>
+                  ))}
                   {vendorList.length > 0 && (
                     <optgroup label="Vendor — dikunci manual">
                       {vendorList.map((v) => (
@@ -403,7 +409,7 @@ export default function DetailKegiatan({
                   )}
                 </select>
                 <p className="text-[10px] text-gray-500 mt-1">
-                  Pilih <strong>R&amp;D</strong> untuk analisis, desain, rapat, atau kegiatan internal yang belum ada vendornya. Pilih vendor untuk mengunci manual; otomatis memakai nama vendor &amp; log kunjungan yang cocok.
+                  <strong>R&amp;D</strong> untuk riset &amp; pengembangan, <strong>Belum ada yang mengerjakan</strong> kalau PIC menyusul, <strong>Produksi sendiri</strong> kalau dikerjakan tanpa vendor. Pilih vendor untuk mengunci manual; otomatis memakai nama vendor &amp; log kunjungan yang cocok.
                 </p>
                 {relasiVendor.mode === "otomatis" && relasiVendor.vendor && (
                   <p className="text-[10px] text-amber-700 mt-1">
@@ -563,10 +569,12 @@ export default function DetailKegiatan({
                     )}
                   </div>
                 )}
-                {relasiVendor.mode === "internal" && (
+                {infoPIC(relasiVendor.mode) && (
                   <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
-                    <span className="px-2 py-1 rounded border border-stone-300 bg-stone-100 text-stone-700">🧪 Belum ada yang mengerjakan / R&amp;D</span>
-                    <span className="text-gray-500">tanpa vendor — dikerjakan sendiri / riset &amp; pengembangan</span>
+                    <span className="px-2 py-1 rounded border border-stone-300 bg-stone-100 text-stone-700">
+                      {infoPIC(relasiVendor.mode).emoji} {infoPIC(relasiVendor.mode).label}
+                    </span>
+                    <span className="text-gray-500">{infoPIC(relasiVendor.mode).catatan}</span>
                   </div>
                 )}
                 {tampilkanSaran && (
