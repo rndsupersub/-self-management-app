@@ -7,8 +7,9 @@ import {
   PenLine, Presentation, ChevronLeft, ChevronRight, Eraser, Undo2,
   Search, Calendar, ArrowLeft, Bold, Italic, Underline, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, RemoveFormatting, StickyNote, Type,
-  Square, Circle, Minus, Move, Shapes,
+  Square, Circle, Minus, Move, Shapes, FileDown,
 } from "lucide-react";
+import { eksporSlideKePdf } from "@/lib/exportPdf";
 import {
   TIPE_IDE, normalisasiIde, mindmapKosong, slideKosong, susunMindmap,
   tambahAnak, ubahTeksNode, hapusNode, labelTipe, ringkasIde, idBaru,
@@ -768,16 +769,11 @@ function SlideBlok({
 
   return (
     <div
-      className={`relative overflow-hidden rounded border border-gray-200 break-inside-avoid ${
-        manual
-          ? baca
-            ? "h-[340px] md:h-[420px]"
-            : "h-[240px]"
-          : baca
-            ? "p-8 md:p-10 min-h-[260px] md:min-h-[320px]"
-            : "p-5 min-h-[180px]"
+      className={`relative w-full overflow-hidden rounded border border-gray-200 break-inside-avoid aspect-[297/210] ${
+        manual ? "" : baca ? "p-6 md:p-10" : "p-5"
       }`}
       data-slide-kanvas="slide"
+      data-halaman-slide={baca ? "true" : undefined}
       style={{ backgroundColor: slide.latar || "#ffffff", backgroundImage: slide.gradien || undefined }}
     >
       {bentuk === "kotak" && <div className="absolute right-0 top-0 w-24 h-24 rounded-bl-3xl opacity-80" style={{ backgroundColor: warnaBentuk }} />}
@@ -1283,11 +1279,84 @@ function SlideEditor({ value, onChange }) {
 }
 
 // ======================= TAMPILAN BACA (BUKAN EDIT) =======================
-function SlideBaca({ isi }) {
+// Tombol export slide: satu slide = satu halaman A4 landscape (297 x 210 mm),
+// ukuran halaman di PDF sama dengan pratinjau di website.
+function TombolExportSlide({ ide }) {
+  const [sibuk, setSibuk] = useState(false);
+  const [pesan, setPesan] = useState("");
+
+  const ekspor = async () => {
+    if (sibuk) return;
+    setSibuk(true);
+    setPesan("");
+    try {
+      const wadah = document.getElementById("slide-baca");
+      const halaman = wadah ? Array.from(wadah.querySelectorAll("[data-halaman-slide]")) : [];
+      const namaAman =
+        String(ide?.judul || "Slide")
+          .replace(/[^\w\d\- ]+/g, "")
+          .trim()
+          .replace(/\s+/g, "_")
+          .slice(0, 70) || "Slide";
+      const hasil = await eksporSlideKePdf({
+        halaman,
+        namaFile: `Slide_${namaAman}.pdf`,
+        judul: ide?.judul || "Slide",
+      });
+      setPesan(`PDF ${hasil.halaman} halaman A4 landscape.`);
+      setTimeout(() => setPesan(""), 6000);
+    } catch (err) {
+      console.error("[export-slide]", err);
+      setPesan(`Gagal: ${err?.message || "tidak diketahui"}.`);
+      setTimeout(() => setPesan(""), 8000);
+    } finally {
+      setSibuk(false);
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {(isi.slides || []).map((slide, i) => (
-        <SlideBlok key={slide.id || i} slide={slide} label={`SLIDE ${i + 1}`} tampilan="baca" />
+    <div className="relative inline-flex flex-col items-end" data-html2canvas-ignore="true">
+      <button
+        type="button"
+        onClick={ekspor}
+        disabled={sibuk}
+        className="btn btn-outline btn-sm text-gray-700 gap-1"
+        title="Export slide ke PDF A4 landscape — satu slide satu halaman"
+      >
+        {sibuk ? <span className="loading loading-spinner loading-xs" /> : <FileDown size={14} />}
+        {sibuk ? "Menyiapkan..." : "Export PDF"}
+      </button>
+      {pesan && (
+        <p
+          className={`mt-1 max-w-[240px] rounded border px-2 py-1 text-[10px] leading-tight ${
+            pesan.startsWith("Gagal")
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-green-200 bg-green-50 text-green-700"
+          }`}
+        >
+          {pesan}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Tampilan baca slide: setiap halaman berukuran A4 landscape, sama seperti
+// hasil PDF-nya, jadi user melihat persis apa yang akan diekspor.
+function SlideBaca({ isi }) {
+  const slides = isi.slides || [];
+  return (
+    <div id="slide-baca" className="space-y-4">
+      {slides.map((slide, i) => (
+        <div key={slide.id || i} className="space-y-1">
+          <p
+            className="text-[11px] font-semibold text-gray-500 flex items-center gap-1"
+            data-html2canvas-ignore="true"
+          >
+            <Presentation size={12} /> Halaman {i + 1} dari {slides.length} · A4 landscape
+          </p>
+          <SlideBlok slide={slide} tampilan="baca" />
+        </div>
       ))}
     </div>
   );
@@ -1300,7 +1369,8 @@ function LihatIde({ ide, onKembali, onEdit, onSembunyikan, onHapus }) {
         <button className="btn btn-ghost btn-sm text-gray-600 flex items-center gap-1" onClick={onKembali}>
           <ArrowLeft size={16} /> Kembali ke daftar ide
         </button>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {ide.tipe === "slide" && <TombolExportSlide ide={ide} />}
           <button className="btn btn-ghost btn-sm text-gray-600" onClick={onSembunyikan}>
             {ide.disembunyikan ? <><Eye size={14} /> Tampilkan</> : <><EyeOff size={14} /> Sembunyikan</>}
           </button>

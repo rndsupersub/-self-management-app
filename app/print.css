@@ -66,6 +66,20 @@
     print-color-adjust: exact !important;
   }
 
+  /* Slide: satu slide = satu halaman A4 landscape, sama seperti hasil PDF */
+  [data-halaman-slide] {
+    width: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    break-inside: avoid !important;
+  }
+  [data-halaman-slide]:last-child {
+    break-after: auto !important;
+    page-break-after: auto !important;
+  }
+
   /* Jangan paksa portrait: browser bebas memilih, jadi konten lebar tidak
      terpotong saat user memakai Ctrl+P. */
   @page {
