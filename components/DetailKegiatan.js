@@ -28,12 +28,18 @@ function formDariKegiatan(keg) {
     vendorId: keg?.vendorId || "",
     // Relasi lama yang sudah punya vendor dianggap manual; yang belum punya
     // vendor memakai mode otomatis (dihitung dari bukti kunjungan/nama).
-    vendorMode:
-      keg?.vendorMode === "manual" || keg?.vendorMode === "otomatis"
-        ? keg.vendorMode
-        : keg?.vendorId
-          ? "manual"
-          : "otomatis",
+    // Manual tanpa vendor = memang tanpa PIC, jadi tampil sebagai R&D.
+    vendorMode: (() => {
+      const tersimpan =
+        keg?.vendorMode === "manual" ||
+        keg?.vendorMode === "otomatis" ||
+        keg?.vendorMode === "internal"
+          ? keg.vendorMode
+          : keg?.vendorId
+            ? "manual"
+            : "otomatis";
+      return tersimpan === "manual" && !keg?.vendorId ? "internal" : tersimpan;
+    })(),
   };
 }
 
@@ -164,7 +170,12 @@ export default function DetailKegiatan({
         sumber: form.sumber,
         catatan: form.catatan,
         vendorId: form.vendorMode === "manual" ? form.vendorId || "" : "",
-        vendorMode: form.vendorMode === "manual" ? "manual" : "otomatis",
+        vendorMode:
+          form.vendorMode === "manual"
+            ? "manual"
+            : form.vendorMode === "internal"
+              ? "internal"
+              : "otomatis",
         tanggalMulai: form.tanggalMulai,
         tanggalSelesai,
         // `tanggal` tetap disimpan biar data lama & fitur lain (sync sheets/telegram) aman.
@@ -354,33 +365,45 @@ export default function DetailKegiatan({
 
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Relasi Vendor
+                  Penanggung Jawab / PIC
                 </label>
                 <select
                   className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                  value={form.vendorMode === "manual" ? form.vendorId || "" : "otomatis"}
+                  value={
+                    form.vendorMode === "manual" && form.vendorId
+                      ? form.vendorId
+                      : form.vendorMode === "internal" || form.vendorMode === "manual"
+                        ? "internal"
+                        : "otomatis"
+                  }
                   onChange={(e) => {
                     const nilai = e.target.value;
                     if (nilai === "otomatis") {
                       setForm({ ...form, vendorMode: "otomatis", vendorId: "" });
+                    } else if (nilai === "internal") {
+                      setForm({ ...form, vendorMode: "internal", vendorId: "" });
                     } else {
                       setForm({ ...form, vendorMode: "manual", vendorId: nilai });
                     }
                   }}
                 >
                   <option value="otomatis">🤖 Otomatis — pilih dari bukti kunjungan/nama</option>
-                  <option value="">— Tanpa vendor (manual) —</option>
-                  {vendorList.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.nama} · {statusVendorEfektif(v).label}
-                    </option>
-                  ))}
+                  <option value="internal">🧪 Belum ada yang mengerjakan / R&amp;D (tanpa vendor)</option>
+                  {vendorList.length > 0 && (
+                    <optgroup label="Vendor — dikunci manual">
+                      {vendorList.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.nama} · {statusVendorEfektif(v).label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                   {form.vendorMode === "manual" && form.vendorId && !vendorList.some((v) => v.id === form.vendorId) && (
                     <option value={form.vendorId}>Vendor lama (dihapus dari daftar)</option>
                   )}
                 </select>
                 <p className="text-[10px] text-gray-500 mt-1">
-                  Otomatis memakai nama vendor &amp; log kunjungan yang cocok. Pilih vendor langsung untuk mengunci manual.
+                  Pilih <strong>R&amp;D</strong> untuk analisis, desain, rapat, atau kegiatan internal yang belum ada vendornya. Pilih vendor untuk mengunci manual; otomatis memakai nama vendor &amp; log kunjungan yang cocok.
                 </p>
                 {relasiVendor.mode === "otomatis" && relasiVendor.vendor && (
                   <p className="text-[10px] text-amber-700 mt-1">
@@ -538,6 +561,12 @@ export default function DetailKegiatan({
                     {relasiVendor.mode === "otomatis" && relasiVendor.sumber === "manual-lama" && (
                       <span className="text-[10px] text-gray-500">belum ada bukti otomatis yang kuat</span>
                     )}
+                  </div>
+                )}
+                {relasiVendor.mode === "internal" && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                    <span className="px-2 py-1 rounded border border-stone-300 bg-stone-100 text-stone-700">🧪 Belum ada yang mengerjakan / R&amp;D</span>
+                    <span className="text-gray-500">tanpa vendor — dikerjakan sendiri / riset &amp; pengembangan</span>
                   </div>
                 )}
                 {tampilkanSaran && (

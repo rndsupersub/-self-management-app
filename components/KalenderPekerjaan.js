@@ -12,6 +12,10 @@ import { getTanggalHariIniLokal } from "@/lib/tanggalLokal";
 import { statusVendorEfektif } from "@/lib/vendorStatus";
 import { cariSaranVendorKegiatanSemua, vendorEfektifKegiatan } from "@/lib/kegiatanVendor";
 
+// Nilai filter khusus untuk kegiatan yang tidak dihubungkan ke vendor
+// (belum ada yang mengerjakan / riset & pengembangan).
+const PIC_INTERNAL = "__internal__";
+
 export default function KalenderPekerjaan({
   kegiatan = [],
   onAdd,
@@ -63,8 +67,9 @@ export default function KalenderPekerjaan({
   const [editingKategoriId, setEditingKategoriId] = useState(null);
   const [kategoriForm, setKategoriForm] = useState({ label: "", emoji: "", warna: "gray", customHex: "" });
 
-  // Relasi vendor efektif per kegiatan (otomatis / manual). Dipakai bareng oleh
-  // filter, chip, time schedule, dan ringkasan supaya semuanya konsisten.
+  // Relasi penanggung jawab efektif per kegiatan (otomatis / manual / R&D).
+  // Dipakai bareng oleh filter, chip, time schedule, dan ringkasan supaya
+  // semuanya konsisten.
   const relasiVendorMap = useMemo(() => {
     const map = new Map();
     kegiatan.forEach((k) => {
@@ -82,9 +87,11 @@ export default function KalenderPekerjaan({
       if (!cocokPilihan(k.prioritas, filterPrioritas)) return false;
       if (!cocokPilihan(k.sumber, filterSumber)) return false;
       if (!cocokPilihan(k.kategori, filterKategori)) return false;
-      // Filter vendor mengikuti relasi efektif, jadi vendor hasil otomatis ikut
+      // Filter PIC mengikuti relasi efektif, jadi vendor hasil otomatis ikut
       // ketemu walau kegiatan belum pernah disimpan dengan vendorId.
-      if (!cocokPilihan(relasiVendorMap.get(k.id)?.vendor?.id || "", filterVendor)) return false;
+      const relasi = relasiVendorMap.get(k.id);
+      const pic = relasi?.mode === "internal" ? PIC_INTERNAL : relasi?.vendor?.id || "";
+      if (!cocokPilihan(pic, filterVendor)) return false;
       return true;
     });
   }, [kegiatan, filterPrioritas, filterSumber, filterKategori, filterVendor, relasiVendorMap]);
@@ -142,6 +149,12 @@ export default function KalenderPekerjaan({
     if (!formData.judul.trim() || !selectStart) return;
     const tanggalMulai = selectStart < (selectEnd || selectStart) ? selectStart : (selectEnd || selectStart);
     const tanggalSelesai = selectStart < (selectEnd || selectStart) ? (selectEnd || selectStart) : selectStart;
+    const modePIC =
+      formData.vendorMode === "manual" && formData.vendorId
+        ? "manual"
+        : formData.vendorMode === "internal"
+          ? "internal"
+          : "otomatis";
     const newKegiatan = {
       id: generateId("keg"),
       judul: formData.judul,
@@ -150,8 +163,9 @@ export default function KalenderPekerjaan({
       sumber: formData.sumber,
       // Relasi ke vendor brand ini: bikin time schedule nyambung ke vendor
       // (nama + status otomatis), bukan cuma reminder tanggal.
-      vendorId: formData.vendorMode === "manual" ? formData.vendorId || "" : "",
-      vendorMode: formData.vendorMode === "manual" ? "manual" : "otomatis",
+      // Mode internal = belum ada yang mengerjakan / R&D, tanpa vendor.
+      vendorId: modePIC === "manual" ? formData.vendorId : "",
+      vendorMode: modePIC,
       catatan: formData.catatan,
       tanggalMulai, tanggalSelesai, tanggal: tanggalMulai,
       status: "belum",
@@ -179,6 +193,14 @@ export default function KalenderPekerjaan({
     const relasi = relasiVendorMap.get(keg.id);
     const vendor = relasi?.vendor;
     if (!vendor) {
+      // Mode internal = pilihan sadar user (R&D / dikerjakan sendiri).
+      if (relasi?.mode === "internal") {
+        return (
+          <span className={`${kelas} text-stone-600`} title="Kegiatan ini ditandai belum ada yang mengerjakan / riset & pengembangan, jadi tidak dihubungkan ke vendor.">
+            🧪 Belum ada / R&amp;D
+          </span>
+        );
+      }
       // Jangan diam-diam hilang: kasih tahu kalau tautannya menunjuk vendor
       // yang sudah tidak ada di brand ini, biar user bisa perbaiki.
       if (!keg.vendorId) return null;
@@ -366,15 +388,16 @@ export default function KalenderPekerjaan({
               nilai={filterSumber}
               onChange={setFilterSumber}
             />
-            {vendorList.length > 0 && (
-              <FilterMulti
-                label="Vendor"
-                labelSemua="Semua Vendor"
-                pilihan={vendorList.map((v) => ({ id: v.id, label: v.nama }))}
-                nilai={filterVendor}
-                onChange={setFilterVendor}
-              />
-            )}
+            <FilterMulti
+              label="PIC / Vendor"
+              labelSemua="Semua PIC"
+              pilihan={[
+                { id: PIC_INTERNAL, label: "🧪 Belum ada / R&D" },
+                ...vendorList.map((v) => ({ id: v.id, label: v.nama })),
+              ]}
+              nilai={filterVendor}
+              onChange={setFilterVendor}
+            />
             {(daftarPilihan(filterPrioritas).length > 0 || daftarPilihan(filterSumber).length > 0 || daftarPilihan(filterKategori).length > 0 || daftarPilihan(filterVendor).length > 0) && (
               <button className="btn btn-ghost btn-xs text-gray-500" onClick={() => { setFilterPrioritas([]); setFilterSumber([]); setFilterKategori([]); setFilterVendor([]); }}><X size={14} /> Reset</button>
             )}
@@ -532,7 +555,8 @@ export default function KalenderPekerjaan({
                       const style = getKategoriStyle(kategoriData);
                       // Kegiatan tanpa vendor efektif tapi punya bukti kunjungan:
                       // tampilkan saran biar relasinya kelihatan dari jadwal.
-                      const saranList = !relasiVendorMap.get(k.id)?.vendor
+                      const relasiKeg = relasiVendorMap.get(k.id);
+                      const saranList = relasiKeg?.mode !== "internal" && !relasiKeg?.vendor
                         ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: kategoriData?.label || "" }).filter((s) => s.kuat)
                         : [];
                       const saran = saranList[0] || null;
@@ -629,7 +653,8 @@ export default function KalenderPekerjaan({
                       const mulai = k.tanggalMulai || k.tanggal;
                       const selesai = k.tanggalSelesai || k.tanggal || k.tanggalMulai;
                       const tertutup = !!ringkasTertutup[k.id];
-                      const saranList = !relasiVendorMap.get(k.id)?.vendor
+                      const relasiKeg = relasiVendorMap.get(k.id);
+                      const saranList = relasiKeg?.mode !== "internal" && !relasiKeg?.vendor
                         ? cariSaranVendorKegiatanSemua({ kegiatan: k, vendorList, kategoriNama: getKategoriData(k.kategori)?.label || "" }).filter((s) => s.kuat)
                         : [];
                       const saran = saranList[0] || null;
@@ -692,24 +717,36 @@ export default function KalenderPekerjaan({
                 <p className="text-[10px] text-gray-500 mt-1">Mau tambah kategori baru? Klik <Settings size={10} className="inline"/> Kelola Kategori di atas kalender.</p>
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Relasi Vendor</label>
+                <label className="text-xs font-semibold text-gray-600 mb-1 block">Penanggung Jawab / PIC</label>
                 <select
                   className="select select-bordered select-sm w-full text-gray-800 bg-white"
-                  value={formData.vendorMode === "manual" ? formData.vendorId : "otomatis"}
+                  value={
+                    formData.vendorMode === "manual" && formData.vendorId
+                      ? formData.vendorId
+                      : formData.vendorMode === "internal" || formData.vendorMode === "manual"
+                        ? "internal"
+                        : "otomatis"
+                  }
                   onChange={(e) => {
                     const nilai = e.target.value;
                     if (nilai === "otomatis") {
                       setFormData({ ...formData, vendorMode: "otomatis", vendorId: "" });
+                    } else if (nilai === "internal") {
+                      setFormData({ ...formData, vendorMode: "internal", vendorId: "" });
                     } else {
                       setFormData({ ...formData, vendorMode: "manual", vendorId: nilai });
                     }
                   }}
                 >
                   <option value="otomatis">🤖 Otomatis — cocokkan dari nama &amp; log kunjungan</option>
-                  <option value="">— Tanpa vendor (manual) —</option>
-                  {vendorList.map((v) => <option key={v.id} value={v.id}>{v.nama} · {statusVendorEfektif(v).label}</option>)}
+                  <option value="internal">🧪 Belum ada yang mengerjakan / R&amp;D (tanpa vendor)</option>
+                  {vendorList.length > 0 && (
+                    <optgroup label="Vendor — dikunci manual">
+                      {vendorList.map((v) => <option key={v.id} value={v.id}>{v.nama} · {statusVendorEfektif(v).label}</option>)}
+                    </optgroup>
+                  )}
                 </select>
-                <p className="text-[10px] text-gray-500 mt-1">Otomatis memakai logika saran yang sama; pilih vendor langsung untuk mengunci manual.</p>
+                <p className="text-[10px] text-gray-500 mt-1">Pilih <strong>R&amp;D</strong> untuk analisis, desain, rapat, atau kegiatan internal yang belum ada vendornya. Pilih vendor untuk mengunci manual; otomatis memakai nama &amp; log kunjungan.</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
